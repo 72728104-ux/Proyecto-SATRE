@@ -1,0 +1,30 @@
+---
+description: Reglas permanentes del proyecto SATRE COAR (siempre activas)
+alwaysApply: true
+---
+# SATRE · reglas para el asistente
+Fuente de verdad: @SATRE_TOBE.md. Implementa SOLO la sección que te pida el prompt.
+
+## Stack
+- Backend: Laravel 12 + Sanctum + MySQL (`satre-backend/`). Frontend: React 19 + Vite + Tailwind (`coar-alerta-frontend/`).
+- Analítica: Python FastAPI + Pandas + scikit-learn (`satre-analytics/`). SIN LLM ni APIs externas.
+- Roles (slugs): admin, teacher, monitor, student, guardian.
+
+## Patrón obligatorio (copiar de AttendanceService/AttendanceController)
+Controller delgado → FormRequest → Service → API Resource → Policy → Feature test.
+- Rutas con `auth:sanctum` + middleware `role:` + Policy. Nunca confiar solo en el frontend.
+- Listados con `paginate(15)` y `with()` (evitar N+1). Cargas masivas en `DB::transaction()`.
+- Todo cambio de notas/asistencia/incidencias/permisos → `AuditLogger` con valor anterior y nuevo.
+- Errores JSON estándar. Nunca devolver 500 por falta de datos de analítica.
+
+## Dominio
+- Notas IB escala 1–7 (aprobatorio ≥ 4), criterios A–D. Estados de asistencia: present, late, absent_justified, absent_unjustified.
+- Python: SQL siempre parametrizado, usuario MySQL de solo lectura, header `X-Internal-Key`, `insufficient_data:true` con HTTP 200.
+
+## Estilo de trabajo (ahorra tokens)
+- Modifica solo lo necesario; no reescribas archivos completos ni reformatees.
+- Usa `php artisan make:*` para andamiar. Escribe el test primero cuando sea posible.
+- Frontend: usa `useApi`, `DataTable`, `Field`, `Pagination`, `Toast` existentes; no dupliques componentes.
+- No cambies alcance: si algo no está en @SATRE_TOBE.md, pregunta en una línea.
+- Termina indicando el comando exacto para verificar (test/lint/build).
+- Nunca commitear `.env`, claves ni contraseñas demo.

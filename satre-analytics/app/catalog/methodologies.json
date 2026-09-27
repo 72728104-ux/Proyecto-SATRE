@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "note": "Catálogo inicial de ejemplo. Debe ser revisado y curado por docentes del COAR.",
+  "methodologies": [
+    {
+      "id": "retrieval_practice",
+      "name": "Práctica de recuperación",
+      "description": "Preguntas breves de baja exigencia al inicio de clase para recuperar contenidos previos sin apuntes.",
+      "criteria": ["A"],
+      "min_pct_below": 0.2
+    },
+    {
+      "id": "worked_examples",
+      "name": "Ejemplos resueltos y desvanecimiento",
+      "description": "Mostrar ejemplos completos y retirar pasos progresivamente hasta que el estudiante resuelva solo.",
+      "criteria": ["A", "C"],
+      "min_pct_below": 0.3
+    },
+    {
+      "id": "peer_instruction",
+      "name": "Aprendizaje entre pares",
+      "description": "Preguntas conceptuales, votación individual, discusión en parejas y nueva votación.",
+      "criteria": ["B", "C"],
+      "min_pct_below": 0.2
+    },
+    {
+      "id": "formative_feedback",
+      "name": "Retroalimentación formativa",
+      "description": "Comentarios específicos sobre la rúbrica del criterio antes de la calificación sumativa.",
+      "criteria": ["A", "B", "C", "D"],
+      "min_pct_below": 0.1
+    },
+    {
+      "id": "inquiry_cycle",
+      "name": "Ciclo de indagación guiada",
+      "description": "Plantear una pregunta de investigación, diseñar el procedimiento en equipo y justificar decisiones.",
+      "criteria": ["B"],
+      "min_pct_below": 0.25
+    },
+    {
+      "id": "reflection_journal",
+      "name": "Diario de reflexión y autoevaluación",
+      "description": "Registro semanal de lo aprendido, dificultades y estrategias usando la rúbrica IB como guía.",
+      "criteria": ["D"],
+      "min_pct_below": 0.15
+    }
+  ]
+}

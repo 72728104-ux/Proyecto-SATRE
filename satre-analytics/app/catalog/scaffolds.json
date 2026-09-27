@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "note": "Catálogo inicial de ejemplo. Debe ser curado por docentes. Nunca incluir la solución final del ejercicio del estudiante.",
+  "scaffolds": [
+    {
+      "id": "mat-funciones-lineales",
+      "subject": "Matemáticas",
+      "topic": "Funciones lineales",
+      "criterion": "A",
+      "aliases": ["funcion lineal", "funciones lineales", "pendiente", "recta"],
+      "diagnostic": {
+        "question": "Antes de empezar: ¿qué describe la pendiente de una recta?",
+        "options": [
+          {"id": "a", "text": "El punto donde la recta corta el eje y"},
+          {"id": "b", "text": "Cuánto cambia y cuando x aumenta en una unidad"},
+          {"id": "c", "text": "El valor más grande que puede tomar y"}
+        ],
+        "correct": "b"
+      },
+      "guiding_question": "Si tienes dos puntos de la recta, ¿qué dos diferencias podrías calcular entre ellos y cómo las relacionarías?",
+      "expected_keywords": ["diferencia", "cambio", "dividir", "divid", "cociente", "razon", "resta"],
+      "hints": [
+        "Piensa en cuánto 'sube' y cuánto 'avanza' la recta entre los dos puntos.",
+        "Calcula por separado la variación en y y la variación en x. ¿Qué operación compara dos cantidades?",
+        "La pendiente compara la variación vertical con la horizontal. Escribe esa comparación con tus dos puntos, sin resolverla aún, y revisa el signo."
+      ],
+      "verification": {
+        "question": "Comprobemos con otro caso: una recta pasa por (0, 1) y (2, 5). ¿Cuál es su pendiente?",
+        "options": [
+          {"id": "a", "text": "4"},
+          {"id": "b", "text": "2"},
+          {"id": "c", "text": "0.5"}
+        ],
+        "correct": "b"
+      },
+      "reflection_prompt": "¿Qué paso te costó más y qué harías distinto la próxima vez para identificar la pendiente?"
+    },
+    {
+      "id": "bio-fotosintesis",
+      "subject": "Biología",
+      "topic": "Fotosíntesis",
+      "criterion": "A",
+      "aliases": ["fotosintesis", "cloroplasto", "clorofila"],
+      "diagnostic": {
+        "question": "¿Qué necesita principalmente una planta para realizar la fotosíntesis?",
+        "options": [
+          {"id": "a", "text": "Luz, agua y dióxido de carbono"},
+          {"id": "b", "text": "Oxígeno y glucosa"},
+          {"id": "c", "text": "Solo agua y minerales del suelo"}
+        ],
+        "correct": "a"
+      },
+      "guiding_question": "¿Qué entra y qué sale de la hoja durante el proceso? Intenta nombrar al menos una sustancia de cada lado.",
+      "expected_keywords": ["dioxido", "co2", "agua", "luz", "oxigeno", "glucosa"],
+      "hints": [
+        "Piensa en qué gas toma la planta del aire y qué gas libera.",
+        "La energía de la luz se usa para transformar sustancias simples en una más compleja. ¿Cuál almacena energía?",
+        "Organiza tu respuesta como 'reactivos → productos' e indica en qué organelo ocurre, sin escribir aún la ecuación balanceada."
+      ],
+      "verification": {
+        "question": "Si una planta se deja sin luz varios días, ¿qué ocurre primero con la producción de glucosa?",
+        "options": [
+          {"id": "a", "text": "Aumenta"},
+          {"id": "b", "text": "Disminuye"},
+          {"id": "c", "text": "No cambia"}
+        ],
+        "correct": "b"
+      },
+      "reflection_prompt": "¿Qué estrategia usaste para relacionar reactivos y productos? ¿Te sirvió organizarlo como esquema?"
+    },
+    {
+      "id": "len-tesis-argumentativa",
+      "subject": "Lengua y Literatura",
+      "topic": "Tesis en textos argumentativos",
+      "criterion": "B",
+      "aliases": ["tesis", "texto argumentativo", "argumentacion", "argumento"],
+      "diagnostic": {
+        "question": "En un texto argumentativo, ¿qué es la tesis?",
+        "options": [
+          {"id": "a", "text": "Un ejemplo que apoya la opinión del autor"},
+          {"id": "b", "text": "La postura principal que el autor defiende"},
+          {"id": "c", "text": "El resumen de la conclusión"}
+        ],
+        "correct": "b"
+      },
+      "guiding_question": "Después de leer el texto, ¿qué idea intenta convencerte el autor de aceptar? ¿En qué parte del texto aparece?",
+      "expected_keywords": ["postura", "opinion", "defiende", "idea principal", "convencer", "afirma"],
+      "hints": [
+        "Busca oraciones con verbos de opinión como 'considero', 'es necesario' o 'debemos'.",
+        "Pregúntate: si el autor solo pudiera decir una frase, ¿cuál sería? Los argumentos responden a '¿por qué?' sobre esa frase.",
+        "Distingue la tesis de sus argumentos: escribe la idea que defiende y luego verifica que los demás párrafos la sostengan."
+      ],
+      "verification": {
+        "question": "En la frase 'Debemos reducir el uso de plástico porque contamina los océanos', ¿qué parte es la tesis?",
+        "options": [
+          {"id": "a", "text": "Debemos reducir el uso de plástico"},
+          {"id": "b", "text": "porque contamina los océanos"},
+          {"id": "c", "text": "Toda la frase es un ejemplo"}
+        ],
+        "correct": "a"
+      },
+      "reflection_prompt": "¿Cómo distinguirás la próxima vez entre la tesis y los argumentos que la apoyan?"
+    }
+  ]
+}
