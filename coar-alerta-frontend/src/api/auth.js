@@ -1,11 +1,7 @@
-import { apiRequest, buildApiUrl, setToken } from './client.js'
-
-const LOGIN_PATH = '/auth/login'
+import { apiRequest, refreshAccessToken, setToken } from './client.js'
 
 export async function loginRequest(email, password) {
-  const fullUrl = buildApiUrl(LOGIN_PATH)
-  console.log('Login Request URL:', fullUrl)
-  const data = await apiRequest(LOGIN_PATH, {
+  const data = await apiRequest('/auth/login', {
     method: 'POST',
     body: { email, password },
     skipAuthHandling: true,
@@ -30,10 +26,28 @@ export function meRequest(options = {}) {
   return apiRequest('/auth/me', options)
 }
 
+export const refreshRequest = refreshAccessToken
+
 export function changePasswordRequest({ current_password, password, password_confirmation }) {
   return apiRequest('/auth/change-password', {
     method: 'POST',
     body: { current_password, password, password_confirmation },
+  })
+}
+
+export function forgotPasswordRequest(email) {
+  return apiRequest('/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+    skipAuthHandling: true,
+  })
+}
+
+export function resetPasswordRequest({ token, email, password, password_confirmation }) {
+  return apiRequest('/auth/reset-password', {
+    method: 'POST',
+    body: { token, email, password, password_confirmation },
+    skipAuthHandling: true,
   })
 }
 

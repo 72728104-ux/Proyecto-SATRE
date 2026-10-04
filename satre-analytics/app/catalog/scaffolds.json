@@ -17,6 +17,7 @@
         ],
         "correct": "b"
       },
+      "diagram_mermaid": "flowchart TD\n    P[Dos puntos de la recta] --> DY[Variación en y]\n    P --> DX[Variación en x]\n    DY --> M[Pendiente = Δy / Δx]\n    DX --> M",
       "guiding_question": "Si tienes dos puntos de la recta, ¿qué dos diferencias podrías calcular entre ellos y cómo las relacionarías?",
       "expected_keywords": ["diferencia", "cambio", "dividir", "divid", "cociente", "razon", "resta"],
       "hints": [
@@ -50,6 +51,7 @@
         ],
         "correct": "a"
       },
+      "diagram_mermaid": "flowchart LR\n    L[Luz] --> C[Cloroplasto]\n    A[Agua] --> C\n    CO2[CO2] --> C\n    C --> G[Glucosa]\n    C --> O[Oxígeno]",
       "guiding_question": "¿Qué entra y qué sale de la hoja durante el proceso? Intenta nombrar al menos una sustancia de cada lado.",
       "expected_keywords": ["dioxido", "co2", "agua", "luz", "oxigeno", "glucosa"],
       "hints": [
@@ -83,6 +85,7 @@
         ],
         "correct": "b"
       },
+      "diagram_mermaid": "flowchart TD\n    T[Tesis] --> A1[Argumento 1]\n    T --> A2[Argumento 2]\n    A1 --> E[Ejemplos]\n    A2 --> E",
       "guiding_question": "Después de leer el texto, ¿qué idea intenta convencerte el autor de aceptar? ¿En qué parte del texto aparece?",
       "expected_keywords": ["postura", "opinion", "defiende", "idea principal", "convencer", "afirma"],
       "hints": [

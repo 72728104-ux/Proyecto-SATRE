@@ -1,24 +1,27 @@
 import { apiRequest } from './client.js'
 
-/** satre-analytics (uvicorn). Laravel queda en :8000; el motor en :8001. */
-const ANALYTICS_API_URL = String(import.meta.env.VITE_ANALYTICS_API_URL ?? 'http://127.0.0.1:8001').replace(/\/+$/, '')
-const INTERNAL_KEY = import.meta.env.VITE_INTERNAL_KEY || 'clave_secreta_super_segura_de_mas_de_32_caracteres_12345'
-
 const withQuery = (path, params = {}) => {
   const entries = Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
   return entries.length ? `${path}?${new URLSearchParams(entries)}` : path
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => {
+  const date = new Date()
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+}
 
 /** Cursos del docente autenticado (cada uno trae su `classroom`). */
 export const fetchTeacherCourses = (options) => apiRequest('/courses', options)
 
-/** Estudiantes con matrícula activa en el curso (se reutiliza la hoja de asistencia del día). */
+/** §4.3: hoja de matrículas + asistencia del día (`GET /attendances/session`). */
+export const fetchAttendanceSession = (courseId, attendanceDate, options) =>
+  apiRequest(withQuery('/attendances/session', { course_id: courseId, attendance_date: attendanceDate }), options)
+
+export const saveAttendanceSession = (body) => apiRequest('/attendances/session', { method: 'POST', body })
+
+/** Estudiantes con matrícula activa en el curso (la fecha solo arma la hoja; no filtra matrículas). */
 export const fetchCourseRoster = (courseId, options) =>
-  apiRequest(withQuery(`/courses/${courseId}/attendance-session`, { attendance_date: today() }), options).then(
-    (payload) => payload.data?.students ?? [],
-  )
+  fetchAttendanceSession(courseId, today(), options).then((payload) => payload.data?.students ?? [])
 
 export const fetchGrades = (params, options) => apiRequest(withQuery('/grades', params), options)
 export const saveGrade = (id, body) => apiRequest(id ? `/grades/${id}` : '/grades', { method: id ? 'PUT' : 'POST', body })
@@ -28,34 +31,8 @@ export const fetchStudentRisk = (studentId, options) =>
   apiRequest(`/ai-analytics/students/${studentId}/risk`, { silent: true, ...options })
 
 /** `{ available, stale, generated_at, data: { insufficient_data, courses, top_gaps, error_matrix } }`. */
-export async function fetchClassroomInsights(classroomId, options = {}) {
-  const url = `${ANALYTICS_API_URL}/v1/classrooms/${classroomId}/insights`
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        'X-Internal-Key': INTERNAL_KEY,
-      },
-      signal: options.signal,
-    })
-    if (!response.ok) {
-      console.error('Analytics request failed', { url, status: response.status })
-      return { available: false, stale: false, generated_at: null, data: null }
-    }
-    const payload = await response.json()
-    return {
-      available: true,
-      stale: false,
-      generated_at: payload.generated_at ?? null,
-      data: payload,
-    }
-  } catch (error) {
-    if (options.signal?.aborted || error?.name === 'AbortError') throw error
-    console.error('Analytics request failed', { url, status: 0 })
-    return { available: false, stale: false, generated_at: null, data: null }
-  }
-}
+export const fetchClassroomInsights = (classroomId, options) =>
+  apiRequest(`/ai-analytics/teacher/insights/${classroomId}`, { silent: true, ...options })
 
 /**
  * Contrato esperado (§4.4): `{ data: { insufficient_data, summary: { students, grade_mean, pass_rate, attendance_rate,

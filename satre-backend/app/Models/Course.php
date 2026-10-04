@@ -40,4 +40,24 @@ class Course extends Model
     {
         return $this->hasMany(Enrollment::class);
     }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function grades(): HasMany
+    {
+        return $this->hasMany(Grade::class);
+    }
+
+    public function tutorSessions(): HasMany
+    {
+        return $this->hasMany(TutorSession::class);
+    }
+
+    public function readingMaterials(): HasMany
+    {
+        return $this->hasMany(ReadingMaterial::class);
+    }
 }

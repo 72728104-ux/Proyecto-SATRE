@@ -72,15 +72,15 @@ def test_full_coverage_score_matches_formula():
     night = pd.DataFrame({"student_id": [1] * 10, "status": ["present"] * 9 + ["absent"]})
     row = features_for(
         attendance=attendance_rows(1, present=16, late=2, unexcused=2),   # unexcused 0.10, late 0.10
-        grades=grade_rows(1, [3, 3, 3, 3]),                               # mean 3.0, slope 0
+        grades=grade_rows(1, [7, 6, 5, 4], step_days=30),                 # mean 5.5, slope -1, r2 1
         night=night,                                                      # night_rate 0.9
         incidents=incident_row(1, "conducta", "moderada", days_ago=5),    # weighted 2
     )
     result = score_student(row)
     expected = 100 * (
         0.25 * (0.10 / 0.20)
-        + 0.25 * ((4.5 - 3.0) / 3.5)
-        + 0.20 * 0.0
+        + 0.25 * max(0.0, min((4.5 - 5.5) / 3.5, 1.0))
+        + 0.20 * min(1.0 / 0.5, 1.0)
         + 0.15 * (2 / 6)
         + 0.10 * min(0.1 / 0.15, 1)
         + 0.05 * (0.10 / 0.25)
@@ -135,8 +135,13 @@ def test_trend_excluded_when_fewer_than_4_grades():
     assert "grade_trend" not in components(row)
 
 
+def test_unreliable_trend_is_excluded():
+    row = features_for(attendance=attendance_rows(1, present=10), grades=grade_rows(1, [5, 5, 5, 5]))
+    assert "grade_trend" not in components(row)
+
+
 def test_declining_trend_contributes():
-    row = features_for(attendance=attendance_rows(1, present=10), grades=grade_rows(1, [7, 6, 5, 4]))
+    row = features_for(attendance=attendance_rows(1, present=10), grades=grade_rows(1, [7, 6, 5, 4], step_days=30))
     value, component = components(row)["grade_trend"]
-    assert value < 0
-    assert component > 0
+    assert value == pytest.approx(-1.0)
+    assert component == pytest.approx(1.0)

@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Student extends Model
 {
     /** @use HasFactory<StudentFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'user_id',
@@ -72,5 +73,45 @@ class Student extends Model
     public function featureSnapshots(): HasMany
     {
         return $this->hasMany(StudentFeatureSnapshot::class);
+    }
+
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(Incident::class);
+    }
+
+    public function permissionRequests(): HasMany
+    {
+        return $this->hasMany(PermissionRequest::class);
+    }
+
+    public function riskPredictions(): HasMany
+    {
+        return $this->hasMany(RiskPrediction::class);
+    }
+
+    public function aiDiagnostics(): HasMany
+    {
+        return $this->hasMany(AiDiagnostic::class);
+    }
+
+    public function tutorSessions(): HasMany
+    {
+        return $this->hasMany(TutorSession::class);
+    }
+
+    public function artifacts(): HasMany
+    {
+        return $this->hasMany(StudentArtifact::class);
+    }
+
+    public function guidedResponses(): HasMany
+    {
+        return $this->hasMany(GuidedResponse::class);
+    }
+
+    public function quizAttempts(): HasMany
+    {
+        return $this->hasMany(QuizAttempt::class);
     }
 }

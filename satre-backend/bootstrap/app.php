@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             'password.changed' => EnsurePasswordChanged::class,
+        ]);
+        $middleware->trustProxies(at: '*');
+        $middleware->api(append: [
+            SecurityHeaders::class,
         ]);
         // El rol se valida antes del route model binding: un rol no autorizado recibe 403, no 404.
         $middleware->prependToPriorityList(SubstituteBindings::class, EnsureUserHasRole::class);

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Events\AttendanceRecorded;
 use App\Jobs\EvaluateStudentRiskJob;
+use App\Jobs\RunRiskBatchJob;
 use App\Models\AcademicPeriod;
 use App\Models\Attendance;
 use App\Models\Classroom;
@@ -117,7 +118,7 @@ class AttendanceManagementTest extends TestCase
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
                 'attendance_date' => '2026-03-16',
-                'status' => 'absent',
+                'status' => 'absent_unjustified',
             ])
             ->assertStatus(422);
     }
@@ -126,6 +127,10 @@ class AttendanceManagementTest extends TestCase
     {
         Queue::fake();
         $context = $this->academicContext();
+        $seen = 0;
+        Event::listen(AttendanceRecorded::class, function () use (&$seen) {
+            $seen++;
+        });
 
         $this->actingAs($context['teacherUser'], 'sanctum')
             ->postJson('/api/attendances', [
@@ -136,14 +141,20 @@ class AttendanceManagementTest extends TestCase
             ])
             ->assertCreated();
 
+        $this->assertSame(1, $seen);
         $this->assertSame(0, StudentFeatureSnapshot::query()->count());
         Queue::assertNotPushed(EvaluateStudentRiskJob::class);
+        Queue::assertNotPushed(RunRiskBatchJob::class);
     }
 
     public function test_attendance_session_does_not_compute_features_or_risk(): void
     {
         Queue::fake();
         $context = $this->academicContext();
+        $seen = 0;
+        Event::listen(AttendanceRecorded::class, function () use (&$seen) {
+            $seen++;
+        });
 
         $this->actingAs($context['teacherUser'], 'sanctum')
             ->postJson('/api/attendances/session', [
@@ -155,8 +166,10 @@ class AttendanceManagementTest extends TestCase
             ])
             ->assertSuccessful();
 
+        $this->assertSame(1, $seen);
         $this->assertSame(0, StudentFeatureSnapshot::query()->count());
         Queue::assertNotPushed(EvaluateStudentRiskJob::class);
+        Queue::assertNotPushed(RunRiskBatchJob::class);
     }
 
     public function test_teacher_can_list_course_attendances(): void

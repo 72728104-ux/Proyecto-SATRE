@@ -3,12 +3,18 @@
 namespace App\Models;
 
 use App\Support\Roles;
+use Database\Factories\IncidentFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Incident extends Model
 {
+    /** @use HasFactory<IncidentFactory> */
+    use HasFactory, SoftDeletes;
+
     public const CATEGORIES = ['conducta', 'salud', 'emocional', 'convivencia'];
 
     public const SEVERITIES = ['leve', 'moderada', 'grave'];

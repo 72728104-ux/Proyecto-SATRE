@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AttendanceSessionQueryRequest;
 use App\Http\Requests\StoreAttendanceRequest;
 use App\Http\Requests\StoreAttendanceSessionRequest;
+use App\Http\Requests\UpdateAttendanceRequest;
 use App\Http\Resources\AttendanceResource;
 use App\Models\Attendance;
 use App\Models\Course;
@@ -20,7 +22,7 @@ class AttendanceController extends Controller
 
         $attendances = Attendance::query()
             ->visibleTo($request->user())
-            ->with('course:id,name')
+            ->with(['student', 'course:id,name'])
             ->when($request->integer('course_id'), fn ($query, $courseId) => $query->where('course_id', $courseId))
             ->when($request->date('attendance_date'), fn ($query, $date) => $query->whereDate('attendance_date', $date))
             ->when($request->string('status')->toString(), fn ($query, $status) => $query->where('status', $status))
@@ -30,6 +32,16 @@ class AttendanceController extends Controller
             ->withQueryString();
 
         return AttendanceResource::collection($attendances);
+    }
+
+    public function showSession(AttendanceSessionQueryRequest $request, AttendanceService $attendanceService): JsonResponse
+    {
+        $course = Course::query()->findOrFail($request->validated('course_id'));
+        $this->authorize('create', [Attendance::class, $course]);
+
+        return response()->json([
+            'data' => $attendanceService->sessionRoster($course, $request->validated('attendance_date')),
+        ]);
     }
 
     public function store(StoreAttendanceRequest $request, AttendanceService $attendanceService): JsonResponse
@@ -42,6 +54,13 @@ class AttendanceController extends Controller
         return (new AttendanceResource($attendance))
             ->response()
             ->setStatusCode(201);
+    }
+
+    public function update(UpdateAttendanceRequest $request, Attendance $attendance, AttendanceService $attendanceService): AttendanceResource
+    {
+        $this->authorize('update', $attendance);
+
+        return new AttendanceResource($attendanceService->update($request->user(), $attendance, $request->validated()));
     }
 
     public function storeSession(StoreAttendanceSessionRequest $request, AttendanceService $attendanceService): JsonResponse

@@ -37,4 +37,24 @@ class AcademicPeriod extends Model
     {
         return $this->hasMany(Course::class);
     }
+
+    public function grades(): HasMany
+    {
+        return $this->hasMany(Grade::class);
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function riskPredictions(): HasMany
+    {
+        return $this->hasMany(RiskPrediction::class);
+    }
+
+    public function aiDiagnostics(): HasMany
+    {
+        return $this->hasMany(AiDiagnostic::class);
+    }
 }

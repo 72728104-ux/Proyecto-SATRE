@@ -33,9 +33,16 @@ class AuthService
             ]);
         }
 
+        if ($user->password_changed_at === null) {
+            $user->must_change_password = true;
+        }
+
         $user->tokens()->delete();
         $issued = $this->issueToken($user);
-        $user->forceFill(['last_login_at' => now()])->save();
+        $user->forceFill([
+            'last_login_at' => now(),
+            'must_change_password' => $user->must_change_password,
+        ])->save();
 
         $this->auditLogger->record($user, 'auth.login', $user);
 

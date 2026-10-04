@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\User;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,25 @@ class AttendanceService
 
         $this->auditLogger->record($recorder, 'attendance.recorded', $attendance, [], $attendance->toArray());
 
+        AttendanceRecorded::dispatch($attendance); // D2: no consolidación ni jobs de riesgo en la petición.
+
+        return $attendance->load(['student', 'course']);
+    }
+
+    public function update(User $recorder, Attendance $attendance, array $data): Attendance
+    {
+        $attendance->fill($data);
+        $oldValues = array_intersect_key($attendance->getRawOriginal(), $attendance->getDirty());
+        $attendance->save();
+
+        $this->auditLogger->record(
+            $recorder,
+            'attendance.updated',
+            $attendance,
+            $oldValues,
+            Arr::except($attendance->getChanges(), 'updated_at')
+        );
+
         AttendanceRecorded::dispatch($attendance);
 
         return $attendance->load(['student', 'course']);
@@ -106,21 +126,76 @@ class AttendanceService
                 ];
 
                 if ($attendance) {
-                    $attendance->update($payload);
+                    $attendance->fill($payload);
+                    $oldValues = array_intersect_key($attendance->getRawOriginal(), $attendance->getDirty());
+                    $attendance->save();
+                    $this->auditLogger->record(
+                        $recorder,
+                        'attendance.session_recorded',
+                        $attendance,
+                        $oldValues,
+                        Arr::except($attendance->getChanges(), 'updated_at')
+                    );
                 } else {
                     $attendance = Attendance::query()->create($payload + [
                         'student_id' => $record['student_id'],
                         'course_id' => $course->id,
                         'attendance_date' => $date,
                     ]);
+                    $this->auditLogger->record($recorder, 'attendance.session_recorded', $attendance, [], $attendance->toArray());
                 }
 
-                $this->auditLogger->record($recorder, 'attendance.session_recorded', $attendance, [], $attendance->toArray());
                 AttendanceRecorded::dispatch($attendance);
                 $saved->push($attendance->load('student'));
             }
 
             return $saved;
         });
+    }
+
+    /**
+     * @return array{course_id: int, course_name: string, classroom: array{id: int|null, name: string|null}, attendance_date: string, students: list<array<string, mixed>>}
+     */
+    public function sessionRoster(Course $course, string $date): array
+    {
+        $course->loadMissing('classroom');
+
+        $attendances = Attendance::query()
+            ->where('course_id', $course->id)
+            ->whereDate('attendance_date', $date)
+            ->get()
+            ->keyBy('student_id');
+
+        $students = $course->enrollments()
+            ->where('status', 'active')
+            ->with('student')
+            ->get()
+            ->map(function ($enrollment) use ($attendances) {
+                $student = $enrollment->student;
+                $attendance = $attendances->get($student->id);
+
+                return [
+                    'student_id' => $student->id,
+                    'student_code' => $student->student_code,
+                    'first_name' => $student->first_name,
+                    'last_name' => $student->last_name,
+                    'status' => $attendance?->status,
+                    'notes' => $attendance?->notes,
+                ];
+            })
+            ->sortBy('last_name')
+            ->values()
+            ->all();
+
+        return [
+            'course_id' => $course->id,
+            'course_name' => $course->name,
+            'classroom' => [
+                'id' => $course->classroom?->id,
+                'name' => $course->classroom?->name,
+            ],
+            'attendance_date' => $date,
+            'students' => $students,
+        ];
     }
 }

@@ -14,6 +14,14 @@ from pathlib import Path
 from typing import Any
 
 from app import config
+from app.services.ai.create_protocol import (
+    INTENT_DIAGRAM,
+    INTENT_HINT,
+    INTENT_QUIZ,
+    create_phase_for_step,
+    detect_intent,
+    strip_intent_prefix,
+)
 
 CATALOG_PATH = Path(__file__).parent / "catalog" / "scaffolds.json"
 
@@ -69,15 +77,43 @@ def _reply(kind: str, text: str, options: list[dict] | None = None) -> dict:
     return reply
 
 
+def _attach_create(reply: dict, state: dict | None, scaffold: dict | None, extra: dict | None = None) -> dict:
+    step = state["step"] if state else "finalizado"
+    phase = create_phase_for_step(step)
+    enriched = dict(reply)
+    extra = extra or {}
+    enriched["create_phase"] = extra.get("create_phase") or phase
+    enriched.setdefault("explanation", reply.get("text"))
+    if step == "reflexion":
+        enriched["reflection"] = extra.get("reflection") or reply.get("text")
+    elif step == "finalizado":
+        enriched["reflection"] = extra.get("reflection") or CLOSING_TEXT
+    else:
+        enriched.setdefault("reflection", extra.get("reflection") or "¿Qué parte puedes comprobar tú ahora?")
+    if reply.get("options") and not enriched.get("quiz"):
+        enriched["quiz"] = {"question": reply.get("text"), "options": list(reply["options"])}
+    mermaid = extra.get("diagram_mermaid")
+    if mermaid:
+        enriched["diagram_mermaid"] = mermaid
+    visual = extra.get("visual_resource")
+    if visual:
+        enriched["visual_resource"] = visual
+    if state is not None:
+        state["create_phase"] = enriched["create_phase"]
+    return enriched
+
+
 def _response(state: dict | None, reply: dict, scaffold: dict | None, extra: dict | None = None) -> dict:
+    extra = extra or {}
     meta = {"scaffold_id": scaffold["id"], "subject": scaffold["subject"], "criterion": scaffold.get("criterion")} \
         if scaffold else {"scaffold_id": None}
-    if extra:
-        meta.update(extra)
+    meta.update({k: v for k, v in extra.items() if k != "diagram_mermaid"})
+    reply = _attach_create(reply, state, scaffold, extra)
     return {
         "state": state,
         "step": state["step"] if state else "finalizado",
         "hint_level": state["hint_level"] if state else 0,
+        "create_phase": reply.get("create_phase"),
         "reply": reply,
         "done": state is None or state["step"] == "finalizado",
         "meta": meta,
@@ -121,6 +157,11 @@ def _next_hint_or_verification(state: dict, scaffold: dict, prefix: str = "") ->
     return _response(state, _reply("hint", f"{prefix}Pista {state['hint_level']}: {hint}"), scaffold)
 
 
+def _diagram_extra(scaffold: dict | None) -> dict:
+    mermaid = (scaffold or {}).get("diagram_mermaid")
+    return {"diagram_mermaid": mermaid} if mermaid else {}
+
+
 def next_turn(
     topic: str,
     message: str | None = None,
@@ -129,6 +170,8 @@ def next_turn(
     catalog: dict[str, dict] | None = None,
 ) -> dict:
     catalog = load_scaffolds() if catalog is None else catalog
+    intent = detect_intent(message, option_id)
+    message = strip_intent_prefix(message) or None
 
     if not _valid_state(state, catalog):
         scaffold = find_scaffold(topic, catalog)
@@ -136,12 +179,30 @@ def next_turn(
             return _response(None, _reply("no_catalog", NO_CATALOG_TEXT), None)
         state = _new_state(scaffold)
         block = scaffold["diagnostic"]
-        return _response(state, _reply("question", block["question"], _public_options(block)), scaffold)
+        extra = _diagram_extra(scaffold) if intent == INTENT_DIAGRAM else None
+        return _response(state, _reply("question", block["question"], _public_options(block)), scaffold, extra)
 
     state = dict(state)
     state["turns"] = int(state.get("turns") or 0) + 1
     scaffold = catalog[state["scaffold_id"]]
     step = state["step"]
+
+    if intent == INTENT_DIAGRAM:
+        prefix = "Observa el diagrama y cuéntame qué relación ves. "
+        extra = _diagram_extra(scaffold)
+        if step == "verificacion":
+            block = scaffold["verification"]
+            return _response(state, _reply("verification", prefix + block["question"], _public_options(block)), scaffold, extra)
+        if step == "diagnostico":
+            block = scaffold["diagnostic"]
+            return _response(state, _reply("question", prefix + block["question"], _public_options(block)), scaffold, extra)
+        return _response(state, _reply("hint", prefix + "¿Qué cambia y qué se mantiene?"), scaffold, extra)
+
+    if intent == INTENT_QUIZ and step not in ("reflexion", "finalizado"):
+        return _to_verification(state, scaffold, "Comprobemos lo que has entendido. ")
+
+    if intent == INTENT_HINT and step in ("pregunta_guia", "pista"):
+        return _next_hint_or_verification(state, scaffold)
 
     if step == "diagnostico":
         block = scaffold["diagnostic"]

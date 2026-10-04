@@ -13,3 +13,10 @@ export default function ProtectedRoute({ roles, allowPendingPasswordChange = fal
 
   return <Outlet />
 }
+
+/** Login, recuperar y restablecer contraseña: si ya hay sesión, va al home del rol. */
+export function GuestRoute() {
+  const { isAuthenticated, homePath } = useAuth()
+  if (isAuthenticated) return <Navigate to={homePath} replace />
+  return <Outlet />
+}

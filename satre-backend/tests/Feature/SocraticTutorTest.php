@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * §4.6 puente Laravel → satre-analytics /v1/socratic/next (§5.5).
+ * §4.6 / TOBE-3: puente Laravel → satre-analytics /api/v1/analytics/socratic-tutor (Gemini).
+ * El catálogo /v1/socratic/next no se usa como fallback.
  */
 class SocraticTutorTest extends TestCase
 {
@@ -52,37 +53,83 @@ class SocraticTutorTest extends TestCase
 
     public function test_student_starts_session_and_turn_is_persisted(): void
     {
-        Http::fake([self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('diagnostico', 'question', [
-            ['id' => 'a', 'text' => 'Una recta'],
-            ['id' => 'b', 'text' => 'Una parÃ¡bola'],
-        ]))]);
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response($this->hybridTurn('conectar', '¿Qué forma tiene el gráfico?', [
+                ['id' => 'a', 'text' => 'Una recta'],
+                ['id' => 'b', 'text' => 'Una parábola'],
+            ])),
+            self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('diagnostico', 'question')),
+        ]);
 
         $this->actingAs($this->studentUser, 'sanctum')
             ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
             ->assertOk()
             ->assertJsonPath('available', true)
             ->assertJsonPath('data.session.status', TutorSession::STATUS_ACTIVE)
-            ->assertJsonPath('data.session.criterion', 'A')
+            ->assertJsonPath('data.session.create_phase', 'conectar')
             ->assertJsonPath('data.session.step', 'diagnostico')
             ->assertJsonPath('data.reply.type', 'question')
-            ->assertJsonPath('data.reply.options.1.text', 'Una parÃ¡bola')
+            ->assertJsonPath('data.reply.options.1.text', 'Una parábola')
             ->assertJsonPath('data.done', false)
             ->assertJsonMissingPath('data.session.state');
 
         Http::assertSent(fn (Request $request) => $request->hasHeader('X-Internal-Key', 'test-internal-key')
+            && str_ends_with($request->url(), '/api/v1/analytics/socratic-tutor')
+            && $request['student_id'] === $this->student->id
             && $request['topic'] === 'Funciones lineales'
-            && $request['state'] === null);
+            && $request['user_message'] === 'Funciones lineales');
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
 
         $session = TutorSession::query()->sole();
-        $this->assertSame('diagnostico', $session->state['step']);
+        $this->assertSame('conectar', $session->state['create_phase']);
         $this->assertSame(['student', 'tutor'], $session->messages()->pluck('role')->all());
+    }
+
+    public function test_student_starts_session_preloading_ib_criterion(): void
+    {
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response($this->hybridTurn('conectar', '¿Qué recuerdas de la fotosíntesis?')),
+            self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('diagnostico', 'question')),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, [
+                'course_id' => $this->course->id,
+                'topic' => 'Fotosíntesis',
+                'criterion' => 'B',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.session.topic', 'Fotosíntesis')
+            ->assertJsonPath('data.session.criterion', 'B');
+
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/api/v1/analytics/socratic-tutor')
+            && $request['topic'] === 'Fotosíntesis'
+            && ($request['criterion'] ?? null) === 'B');
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
+
+        $this->assertSame('B', TutorSession::query()->sole()->criterion);
+    }
+
+    public function test_invalid_ib_criterion_is_rejected(): void
+    {
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, [
+                'course_id' => $this->course->id,
+                'topic' => 'Fotosíntesis',
+                'criterion' => 'E',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['criterion']);
     }
 
     public function test_follow_up_turn_forwards_state_and_stores_chosen_option_text(): void
     {
-        Http::fakeSequence(self::BASE_URL.'/v1/socratic/next')
-            ->push($this->pythonTurn('diagnostico', 'question', [['id' => 'a', 'text' => 'Una recta']]))
-            ->push($this->pythonTurn('pregunta_guia', 'question'));
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::sequence()
+                ->push($this->hybridTurn('conectar', '¿Qué forma tiene?', [['id' => 'a', 'text' => 'Una recta']]))
+                ->push($this->hybridTurn('recordar', '¿Qué es la pendiente?')),
+            self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('pregunta_guia', 'question')),
+        ]);
 
         $sessionId = $this->actingAs($this->studentUser, 'sanctum')
             ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
@@ -92,38 +139,77 @@ class SocraticTutorTest extends TestCase
             ->postJson(self::ENDPOINT, ['session_id' => $sessionId, 'option_id' => 'a'])
             ->assertOk()
             ->assertJsonPath('data.session.id', $sessionId)
+            ->assertJsonPath('data.session.create_phase', 'recordar')
             ->assertJsonPath('data.session.step', 'pregunta_guia');
 
-        Http::assertSent(fn (Request $request) => $request['option_id'] === 'a'
-            && ($request['state']['step'] ?? null) === 'diagnostico');
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/api/v1/analytics/socratic-tutor')
+            && $request['user_message'] === 'Una recta');
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
 
         $this->assertDatabaseHas('tutor_messages', ['tutor_session_id' => $sessionId, 'role' => 'student', 'content' => 'Una recta']);
         $this->assertSame(4, TutorSession::query()->find($sessionId)->messages()->count());
     }
 
-    public function test_topic_without_catalog_closes_session_as_no_catalog(): void
+    public function test_student_misconception_is_forwarded_to_gemini_without_catalog(): void
     {
-        Http::fake([self::BASE_URL.'/*' => Http::response([
-            'state' => null,
-            'step' => 'finalizado',
-            'hint_level' => 0,
-            'reply' => ['type' => 'no_catalog', 'text' => 'AÃºn no tengo una guÃ­a para ese tema.'],
-            'done' => true,
-            'meta' => ['scaffold_id' => null],
-        ])]);
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::sequence()
+                ->push($this->hybridTurn('conectar', '¿Qué es la pendiente de una recta?'))
+                ->push($this->hybridTurn('explicar', 'La pendiente no es el eje. ¿Qué cambia en y cuando aumenta x?')),
+            self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('pista', 'hint')),
+        ]);
+
+        $sessionId = $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Pendiente'])
+            ->json('data.session.id');
 
         $this->actingAs($this->studentUser, 'sanctum')
-            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'TermodinÃ¡mica'])
+            ->postJson(self::ENDPOINT, ['session_id' => $sessionId, 'message' => 'el eje'])
             ->assertOk()
-            ->assertJsonPath('data.done', true)
-            ->assertJsonPath('data.session.status', TutorSession::STATUS_NO_CATALOG);
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.reply.text', 'La pendiente no es el eje. ¿Qué cambia en y cuando aumenta x?');
+
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/api/v1/analytics/socratic-tutor')
+            && $request['user_message'] === 'el eje');
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
+    }
+
+    public function test_gemini_failure_is_reported_without_catalog_fallback(): void
+    {
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response([
+                'insufficient_data' => false,
+                'socratic_response' => [
+                    'available' => false,
+                    'reason' => 'quota_exhausted',
+                    'message' => 'La cuota de la API de IA está agotada.',
+                ],
+            ]),
+            self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('diagnostico', 'question', [
+                ['id' => 'a', 'text' => 'Pista 1: Piensa en cuánto sube'],
+            ])),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
+            ->assertOk()
+            ->assertJsonPath('available', false)
+            ->assertJsonPath('data', null)
+            ->assertJsonPath('reason', 'quota_exhausted')
+            ->assertJsonPath('message', 'La cuota de la API de IA está agotada.');
+
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
+        $this->assertSame(0, TutorSession::query()->count());
     }
 
     public function test_tutor_chat_alias_forwards_to_python_and_persists(): void
     {
-        Http::fake([self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('diagnostico', 'question', [
-            ['id' => 'a', 'text' => 'Una recta'],
-        ]))]);
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response($this->hybridTurn('conectar', '¿Qué ya sabes de la pendiente?', [
+                ['id' => 'a', 'text' => 'Una recta'],
+            ])),
+            self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('diagnostico', 'question')),
+        ]);
 
         $this->actingAs($this->studentUser, 'sanctum')
             ->postJson('/api/v1/tutor/chat', ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
@@ -132,10 +218,74 @@ class SocraticTutorTest extends TestCase
             ->assertJsonPath('data.reply.type', 'question')
             ->assertJsonPath('data.session.status', TutorSession::STATUS_ACTIVE);
 
-        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next')
-            && $request['topic'] === 'Funciones lineales');
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/api/v1/analytics/socratic-tutor')
+            && $request['topic'] === 'Funciones lineales'
+            && $request->hasHeader('X-Internal-Key', 'test-internal-key'));
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
         $this->assertSame(1, TutorSession::query()->count());
         $this->assertSame(['student', 'tutor'], TutorSession::query()->sole()->messages()->pluck('role')->all());
+    }
+
+    public function test_hybrid_create_reply_is_used_when_gemini_available(): void
+    {
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response([
+                'insufficient_data' => false,
+                'create_phase' => 'conectar',
+                'done' => false,
+                'socratic_response' => [
+                    'available' => true,
+                    'guidance' => '¿Qué ya sabes de la pendiente?',
+                    'create_phase' => 'conectar',
+                    'explanation' => '¿Qué ya sabes de la pendiente?',
+                    'reflection' => 'Escribe un ejemplo de tu vida diaria.',
+                    'quiz' => [
+                        'question' => 'La pendiente describe…',
+                        'options' => [
+                            ['id' => 'a', 'text' => 'Un corte con el eje y'],
+                            ['id' => 'b', 'text' => 'Cuánto cambia y al aumentar x'],
+                        ],
+                    ],
+                    'diagram_mermaid' => "flowchart TD\n    A[Δy] --> M[pendiente]",
+                    'visual_resource' => ['title' => 'Recta', 'description' => 'Sube al avanzar'],
+                ],
+                'reply' => [
+                    'type' => 'question',
+                    'text' => "¿Qué ya sabes de la pendiente?\n\nEscribe un ejemplo de tu vida diaria.",
+                    'create_phase' => 'conectar',
+                    'explanation' => '¿Qué ya sabes de la pendiente?',
+                    'reflection' => 'Escribe un ejemplo de tu vida diaria.',
+                    'quiz' => [
+                        'question' => 'La pendiente describe…',
+                        'options' => [
+                            ['id' => 'a', 'text' => 'Un corte con el eje y'],
+                            ['id' => 'b', 'text' => 'Cuánto cambia y al aumentar x'],
+                        ],
+                    ],
+                    'diagram_mermaid' => "flowchart TD\n    A[Δy] --> M[pendiente]",
+                    'options' => [
+                        ['id' => 'a', 'text' => 'Un corte con el eje y'],
+                        ['id' => 'b', 'text' => 'Cuánto cambia y al aumentar x'],
+                    ],
+                ],
+            ]),
+            self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('diagnostico', 'question')),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.session.create_phase', 'conectar')
+            ->assertJsonPath('data.reply.create_phase', 'conectar')
+            ->assertJsonPath('data.reply.quiz.options.1.text', 'Cuánto cambia y al aumentar x')
+            ->assertJsonPath('data.reply.diagram_mermaid', "flowchart TD\n    A[Δy] --> M[pendiente]")
+            ->assertJsonPath('data.reply.reflection', 'Escribe un ejemplo de tu vida diaria.');
+
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/api/v1/analytics/socratic-tutor')
+            && $request['student_id'] === $this->student->id
+            && $request['topic'] === 'Funciones lineales');
+        Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
     }
 
     public function test_python_down_returns_200_unavailable_without_storing(): void
@@ -145,7 +295,8 @@ class SocraticTutorTest extends TestCase
         $this->actingAs($this->studentUser, 'sanctum')
             ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
             ->assertOk()
-            ->assertExactJson(['available' => false, 'data' => null]);
+            ->assertJsonPath('available', false)
+            ->assertJsonPath('data', null);
 
         $this->assertSame(0, TutorSession::query()->count());
     }
@@ -202,15 +353,55 @@ class SocraticTutorTest extends TestCase
             ->assertJsonPath('data.0.messages.0.options.0.text', 'Recta');
     }
 
-    private function pythonTurn(string $step, string $type, array $options = []): array
+    private function hybridTurn(string $phase, string $text, array $options = []): array
     {
-        $reply = ['type' => $type, 'text' => "Paso $step"];
+        $reply = [
+            'type' => 'question',
+            'text' => $text,
+            'create_phase' => $phase,
+            'explanation' => $text,
+            'reflection' => 'Explica cómo lo pensaste.',
+        ];
         if ($options) {
             $reply['options'] = $options;
+            $reply['quiz'] = ['question' => $text, 'options' => $options];
         }
 
         return [
-            'state' => ['version' => 1, 'scaffold_id' => 'mat-funciones-lineales', 'step' => $step, 'hint_level' => 0],
+            'insufficient_data' => false,
+            'create_phase' => $phase,
+            'done' => false,
+            'socratic_response' => [
+                'available' => true,
+                'guidance' => $text,
+                'create_phase' => $phase,
+                'explanation' => $text,
+            ],
+            'reply' => $reply,
+        ];
+    }
+
+    private function pythonTurn(string $step, string $type, array $options = []): array
+    {
+        $reply = [
+            'type' => $type,
+            'text' => "Paso $step",
+            'create_phase' => match ($step) {
+                'diagnostico' => 'conectar',
+                'pregunta_guia' => 'recordar',
+                'pista' => 'explicar',
+                'verificacion' => 'aplicar',
+                'reflexion' => 'transferir',
+                default => 'evaluar',
+            },
+        ];
+        if ($options) {
+            $reply['options'] = $options;
+            $reply['quiz'] = ['question' => "Paso $step", 'options' => $options];
+        }
+
+        return [
+            'state' => ['version' => 1, 'scaffold_id' => 'mat-funciones-lineales', 'step' => $step, 'hint_level' => 0, 'create_phase' => $reply['create_phase']],
             'step' => $step,
             'hint_level' => 0,
             'reply' => $reply,

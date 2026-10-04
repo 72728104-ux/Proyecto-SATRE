@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             DemoUserSeeder::class,
             AcademicPo01Seeder::class,
+            DemoFiveRolesRecordsSeeder::class,
             DemoAnalyticsSeeder::class,
         ]);
     }

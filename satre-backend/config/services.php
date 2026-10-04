@@ -36,8 +36,8 @@ return [
     ],
 
     'python_analytics' => [
-        'url' => env('PYTHON_ANALYTICS_URL', 'http://127.0.0.1:8001'),
-        'key' => env('PYTHON_ANALYTICS_KEY'),
+        'url' => env('PYTHON_ANALYTICS_URL', env('ANALYTICS_SERVICE_URL', 'http://127.0.0.1:8001')),
+        'key' => env('PYTHON_ANALYTICS_KEY', env('ANALYTICS_INTERNAL_KEY')),
         'timeout' => (int) env('PYTHON_ANALYTICS_TIMEOUT', 8),
     ],
 

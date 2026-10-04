@@ -32,6 +32,11 @@ class ClassroomPolicy
         );
     }
 
+    public function viewReports(User $user, Classroom $classroom): bool
+    {
+        return $this->viewInsights($user, $classroom);
+    }
+
     public function create(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);

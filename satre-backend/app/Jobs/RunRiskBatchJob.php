@@ -5,8 +5,8 @@ namespace App\Jobs;
 use App\Models\AcademicPeriod;
 use App\Models\Classroom;
 use App\Models\Student;
-use App\Services\AnalyticsClient;
 use App\Services\AnalyticsService;
+use App\Services\PythonAnalyticsClient;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -29,7 +29,7 @@ class RunRiskBatchJob implements ShouldBeUnique, ShouldQueue
         return ($this->periodId ?? 'current').':'.($this->classroomId ?? 'all');
     }
 
-    public function handle(AnalyticsClient $client, AnalyticsService $analytics): void
+    public function handle(PythonAnalyticsClient $client, AnalyticsService $analytics): void
     {
         $period = $this->periodId !== null
             ? AcademicPeriod::query()->find($this->periodId)

@@ -7,7 +7,8 @@ import { CHANGE_PASSWORD_PATH, ROLE_HOME } from '../data/roles'
 import Field from './Field'
 
 export default function RoleSwitcher() {
-  return import.meta.env.DEV ? <DevAccountSwitcher /> : null
+  if (!import.meta.env.DEV) return null
+  return <DevAccountSwitcher />
 }
 
 function DevAccountSwitcher() {

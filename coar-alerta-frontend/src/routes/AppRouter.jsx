@@ -1,11 +1,13 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { CHANGE_PASSWORD_PATH, ROLES } from '../data/roles'
+import { CHANGE_PASSWORD_PATH, FORGOT_PASSWORD_PATH, RESET_PASSWORD_PATH, ROLES } from '../data/roles'
 import { useAuth } from '../context/AuthContext'
 import DashboardLayout from '../layouts/DashboardLayout'
 import Forbidden from '../components/Forbidden'
 import NotFound from '../components/NotFound'
 import Login from '../pages/Login'
 import CambiarContrasena from '../pages/CambiarContrasena'
+import RecuperarContrasena from '../pages/RecuperarContrasena'
+import RestablecerContrasena from '../pages/RestablecerContrasena'
 import DashboardAdmin from '../pages/admin/DashboardAdmin'
 import Usuarios from '../pages/admin/Usuarios'
 import Aulas from '../pages/admin/Aulas'
@@ -29,10 +31,11 @@ import Calificaciones from '../pages/estudiante/Calificaciones'
 import AsistenciaEstudiante from '../pages/estudiante/AsistenciaEstudiante'
 import PermisosEstudiante from '../pages/estudiante/PermisosEstudiante'
 import IATutor from '../pages/estudiante/IATutor'
+import LecturasEstudiante from '../pages/estudiante/LecturasEstudiante'
 import DashboardApoderado from '../pages/apoderado/DashboardApoderado'
 import AutorizarPermisos from '../pages/apoderado/AutorizarPermisos'
 import IncidenciasApoderado from '../pages/apoderado/IncidenciasApoderado'
-import ProtectedRoute from './ProtectedRoute'
+import ProtectedRoute, { GuestRoute } from './ProtectedRoute'
 
 export default function AppRouter() {
   const { isAuthenticated, homePath } = useAuth()
@@ -40,7 +43,11 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route element={<GuestRoute />}>
+          <Route path="/login" element={<Login />} />
+          <Route path={FORGOT_PASSWORD_PATH} element={<RecuperarContrasena />} />
+          <Route path={RESET_PASSWORD_PATH} element={<RestablecerContrasena />} />
+        </Route>
 
         <Route element={<ProtectedRoute allowPendingPasswordChange />}>
           <Route path={CHANGE_PASSWORD_PATH} element={<CambiarContrasena />} />
@@ -78,6 +85,7 @@ export default function AppRouter() {
             <Route element={<ProtectedRoute roles={[ROLES.ESTUDIANTE]} />}>
               <Route path="/estudiante" element={<DashboardEstudiante />} />
               <Route path="/estudiante/calificaciones" element={<Calificaciones />} />
+              <Route path="/estudiante/lecturas" element={<LecturasEstudiante />} />
               <Route path="/estudiante/asistencia" element={<AsistenciaEstudiante />} />
               <Route path="/estudiante/permisos" element={<PermisosEstudiante />} />
               <Route path="/estudiante/tutor" element={<IATutor />} />

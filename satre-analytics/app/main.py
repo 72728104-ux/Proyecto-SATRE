@@ -1,7 +1,6 @@
 """SATRE Analytics · servicio interno (solo red interna; Laravel es el único cliente)."""
 from __future__ import annotations
 
-import hmac
 import logging
 import re
 import time
@@ -12,13 +11,15 @@ from typing import Any
 import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import config
+from app.api.dependencies import unauthorized_internal_key
+from app.api.v1.student_tutor import router as socratic_tutor_router
+from app.api.v1.teacher_report import router as teacher_report_router
 from app.clustering import assign_profiles
 from app.db import Repository, get_repository
 from app.features import build_features, reference_date
@@ -36,9 +37,17 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="SATRE Analytics", version=config.MODEL_VERSION, lifespan=lifespan)
-
-_PUBLIC_PATHS = {"/docs", "/openapi.json", "/redoc"}
+app = FastAPI(
+    title="SATRE Analytics",
+    version=config.MODEL_VERSION,
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+    debug=False,
+)
+app.include_router(socratic_tutor_router)
+app.include_router(teacher_report_router)
 
 
 def _error(status: int, message: str, errors: Any = None) -> JSONResponse:
@@ -53,39 +62,21 @@ async def guard(request: Request, call_next):
     started = time.perf_counter()
     settings = config.get_settings()
 
-    if request.method == "OPTIONS" or request.url.path in _PUBLIC_PATHS:
-        response = await call_next(request)
-        route = request.scope.get("route")
-        logger.info("%s %s %s %.0fms", request.method, getattr(route, "path", "-"), response.status_code,
-                    (time.perf_counter() - started) * 1000)
-        return response
-
     length = request.headers.get("content-length")
     if length is not None and (not length.isdigit() or int(length) > settings.max_body_bytes):
         return _error(413, "Cuerpo de la petición demasiado grande.")
-    if length is None and "transfer-encoding" in request.headers:
+    if length is None and request.method in {"POST", "PUT", "PATCH"} and "transfer-encoding" in request.headers:
         return _error(411, "Se requiere Content-Length.")
 
-    provided = request.headers.get("x-internal-key")
-    if not provided:
-        return _error(401, "Falta el header X-Internal-Key.")
-    if not hmac.compare_digest(provided.encode("utf-8"), settings.internal_key.encode("utf-8")):
-        return _error(403, "X-Internal-Key inválida.")
+    rejected = unauthorized_internal_key(request.headers.get("x-internal-key"))
+    if rejected is not None:
+        return _error(*rejected)
 
     response = await call_next(request)
     route = request.scope.get("route")
     logger.info("%s %s %s %.0fms", request.method, getattr(route, "path", "-"), response.status_code,
                 (time.perf_counter() - started) * 1000)
     return response
-
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -145,6 +136,7 @@ class BatchRiskRequest(BaseModel):
 class SocraticRequest(BaseModel):
     topic: str = Field(min_length=1, max_length=150)
     course_id: int | None = Field(default=None, gt=0)
+    criterion: str | None = Field(default=None, min_length=1, max_length=1)
     message: str | None = Field(default=None, max_length=config.SOCRATIC_MAX_MESSAGE_CHARS)
     option_id: str | None = Field(default=None, max_length=10)
     state: dict[str, Any] | None = None

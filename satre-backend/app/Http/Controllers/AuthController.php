@@ -28,6 +28,8 @@ class AuthController extends Controller
 
     public function refresh(Request $request, AuthService $authService): JsonResponse
     {
+        $this->authorize('refreshToken', $request->user());
+
         $result = $authService->refresh($request->user());
 
         return response()->json([
@@ -39,6 +41,8 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
+        $this->authorize('viewMe', $request->user());
+
         $request->user()->load('role');
 
         return response()->json([
@@ -48,6 +52,8 @@ class AuthController extends Controller
 
     public function logout(Request $request, AuthService $authService): JsonResponse
     {
+        $this->authorize('logout', $request->user());
+
         $authService->logout($request->user());
 
         return response()->json([
@@ -57,6 +63,8 @@ class AuthController extends Controller
 
     public function changePassword(ChangePasswordRequest $request, AuthService $authService): JsonResponse
     {
+        $this->authorize('changePassword', $request->user());
+
         $authService->changePassword($request->user(), $request->validated('password'));
 
         return response()->json([

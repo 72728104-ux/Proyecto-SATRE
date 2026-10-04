@@ -9,7 +9,7 @@ import Pagination from '../../components/Pagination'
 import { useToast } from '../../components/Toast'
 import { useMutation } from '../../hooks/useApi'
 import { notifyError, usePagedList } from '../admin/shared/hooks'
-import { FilterBar, LoadError, PageHeader, linkButton } from '../admin/shared/ui'
+import { FilterBar, LoadError, PageHeader, actionButton, dangerActionButton, rowActions } from '../admin/shared/ui'
 import { OptionList, PERMISSION_STATUS, StatusBadge, formatDateTime, mapOptions } from './shared'
 
 const DECISIONS = {
@@ -34,7 +34,7 @@ export default function PermisosResidencia() {
   const canReject = (row) => ['pending_guardian', 'approved_guardian'].includes(row.status)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-cy="permisos-residencia">
       <PageHeader title="Pases de salida" description="Permisos solicitados por los internos. Solo se aprueban los ya autorizados por el apoderado." />
 
       <FilterBar>
@@ -60,20 +60,16 @@ export default function PermisosResidencia() {
             {
               key: 'actions',
               header: 'Acciones',
-              mobileLabel: ' ',
+              mobileLabel: 'Acciones',
               render: (row) =>
                 canReject(row) ? (
-                  <div className="flex flex-wrap gap-3">
+                  <div className={rowActions}>
                     {canApprove(row) ? (
-                      <button type="button" className={linkButton} onClick={() => setPending({ row, decision: 'approved' })}>
+                      <button type="button" className={actionButton} data-cy="aprobar-permiso" onClick={() => setPending({ row, decision: 'approved' })}>
                         Aprobar
                       </button>
                     ) : null}
-                    <button
-                      type="button"
-                      className="text-sm font-medium text-rose-700 hover:text-rose-900"
-                      onClick={() => setPending({ row, decision: 'rejected' })}
-                    >
+                    <button type="button" className={dangerActionButton} data-cy="rechazar-permiso-residencia" onClick={() => setPending({ row, decision: 'rejected' })}>
                       Rechazar
                     </button>
                   </div>

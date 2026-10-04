@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Brain, ShieldAlert, UserSearch, Users } from 'lucide-react'
-import { fetchStudentRisk } from '../../api/teacher'
+import { Brain, Download, ShieldAlert, UserSearch, Users } from 'lucide-react'
+import { exportClassroomReport, fetchStudentRisk } from '../../api/teacher'
 import EmptyState from '../../components/EmptyState'
 import Field from '../../components/Field'
 import Skeleton, { SkeletonList } from '../../components/Skeleton'
 import StatCard from '../../components/StatCard'
-import { useApi } from '../../hooks/useApi'
-import { FilterBar, LoadError } from '../admin/shared/ui'
-import { RISK_LEVELS, formatNumber, formatPct, studentName, useClassroomRoster, useTeacherScope } from './shared/hooks'
+import { useToast } from '../../components/Toast'
+import { useApi, useMutation } from '../../hooks/useApi'
+import { notifyError } from '../admin/shared/hooks'
+import { FilterBar, LoadError, secondaryButton } from '../admin/shared/ui'
+import { RISK_LEVELS, downloadBlob, formatNumber, formatPct, studentName, useClassroomRoster, useTeacherScope } from './shared/hooks'
 import { ClassroomPicker, RiskBadge } from './shared/ui'
 
 const FILTERS = [
@@ -61,23 +63,53 @@ function RiskCard({ student, risk }) {
   )
 }
 
+function DownloadReportButton({ classroomId }) {
+  const toast = useToast()
+  const mutation = useMutation(() => exportClassroomReport(classroomId, 'pdf'), {
+    onSuccess: (file) => {
+      downloadBlob(file, `reporte-aula-${classroomId}.pdf`)
+      toast.success('Reporte descargado.')
+    },
+    onError: (error) => notifyError(toast, error),
+  })
+
+  return (
+    <button
+      type="button"
+      className={secondaryButton}
+      data-cy="download-report"
+      disabled={!classroomId || mutation.loading}
+      onClick={() => mutation.mutate()}
+    >
+      <Download size={16} />
+      {mutation.loading ? 'Generando…' : 'Descargar Reporte'}
+    </button>
+  )
+}
+
 export default function DashboardTutor() {
   const scope = useTeacherScope()
   const roster = useClassroomRoster(scope.classroomId, scope.courses)
   const [filter, setFilter] = useState('')
 
   const risks = useApi(
-    async ({ signal }) =>
-      Promise.all(
-        (roster.data ?? []).map((student) =>
+    async ({ signal }) => {
+      if (!roster.data) return null
+      return Promise.all(
+        roster.data.map((student) =>
           fetchStudentRisk(student.student_id, { signal })
-            .then((payload) => ({ student, risk: payload.available ? payload.data : null }))
+            .then((payload) => ({
+              student,
+              risk: payload.available ? payload.data : null,
+              available: Boolean(payload.available),
+            }))
             .catch((error) => {
               if (error.kind === 'aborted') throw error
-              return { student, risk: null }
+              return { student, risk: null, available: false }
             }),
         ),
-      ),
+      )
+    },
     [roster.data],
   )
 
@@ -93,6 +125,7 @@ export default function DashboardTutor() {
     !filter ? true : filter === 'none' ? !hasData(row.risk) : hasData(row.risk) && row.risk.risk_level === filter,
   )
   const loading = scope.loading || roster.loading || risks.loading
+  const analyticsDown = rows.length > 0 && rows.every((row) => row.available === false)
 
   const header = (
     <div>
@@ -105,7 +138,7 @@ export default function DashboardTutor() {
 
   if (scope.error && !scope.data) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-cy="dashboard-tutor">
         {header}
         <LoadError onRetry={scope.reload} />
       </div>
@@ -114,7 +147,7 @@ export default function DashboardTutor() {
 
   if (!scope.loading && scope.classrooms.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-cy="dashboard-tutor">
         {header}
         <EmptyState icon={Users} title="No tienes aulas asignadas." description="Pide a administración que te asigne cursos del periodo vigente." />
       </div>
@@ -123,7 +156,10 @@ export default function DashboardTutor() {
 
   return (
     <div className="space-y-6" data-cy="dashboard-tutor">
-      {header}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        {header}
+        <DownloadReportButton classroomId={scope.classroomId} />
+      </div>
 
       <FilterBar>
         <ClassroomPicker scope={scope} />
@@ -135,6 +171,12 @@ export default function DashboardTutor() {
           ))}
         </Field>
       </FilterBar>
+
+      {analyticsDown ? (
+        <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          El motor analítico no devolvió predicciones. Se muestra el aula; el puntaje se actualizará cuando el cálculo nocturno o bajo demanda esté disponible.
+        </p>
+      ) : null}
 
       {loading && !risks.data ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

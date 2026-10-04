@@ -8,7 +8,7 @@ class ChangePasswordRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('changePassword', $this->user()) ?? false;
     }
 
     /**

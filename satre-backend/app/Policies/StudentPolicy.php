@@ -59,4 +59,16 @@ class StudentPolicy
     {
         return $user->hasRole(Roles::ADMIN, Roles::TEACHER, Roles::MONITOR) && $this->viewRisk($user, $student);
     }
+
+    /**
+     * §1 Reportes: admin todo, teacher su aula, student propio, guardian hijos.
+     */
+    public function viewPerformance(User $user, Student $student): bool
+    {
+        if ($user->hasRole(Roles::ADMIN, Roles::TEACHER)) {
+            return $this->viewRisk($user, $student);
+        }
+
+        return $this->viewSummary($user, $student);
+    }
 }

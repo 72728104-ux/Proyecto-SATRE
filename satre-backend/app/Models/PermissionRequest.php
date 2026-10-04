@@ -3,12 +3,17 @@
 namespace App\Models;
 
 use App\Support\Roles;
+use Database\Factories\PermissionRequestFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PermissionRequest extends Model
 {
+    /** @use HasFactory<PermissionRequestFactory> */
+    use HasFactory;
+
     public const STATUS_PENDING_GUARDIAN = 'pending_guardian';
 
     public const STATUS_APPROVED_GUARDIAN = 'approved_guardian';
@@ -72,5 +77,15 @@ class PermissionRequest extends Model
     public function guardian(): BelongsTo
     {
         return $this->belongsTo(Guardian::class);
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by');
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 }

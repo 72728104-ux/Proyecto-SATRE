@@ -13,7 +13,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class IncidentController extends Controller
 {
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request, IncidentService $incidentService): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Incident::class);
 
@@ -22,10 +22,13 @@ class IncidentController extends Controller
             ->with('student')
             ->when($request->integer('student_id'), fn ($query, $studentId) => $query->where('student_id', $studentId))
             ->when($request->string('status')->toString(), fn ($query, $status) => $query->where('status', $status))
+            ->when($request->string('category')->toString(), fn ($query, $category) => $query->where('category', $category))
             ->when($request->string('severity')->toString(), fn ($query, $severity) => $query->where('severity', $severity))
             ->orderByDesc('incident_at')
             ->paginate(15)
             ->withQueryString();
+
+        $incidentService->auditHealthReads($request->user(), $incidents);
 
         return IncidentResource::collection($incidents);
     }

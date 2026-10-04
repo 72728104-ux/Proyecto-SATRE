@@ -27,14 +27,4 @@ npx cypress open     # UI de Cypress
 npx cypress run      # E2E headless (requiere `npm run dev`)
 ```
 
-Cuentas demo (contraseña `coar2026`):
-
-| Rol | Correo |
-| --- | --- |
-| Administrador | admin@coar.edu.pe |
-| Docente / Tutor | tutor@coar.edu.pe |
-| Monitor de residencia | residencia@coar.edu.pe |
-| Estudiante | estudiante@coar.edu.pe |
-| Apoderado | apoderado@coar.edu.pe |
-
-En el header hay un selector **Probar rol** para cambiar de perfil sin volver al login.
+Las cuentas de desarrollo se crean con el seeder del backend (`php artisan migrate:fresh --seed`). No se publican contraseñas en el frontend.

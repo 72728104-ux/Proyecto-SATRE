@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = 'http://localhost:8000/api'
+const DEFAULT_API_URL = 'http://127.0.0.1:8000/api'
 
 function normalizeApiBase(raw) {
   const fallback = DEFAULT_API_URL
@@ -22,16 +22,18 @@ export function buildApiUrl(path) {
   return `${API_URL}${relative}`
 }
 
-const INTERNAL_KEY = import.meta.env.VITE_INTERNAL_KEY || 'clave_secreta_super_segura_de_mas_de_32_caracteres_12345'
 const DEFAULT_TIMEOUT_MS = 15000
+const REFRESH_PATH = '/auth/refresh'
 
 export const STORAGE_PREFIX = 'coar.satre.'
 const TOKEN_KEY = `${STORAGE_PREFIX}token`
 
 const listeners = new Set()
+let inFlightRefresh = null
 
 /**
- * Eventos globales: unauthorized, password_change_required, forbidden, rate_limited, network, timeout.
+ * Eventos globales: unauthorized, token_refreshed, password_change_required,
+ * forbidden, rate_limited, network, timeout. El 422 no se emite: queda en `error.fieldErrors`.
  * Devuelve la función para desuscribirse.
  */
 export function subscribeApiEvents(listener) {
@@ -64,11 +66,37 @@ export function setToken(token) {
 }
 
 export function clearStoredSession() {
+  inFlightRefresh = null
   for (const storage of [sessionStorage, localStorage]) {
     Object.keys(storage)
       .filter((key) => key.startsWith(STORAGE_PREFIX))
       .forEach((key) => storage.removeItem(key))
   }
+}
+
+function kindFromStatus(status) {
+  if (status === 401) return 'unauthorized'
+  if (status === 403) return 'forbidden'
+  if (status === 422) return 'validation'
+  if (status === 429) return 'rate_limited'
+  return 'http'
+}
+
+/** Rota el Bearer vía `POST /auth/refresh`. Unifica llamadas concurrentes en una sola petición. */
+export function refreshAccessToken() {
+  if (!getToken()) return Promise.reject(new ApiError('Sesión no válida. Vuelve a iniciar sesión.', { kind: 'unauthorized', status: 401 }))
+  if (!inFlightRefresh) {
+    inFlightRefresh = apiRequest(REFRESH_PATH, { method: 'POST', skipAuthHandling: true, silent: true })
+      .then((data) => {
+        if (data?.token) setToken(data.token)
+        emit({ type: 'token_refreshed', expiresAt: data?.expires_at ?? null })
+        return data
+      })
+      .finally(() => {
+        inFlightRefresh = null
+      })
+  }
+  return inFlightRefresh
 }
 
 /**
@@ -86,12 +114,12 @@ export async function apiRequest(
     silent = false,
     skipAuthHandling = false,
     responseType = 'json',
+    _retried = false,
   } = {},
 ) {
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
   const headers = {
     Accept: 'application/json',
-    'X-Internal-Key': INTERNAL_KEY,
   }
   if (body && !isFormData) headers['Content-Type'] = 'application/json'
 
@@ -138,10 +166,21 @@ export async function apiRequest(
   const retryAfter = status === 429 ? Number(response.headers.get('Retry-After')) || null : null
   const error = new ApiError(extractErrorMessage(payload, status, retryAfter), {
     status,
+    kind: kindFromStatus(status),
     payload,
     fieldErrors: extractFieldErrors(payload),
     retryAfter,
   })
+
+  if (status === 401 && !skipAuthHandling && !_retried && getToken() && path !== REFRESH_PATH) {
+    try {
+      await refreshAccessToken()
+      return apiRequest(path, { method, body, signal, timeout, silent, skipAuthHandling, responseType, _retried: true })
+    } catch {
+      emit({ type: 'unauthorized', error })
+      throw error
+    }
+  }
 
   if (status === 401 && !skipAuthHandling) emit({ type: 'unauthorized', error })
   else if (status === 403 && payload?.must_change_password) emit({ type: 'password_change_required', error })

@@ -1,30 +1,36 @@
 ---
-description: Reglas permanentes del proyecto SATRE COAR (siempre activas)
+description: Reglas permanentes de arquitectura, seguridad y ahorro de tokens para SATRE COAR
 alwaysApply: true
 ---
-# SATRE · reglas para el asistente
-Fuente de verdad: @SATRE_TOBE.md. Implementa SOLO la sección que te pida el prompt.
+# SATRE · Reglas de Trabajo para el Asistente
 
-## Stack
-- Backend: Laravel 12 + Sanctum + MySQL (`satre-backend/`). Frontend: React 19 + Vite + Tailwind (`coar-alerta-frontend/`).
-- Analítica: Python FastAPI + Pandas + scikit-learn (`satre-analytics/`). SIN LLM ni APIs externas.
-- Roles (slugs): admin, teacher, monitor, student, guardian.
+## Fuente de Verdad Unificada
+- La única especificación válida es `@SATRE_TOBE.md`.
+- NUNCA inventes campos de base de datos, rutas ni parámetros que no estén explícitamente definidos en `@SATRE_TOBE.md`.
+- Implementa ÚNICAMENTE el subconjunto/fase que se te solicite en el prompt.
 
-## Patrón obligatorio (copiar de AttendanceService/AttendanceController)
-Controller delgado → FormRequest → Service → API Resource → Policy → Feature test.
-- Rutas con `auth:sanctum` + middleware `role:` + Policy. Nunca confiar solo en el frontend.
-- Listados con `paginate(15)` y `with()` (evitar N+1). Cargas masivas en `DB::transaction()`.
-- Todo cambio de notas/asistencia/incidencias/permisos → `AuditLogger` con valor anterior y nuevo.
-- Errores JSON estándar. Nunca devolver 500 por falta de datos de analítica.
+## Stack Tecnológico
+- **Backend:** Laravel 12 API + Sanctum (`satre-backend/`).
+- **Frontend:** React 19 + Vite + Tailwind (`coar-alerta-frontend/`)[cite: 1].
+- **Analítica:** Python FastAPI + Pandas + scikit-learn (`satre-analytics/`)[cite: 1]. SIN LLM ni llamadas a APIs externas de IA[cite: 1].
+- **Roles:** `admin`, `teacher`, `monitor`, `student`, `guardian`[cite: 1].
 
-## Dominio
-- Notas IB escala 1–7 (aprobatorio ≥ 4), criterios A–D. Estados de asistencia: present, late, absent_justified, absent_unjustified.
-- Python: SQL siempre parametrizado, usuario MySQL de solo lectura, header `X-Internal-Key`, `insufficient_data:true` con HTTP 200.
+## Patrón de Arquitectura Obligatorio (Backend)
+Sigue estrictamente la arquitectura en capas:
+`Controller` (delgado) → `FormRequest` → `Service` → `API Resource` → `Policy` → `Feature Test`[cite: 1].
+- **Seguridad:** Todas las rutas requieren `auth:sanctum` + middleware `role:` + validación por `Policy`[cite: 1]. Nunca delegues el control de acceso únicamente al frontend[cite: 1].
+- **Rendimiento:** Todos los listados deben incluir `paginate(15)` y relaciones cargadas con `with()` para prevenir N+1[cite: 1]. Operaciones masivas siempre dentro de `DB::transaction()`[cite: 1].
+- **Auditoría:** Todo cambio de estado/alta/edición en notas, asistencia, incidencias o permisos debe invocar a `AuditLogger` registrando el valor anterior y nuevo[cite: 1].
+- **Resiliencia API:** Si el servicio de analítica en Python no responde o tiene datos insuficientes, devuelve HTTP 200 con `{available: false}` o `insufficient_data: true`[cite: 1]. NUNCA retornes un error HTTP 500 al cliente[cite: 1].
 
-## Estilo de trabajo (ahorra tokens)
-- Modifica solo lo necesario; no reescribas archivos completos ni reformatees.
-- Usa `php artisan make:*` para andamiar. Escribe el test primero cuando sea posible.
-- Frontend: usa `useApi`, `DataTable`, `Field`, `Pagination`, `Toast` existentes; no dupliques componentes.
-- No cambies alcance: si algo no está en @SATRE_TOBE.md, pregunta en una línea.
-- Termina indicando el comando exacto para verificar (test/lint/build).
-- Nunca commitear `.env`, claves ni contraseñas demo.
+## Dominio de Negocio Integrado
+- **Calificaciones:** Escala IB 1–7 (aprobatorio $\ge 4$), con criterios evaluativos A–D[cite: 1].
+- **Asistencia:** Estados válidos `present`, `late`, `absent_justified`, `absent_unjustified`[cite: 1].
+- **Python / DB:** Consultas SQLAlchemy con `text()` y bindings explícitos (prohibido interpolación/f-strings)[cite: 1]. Usuario de DB `satre_ro` (lectura). Cabecera obligatoria `X-Internal-Key`[cite: 1].
+
+## Instrucciones para Ahorro de Tokens y Eficiencia
+1. **Modificaciones quirúrgicas:** Muestra y aplica únicamente diffs del código modificado. No reescribas archivos enteros ni hagas cambios estéticos de formateo[cite: 1].
+2. **Generación de código:** Sugiere los comandos `php artisan make:*` necesarios en lugar de escribir boilerplate manual cuando aplique[cite: 1].
+3. **Frontend Reutilizable:** Emplea los módulos ya construidos (`useApi`, `DataTable`, `Field`, `Pagination`, `Toast`, `ConfirmModal`, `Skeleton`)[cite: 1].
+4. **Verificación Directa:** Concluye cada respuesta indicando exactamente el comando de terminal para validar lo hecho (ej. `php artisan test --filter=GradeTest`, `pytest`, o `npm run lint`)[cite: 1].
+5. **Cero Secretos:** NUNCA escribas credenciales, llaves API o contraseñas reales en el código; utiliza variables de entorno (`.env`)[cite: 1].

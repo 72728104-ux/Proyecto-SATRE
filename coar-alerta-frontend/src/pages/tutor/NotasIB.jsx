@@ -8,14 +8,13 @@ import Pagination from '../../components/Pagination'
 import { useApi } from '../../hooks/useApi'
 import { toId, useEditor, useFormState, usePagedList } from '../admin/shared/hooks'
 import { FilterBar, FormModal, LoadError, PageHeader, linkButton } from '../admin/shared/ui'
-import { studentName, useTeacherScope } from './shared/hooks'
+import { localDate, studentName, useTeacherScope } from './shared/hooks'
 
 const CRITERIA = ['A', 'B', 'C', 'D']
 const MIN_SCORE = 1
 const MAX_SCORE = 7
 const PASSING_SCORE = 4
 
-const today = () => new Date().toISOString().slice(0, 10)
 const courseLabel = (course) => `${course.classroom?.name ? `${course.classroom.name} · ` : ''}${course.name}`
 
 function validateGrade(form, isNew) {
@@ -26,7 +25,7 @@ function validateGrade(form, isNew) {
   else if (form.evaluation_name.length > 255) errors.evaluation_name = 'Máximo 255 caracteres.'
   if (!CRITERIA.includes(form.criterion)) errors.criterion = 'Elige un criterio IB (A–D).'
   if (!form.evaluation_date) errors.evaluation_date = 'Indica la fecha de evaluación.'
-  else if (form.evaluation_date > today()) errors.evaluation_date = 'La fecha no puede ser futura.'
+  else if (form.evaluation_date > localDate()) errors.evaluation_date = 'La fecha no puede ser futura.'
   const score = Number(form.score)
   if (form.score === '' || !Number.isInteger(score) || score < MIN_SCORE || score > MAX_SCORE) {
     errors.score = `La nota debe ser un entero entre ${MIN_SCORE} y ${MAX_SCORE}.`
@@ -42,7 +41,7 @@ function GradeFormModal({ editor, courses, defaultCourseId }) {
     student_id: row.student_id ?? null,
     evaluation_name: row.evaluation_name ?? '',
     criterion: row.criterion ?? '',
-    evaluation_date: row.evaluation_date ?? today(),
+    evaluation_date: row.evaluation_date ?? localDate(),
     score: row.score ?? '',
   })
   const [clientErrors, setClientErrors] = useState({})
@@ -122,7 +121,7 @@ function GradeFormModal({ editor, courses, defaultCourseId }) {
             </option>
           ))}
         </Field>
-        <Field label="Fecha" type="date" max={today()} {...bind('evaluation_date')} error={errors.evaluation_date} required />
+        <Field label="Fecha" type="date" max={localDate()} {...bind('evaluation_date')} error={errors.evaluation_date} required />
         <Field
           label="Nota (1–7)"
           type="number"
@@ -145,7 +144,7 @@ export default function NotasIB() {
   const editor = useEditor(saveGrade, { created: 'Nota registrada.', updated: 'Nota actualizada.', onSaved: list.reload })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-cy="notas-ib">
       <PageHeader
         title="Notas IB"
         description={`Escala 1–7 por criterio A–D. Aprobatorio ≥ ${PASSING_SCORE}. Cada cambio queda auditado.`}

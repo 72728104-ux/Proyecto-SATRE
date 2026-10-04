@@ -25,7 +25,7 @@ class IncidentService
 
         $this->auditLogger->record($reporter, 'incident.recorded', $incident, [], $incident->toArray());
 
-        IncidentRecorded::dispatch($incident);
+        IncidentRecorded::dispatch($incident); // D2: no consolidación ni jobs de riesgo en la petición.
 
         return $incident->load('student');
     }
@@ -44,5 +44,22 @@ class IncidentService
         $this->auditLogger->record($editor, 'incident.updated', $incident, $oldValues, Arr::except($incident->getChanges(), 'updated_at'));
 
         return $incident->load('student');
+    }
+
+    /**
+     * §7: las lecturas de incidencias de salud quedan auditadas.
+     *
+     * @param  iterable<int, Incident>  $incidents
+     */
+    public function auditHealthReads(User $reader, iterable $incidents): void
+    {
+        foreach ($incidents as $incident) {
+            if ($incident->category === 'salud') {
+                $this->auditLogger->record($reader, 'incident.health_viewed', $incident, [], [
+                    'category' => $incident->category,
+                    'student_id' => $incident->student_id,
+                ]);
+            }
+        }
     }
 }

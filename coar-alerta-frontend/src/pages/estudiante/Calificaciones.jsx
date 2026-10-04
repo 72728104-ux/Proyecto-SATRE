@@ -41,11 +41,11 @@ function CriteriaBreakdown({ courses }) {
 export default function Calificaciones() {
   const { summary, loading: summaryLoading } = useMySummary()
   const list = usePagedList(fetchMyGrades, { course_id: '', criterion: '' })
-  const courses = summary?.grades.by_course ?? []
+  const courses = summary?.grades?.by_course ?? []
   const selectedCourses = list.filters.course_id ? courses.filter((c) => String(c.course_id) === String(list.filters.course_id)) : courses
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-cy="calificaciones-estudiante">
       <PageHeader
         title="Mis calificaciones"
         description={
@@ -63,6 +63,8 @@ export default function Calificaciones() {
         </div>
       ) : selectedCourses.length ? (
         <CriteriaBreakdown courses={selectedCourses} />
+      ) : !list.filters.course_id ? (
+        <EmptyState icon={BookOpen} title="Aún no hay notas IB en este periodo." description="Cuando tu docente registre evaluaciones, verás el desglose por criterio A–D." />
       ) : null}
 
       <FilterBar>

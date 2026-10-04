@@ -81,7 +81,7 @@ class ClassroomAttendanceSessionTest extends TestCase
                 'course_id' => $context['course']->id,
                 'attendance_date' => '2026-09-15',
                 'records' => [
-                    ['student_id' => $context['student']->id, 'status' => 'absent'],
+                    ['student_id' => $context['student']->id, 'status' => 'absent_unjustified'],
                     ['student_id' => $second->id, 'status' => 'late', 'notes' => '10 minutos'],
                 ],
             ])
@@ -92,7 +92,7 @@ class ClassroomAttendanceSessionTest extends TestCase
         $this->assertDatabaseHas('attendances', [
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
-            'status' => 'absent',
+            'status' => 'absent_unjustified',
         ]);
         $this->assertDatabaseHas('attendances', [
             'student_id' => $second->id,

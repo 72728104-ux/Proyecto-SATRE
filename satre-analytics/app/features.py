@@ -125,14 +125,15 @@ def build_features(
         .join(_night_features(night))
         .join(_incident_features(incidents, as_of))
     )
-    frame["attendance_count"] = frame["attendance_count"].fillna(0).astype(int)
-    frame["grade_count"] = frame["grade_count"].fillna(0).astype(int)
-    frame["grade_n"] = frame["grade_n"].fillna(0).astype(int)
-    frame["night_count"] = frame["night_count"].fillna(0).astype(int)
-    frame["incident_weighted_30d"] = frame["incident_weighted_30d"].fillna(0).astype(float)
+    for col in ("attendance_count", "grade_count", "grade_n", "night_count"):
+        frame[col] = pd.to_numeric(frame[col], errors="coerce").fillna(0).astype(int)
+    frame["incident_weighted_30d"] = pd.to_numeric(
+        frame["incident_weighted_30d"], errors="coerce"
+    ).fillna(0.0)
     frame["severe_wellbeing_7d"] = frame["severe_wellbeing_7d"].eq(True)
     frame["is_boarder"] = frame["is_boarder"].fillna(True).astype(bool)
-    frame = frame.replace({np.inf: np.nan, -np.inf: np.nan})
+    numeric = frame.select_dtypes(include=[np.number]).columns
+    frame[numeric] = frame[numeric].replace([np.inf, -np.inf], np.nan)
     return frame.reset_index()[FEATURE_COLUMNS]
 
 

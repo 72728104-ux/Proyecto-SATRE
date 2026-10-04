@@ -18,7 +18,7 @@ class AnalyticsService
     private const RISK_TTL_HOURS = 24;
 
     public function __construct(
-        private readonly AnalyticsClient $client,
+        private readonly PythonAnalyticsClient $client,
     ) {}
 
     /**

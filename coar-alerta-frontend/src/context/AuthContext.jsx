@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { changePasswordRequest, loginRequest, logoutRequest, meRequest, revokeTokenRequest } from '../api/auth'
+import { changePasswordRequest, loginRequest, logoutRequest, meRequest, refreshRequest, revokeTokenRequest } from '../api/auth'
 import { STORAGE_PREFIX, clearStoredSession, getToken, setToken, subscribeApiEvents } from '../api/client'
 import { useToast } from '../components/Toast'
 import { API_ROLE_TO_UI, CHANGE_PASSWORD_PATH, ROLE_HOME, ROLE_LABELS, ROLES } from '../data/roles'
@@ -108,14 +108,22 @@ export function AuthProvider({ children }) {
 
   useEffect(
     () =>
-      subscribeApiEvents(({ type, error }) => {
+      subscribeApiEvents((event) => {
+        const { type, error } = event
         if (type === 'unauthorized') {
-          if (getToken()) clearSession('expired')
+          clearSession('expired')
+        } else if (type === 'token_refreshed') {
+          setSession((current) => {
+            if (!current) return current
+            const next = { ...current, expiresAt: event.expiresAt ?? current.expiresAt }
+            writeSession(next)
+            return next
+          })
         } else if (type === 'password_change_required') {
           updateUser({ mustChangePassword: true })
         } else if (type === 'rate_limited') {
           toast.warning(error.message)
-        } else {
+        } else if (error) {
           toast.error(error.message)
         }
       }),
@@ -136,8 +144,12 @@ export function AuthProvider({ children }) {
   const expiresAt = session?.expiresAt
   useEffect(() => {
     if (!expiresAt) return undefined
-    const remaining = new Date(expiresAt).getTime() - Date.now()
-    const timer = setTimeout(() => clearSession('expired'), Math.min(Math.max(remaining, 0), MAX_TIMEOUT_MS))
+    const expiresMs = new Date(expiresAt).getTime()
+    if (Number.isNaN(expiresMs)) return undefined
+    const refreshIn = expiresMs - Date.now() - 2 * 60 * 1000
+    const timer = setTimeout(() => {
+      refreshRequest().catch(() => clearSession('expired'))
+    }, Math.min(Math.max(refreshIn, 0), MAX_TIMEOUT_MS))
     return () => clearTimeout(timer)
   }, [expiresAt, clearSession])
 

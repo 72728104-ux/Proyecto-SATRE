@@ -31,3 +31,5 @@ export const API_ROLE_TO_UI = {
 }
 
 export const CHANGE_PASSWORD_PATH = '/cambiar-contrasena'
+export const FORGOT_PASSWORD_PATH = '/recuperar-contrasena'
+export const RESET_PASSWORD_PATH = '/reset-password'

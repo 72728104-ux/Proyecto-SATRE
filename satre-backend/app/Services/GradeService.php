@@ -45,7 +45,7 @@ class GradeService
 
         $this->auditLogger->record($recorder, 'grade.recorded', $grade, [], $grade->toArray());
 
-        GradeRecorded::dispatch($grade);
+        GradeRecorded::dispatch($grade); // D2: no consolidación ni jobs de riesgo en la petición.
 
         return $grade->load(['student', 'course']);
     }

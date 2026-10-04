@@ -40,4 +40,9 @@ class Classroom extends Model
     {
         return $this->hasMany(Course::class);
     }
+
+    public function aiDiagnostics(): HasMany
+    {
+        return $this->hasMany(AiDiagnostic::class);
+    }
 }

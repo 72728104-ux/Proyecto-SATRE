@@ -16,14 +16,14 @@ Motor analítico interno de SATRE (SATRE_TOBE §5). FastAPI + Pandas + scikit-le
 | POST | `/v1/batch/risk` | body `{period_id, classroom_id?}` → `{..., results: [contrato §5.4]}` |
 | POST | `/v1/socratic/next` | body `{topic, course_id?, message?, option_id?, state?}` → siguiente turno |
 
-Errores: `{message, errors?}` con 401 (sin clave), 403 (clave inválida), 404, 411/413 (body), 422, 503 (BD caída).
+Errores: `{message, errors?}` con 401 (sin clave o clave inválida), 404, 411/413 (body), 422, 503 (BD caída).
 La falta de datos nunca es error: responde 200 con `insufficient_data: true`.
 
 El tutor es sin estado en el servidor: Laravel guarda `state` en `tutor_sessions.state` y lo reenvía en cada turno.
 
 ## Seguridad (§5.6)
 
-- `X-Internal-Key` comparada con `hmac.compare_digest`; el servicio no arranca si `INTERNAL_KEY` tiene < 32 caracteres.
+- `X-Internal-Key` comparada en tiempo constante (`hmac.compare_digest` sobre SHA-256); el servicio no arranca si `INTERNAL_KEY` tiene < 32 caracteres. Sin CORS: el navegador no es cliente.
 - Usuario MySQL `satre_ro` con solo `SELECT`; además cada conexión se abre en `READ ONLY`.
 - SQL solo como literales `text()` con bind params (`tests/test_sql_safety.py` lo verifica).
 - Body limitado por `MAX_BODY_BYTES`; logs solo con método, plantilla de ruta, status y duración.
@@ -50,7 +50,7 @@ Pesos, umbrales, ventanas y estados viven en `app/config.py`. Son valores de par
 Decisiones tomadas donde §5.3 no precisa:
 
 - Pendiente de tendencia en puntos IB **por 30 días** (`TREND_SLOPE_UNIT_DAYS`).
-- Con `n ≥ 4` pero `R² < 0.3` la tendencia cuenta como fuente disponible con componente 0; con `n < 4` se excluye.
+- Tendencia solo entra si `n ≥ 4` y `R² ≥ 0.3`; si no, se excluye y se renormalizan pesos.
 - Incidencias siempre son fuente disponible (sin registros = 0 incidencias).
 - Presencia nocturna solo para internos con registros `night`; `on_permission` no cuenta como ausencia.
 - `absent` (estado heredado) se trata como injustificada hasta migrar a `absent_unjustified`.

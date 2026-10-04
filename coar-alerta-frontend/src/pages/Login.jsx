@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { GraduationCap } from 'lucide-react'
-import { CHANGE_PASSWORD_PATH, ROLE_HOME } from '../data/roles'
+import Field from '../components/Field'
+import { CHANGE_PASSWORD_PATH, FORGOT_PASSWORD_PATH, ROLE_HOME } from '../data/roles'
 import { useAuth } from '../context/AuthContext'
 
 const LOGOUT_MESSAGES = {
@@ -10,23 +11,24 @@ const LOGOUT_MESSAGES = {
 }
 
 export default function Login() {
-  const { isAuthenticated, homePath, login, logoutReason } = useAuth()
+  const { login, logoutReason } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
-
-  if (isAuthenticated) return <Navigate to={homePath} replace />
 
   const onSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setFieldErrors({})
     setLoading(true)
     const result = await login(email, password)
     setLoading(false)
     if (!result.ok) {
       setError(result.message)
+      setFieldErrors(result.fieldErrors ?? {})
       return
     }
     navigate(result.user.mustChangePassword ? CHANGE_PASSWORD_PATH : (ROLE_HOME[result.user.role] ?? '/403'), {
@@ -44,10 +46,11 @@ export default function Login() {
             Sistema web de alerta temprana para retención estudiantil
           </h1>
           <p className="mt-4 max-w-md text-white/70">
-            El inicio de sesión y la asistencia de aula (PO01) se validan en Laravel. Los demás módulos aún usan datos de demostración.
+            Acceso por rol (admin, docente, monitor, estudiante y apoderado) con sesión protegida y cambio de contraseña
+            obligatorio en el primer ingreso.
           </p>
         </div>
-        <p className="relative text-sm text-white/50">SATRE · API Laravel · recall institucional ≥ 0.85</p>
+        <p className="relative text-sm text-white/50">SATRE · API Laravel</p>
       </section>
 
       <section className="flex items-center justify-center bg-slate-50 p-6">
@@ -62,11 +65,12 @@ export default function Login() {
 
           <form
             onSubmit={onSubmit}
+            noValidate
             data-cy="login-form"
             className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
           >
             <h2 className="font-display text-2xl text-navy-950">Iniciar sesión</h2>
-            <p className="mt-1 text-sm text-slate-500">Usa una cuenta institucional. Requiere el backend en ejecución.</p>
+            <p className="mt-1 text-sm text-slate-500">Usa tu cuenta institucional.</p>
 
             {LOGOUT_MESSAGES[logoutReason] ? (
               <p data-cy="logout-reason" className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -74,31 +78,32 @@ export default function Login() {
               </p>
             ) : null}
 
-            <label className="mt-6 block text-sm font-medium text-slate-700">
-              Correo institucional
-              <input
-                data-cy="email"
+            <div className="mt-6 space-y-4">
+              <Field
+                label="Correo institucional"
+                name="email"
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-teal-500 focus:ring-2"
+                error={fieldErrors.email}
+                data-cy="email"
                 required
               />
-            </label>
-
-            <label className="mt-4 block text-sm font-medium text-slate-700">
-              Contraseña
-              <input
-                data-cy="password"
+              <Field
+                label="Contraseña"
+                name="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-teal-500 focus:ring-2"
+                error={fieldErrors.password}
+                data-cy="password"
                 required
               />
-            </label>
+            </div>
 
-            {error ? (
+            {error && !fieldErrors.email && !fieldErrors.password ? (
               <p data-cy="login-error" className="mt-3 text-sm text-rose-600">
                 {error}
               </p>
@@ -112,6 +117,12 @@ export default function Login() {
             >
               {loading ? 'Conectando…' : 'Entrar al sistema'}
             </button>
+
+            <p className="mt-4 text-center text-sm">
+              <Link to={FORGOT_PASSWORD_PATH} className="text-slate-500 hover:text-navy-900">
+                Olvidé mi contraseña
+              </Link>
+            </p>
           </form>
         </div>
       </section>

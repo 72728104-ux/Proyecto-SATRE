@@ -3,12 +3,18 @@
 namespace App\Models;
 
 use App\Support\Roles;
+use Database\Factories\GradeFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Grade extends Model
 {
+    /** @use HasFactory<GradeFactory> */
+    use HasFactory, SoftDeletes;
+
     public const MIN_SCORE = 1;
 
     public const MAX_SCORE = 7;
@@ -66,5 +72,10 @@ class Grade extends Model
     public function academicPeriod(): BelongsTo
     {
         return $this->belongsTo(AcademicPeriod::class);
+    }
+
+    public function recorder(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
     }
 }

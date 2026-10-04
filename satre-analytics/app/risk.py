@@ -38,10 +38,14 @@ def components(features: Mapping[str, Any]) -> dict[str, tuple[float, float]]:
         )
 
     slope, r2 = features.get("grade_slope"), features.get("grade_r2")
-    if int(features.get("grade_n") or 0) >= config.TREND_MIN_POINTS and not _missing(slope):
+    if (
+        int(features.get("grade_n") or 0) >= config.TREND_MIN_POINTS
+        and not _missing(slope)
+        and not _missing(r2)
+        and float(r2) >= config.TREND_MIN_R2
+    ):
         slope = float(slope)
-        significant = not _missing(r2) and float(r2) >= config.TREND_MIN_R2
-        result["grade_trend"] = (slope, _clamp(-slope / config.TREND_SLOPE_CAP) if significant else 0.0)
+        result["grade_trend"] = (slope, _clamp(-slope / config.TREND_SLOPE_CAP))
 
     weighted = float(features.get("incident_weighted_30d") or 0.0)
     result["incidents"] = (weighted, min(weighted / config.INCIDENT_WEIGHTED_CAP, 1.0))

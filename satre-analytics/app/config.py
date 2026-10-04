@@ -111,6 +111,20 @@ SOCRATIC_MAX_VERIFICATION_ATTEMPTS = 3
 SOCRATIC_MAX_MESSAGE_CHARS = 1000
 
 
+def _internal_key() -> str:
+    """X_INTERNAL_KEY tiene prioridad; INTERNAL_KEY queda como alias legado."""
+    for name in ("X_INTERNAL_KEY", "INTERNAL_KEY"):
+        key = (os.environ.get(name) or "").strip()
+        if len(key) >= 32:
+            return key
+    raise RuntimeError("X_INTERNAL_KEY / INTERNAL_KEY debe definirse y tener al menos 32 caracteres.")
+
+
+def _optional_env(name: str) -> str | None:
+    value = (os.environ.get(name) or "").strip()
+    return value or None
+
+
 @dataclass(frozen=True)
 class Settings:
     internal_key: str
@@ -123,14 +137,16 @@ class Settings:
     database_url: str | None = None
     sqlite_url: str = ""
     db_connection: str = "mysql"
+    gemini_api_key: str | None = None
+    ai_model_name: str = "gemini-3.8-flash"
+    ai_timeout_seconds: float = 20.0
 
 
 @lru_cache
 def get_settings() -> Settings:
-    key = os.environ.get("INTERNAL_KEY", "")
-    if len(key) < 32:
-        raise RuntimeError("INTERNAL_KEY debe definirse y tener al menos 32 caracteres.")
+    key = _internal_key()
     database_url = (os.environ.get("DATABASE_URL") or "").strip() or None
+    timeout_raw = (os.environ.get("AI_TIMEOUT_SECONDS") or "20").strip() or "20"
     return Settings(
         internal_key=key,
         db_host=os.environ.get("DB_HOST", "127.0.0.1"),
@@ -142,4 +158,7 @@ def get_settings() -> Settings:
         database_url=database_url,
         sqlite_url=(os.environ.get("SQLITE_URL") or "").strip() or default_sqlite_url(),
         db_connection=(os.environ.get("DB_CONNECTION") or "mysql").strip().lower() or "mysql",
+        gemini_api_key=_optional_env("GEMINI_API_KEY"),
+        ai_model_name=_optional_env("AI_MODEL_NAME") or "gemini-3.8-flash",
+        ai_timeout_seconds=float(timeout_raw),
     )

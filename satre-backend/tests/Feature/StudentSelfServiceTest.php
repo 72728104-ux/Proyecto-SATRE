@@ -95,7 +95,7 @@ class StudentSelfServiceTest extends TestCase
     public function test_student_lists_only_own_attendance_newest_first(): void
     {
         $this->attendance($this->student, '2026-04-10', 'present');
-        $this->attendance($this->student, '2026-04-12', 'absent');
+        $this->attendance($this->student, '2026-04-12', 'absent_unjustified');
         $this->attendance($this->classmate, '2026-04-12', 'present');
 
         $this->actingAs($this->studentUser, 'sanctum')

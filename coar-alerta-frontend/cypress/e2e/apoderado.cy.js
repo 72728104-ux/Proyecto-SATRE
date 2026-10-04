@@ -52,6 +52,31 @@ describe('Rol Apoderado', () => {
     cy.contains('Asistencias e inasistencias en residencia').should('be.visible')
   })
 
+  it('autoriza un permiso pendiente desde el móvil', () => {
+    const pending = {
+      id: 8,
+      student_id: 3,
+      student_name: 'Valeria Chávez',
+      type: 'salida',
+      reason: 'Cita médica en Huancayo',
+      starts_at: '2026-04-18T08:00:00Z',
+      ends_at: '2026-04-18T18:00:00Z',
+      status: 'pending_guardian',
+    }
+    cy.viewport('iphone-se2')
+    cy.intercept('GET', '**/api/permissions*', page([pending])).as('permissions')
+    cy.intercept('PATCH', '**/api/permissions/8/guardian', { ...pending, status: 'approved_guardian' }).as('respond')
+    loginAsGuardian()
+    cy.visit('/apoderado/permisos')
+    cy.wait('@permissions')
+    cy.get('[data-cy="autorizar-permisos"]').should('be.visible')
+    cy.contains('Cita médica en Huancayo').should('be.visible')
+    cy.get('[data-cy="autorizar-permiso"]').click()
+    cy.get('[data-cy="confirm-accept"]').click()
+    cy.wait('@respond').its('request.body').should('deep.equal', { decision: 'approved' })
+    cy.get('[data-cy="toast-success"]').should('be.visible')
+  })
+
   it('autoriza un permiso pendiente y muestra error 422 por campo', () => {
     const pending = {
       id: 8,

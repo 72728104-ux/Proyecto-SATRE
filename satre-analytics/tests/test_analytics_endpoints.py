@@ -1,11 +1,11 @@
-"""Endpoints del motor analítico (rutas en app/main.py; no existe app/api/).
+"""Endpoints del motor analítico (rutas en app/main.py y app/api/v1/).
 
 Predicción de riesgo: POST /v1/batch/risk.
 IA Docente: GET /v1/classrooms/{id}/insights.
 Tutor: POST /v1/socratic/next.
 
 La clave se lee de config.get_settings() (INTERNAL_KEY). Sin header → 401.
-Clave distinta → 403 (hmac.compare_digest), distinto de “falta el header”.
+Clave distinta → 401 (hmac.compare_digest sobre SHA-256; distinta longitud no provoca 500).
 """
 import pandas as pd
 import pytest
@@ -58,9 +58,9 @@ def test_post_without_internal_key_is_401(make_client, url, body):
 
 
 @pytest.mark.parametrize("url,body", POST_ENDPOINTS)
-def test_post_with_wrong_internal_key_is_403(make_client, url, body):
+def test_post_with_wrong_internal_key_is_401(make_client, url, body):
     response = make_client(scored_repo(), key="clave-incorrecta").post(url, json=body)
-    assert response.status_code == 403
+    assert response.status_code == 401
     assert "message" in response.json()
 
 

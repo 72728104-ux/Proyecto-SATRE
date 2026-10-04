@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use Database\Factories\TutorSessionFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TutorSession extends Model
 {
+    /** @use HasFactory<TutorSessionFactory> */
+    use HasFactory;
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_COMPLETED = 'completed';

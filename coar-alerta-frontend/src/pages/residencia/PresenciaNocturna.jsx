@@ -9,7 +9,7 @@ import { SkeletonList } from '../../components/Skeleton'
 import { useToast } from '../../components/Toast'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { notifyError, useDebounced, useEditor, useFormState, useLoadErrorToast, usePagedList } from '../admin/shared/hooks'
-import { FilterBar, FormModal, LoadError, linkButton, primaryButton, secondaryButton } from '../admin/shared/ui'
+import { FilterBar, FormModal, LoadError, actionButton, primaryButton, secondaryButton } from '../admin/shared/ui'
 import {
   CHECK_TYPES,
   OptionList,
@@ -56,15 +56,16 @@ function ResidentRow({ resident, value, dirty, errors = {}, onChange }) {
             {dirty ? ' · sin guardar' : saved ? ' · registrado' : ' · pendiente'}
           </p>
         </div>
-        <div role="radiogroup" aria-label={`Estado de ${resident.name}`} className="grid grid-cols-3 gap-2 sm:flex">
+        <div role="radiogroup" aria-label={`Estado de ${resident.name}`} className="grid grid-cols-3 gap-1.5 sm:flex sm:gap-2">
           {Object.entries(PRESENCE_STATUS).map(([status, meta]) => (
             <button
               key={status}
               type="button"
               role="radio"
               aria-checked={value.status === status}
+              data-cy={`presence-status-${status}`}
               onClick={() => onChange({ status })}
-              className={`h-10 rounded-xl border px-3 text-sm font-medium ${
+              className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-medium leading-tight sm:min-h-10 sm:px-3 sm:text-sm ${
                 value.status === status ? STATUS_TONES[status] : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -301,9 +302,9 @@ function History() {
             {
               key: 'actions',
               header: 'Acciones',
-              mobileLabel: ' ',
+              mobileLabel: 'Acciones',
               render: (row) => (
-                <button type="button" className={linkButton} onClick={() => editor.open(row)}>
+                <button type="button" className={actionButton} data-cy="corregir-presencia" onClick={() => editor.open(row)}>
                   Corregir
                 </button>
               ),
@@ -327,10 +328,10 @@ export default function PresenciaNocturna() {
   const [tab, setTab] = useState('checklist')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-cy="presencia-nocturna">
       <div>
-        <h1 className="font-display text-3xl text-navy-950">Presencia en residencia</h1>
-        <p className="text-sm text-slate-500">Pase de lista nocturno o matutino de los internos y su historial.</p>
+        <h1 className="font-display text-2xl text-navy-950 sm:text-3xl">Presencia nocturna</h1>
+        <p className="text-sm text-slate-500">Checklist móvil de internos (nocturno o matutino) y su historial.</p>
       </div>
       <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 sm:inline-grid">
         {TABS.map((item) => (
@@ -338,8 +339,9 @@ export default function PresenciaNocturna() {
             key={item.id}
             type="button"
             aria-pressed={tab === item.id}
+            data-cy={`presencia-tab-${item.id}`}
             onClick={() => setTab(item.id)}
-            className={`h-10 rounded-xl px-4 text-sm font-medium ${tab === item.id ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600'}`}
+            className={`min-h-11 rounded-xl px-4 text-sm font-medium sm:h-10 sm:min-h-0 ${tab === item.id ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600'}`}
           >
             {item.label}
           </button>

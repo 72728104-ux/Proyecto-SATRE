@@ -17,12 +17,14 @@ const PERMISSION_TYPES = [
 
 const EMPTY_FORM = { type: 'salida', reason: '', starts_at: '', ends_at: '' }
 
+const toIso = (value) => (value ? new Date(value).toISOString() : value)
+
 function PermissionForm({ editor }) {
   const { form, bind } = useFormState(EMPTY_FORM)
   const { errors } = editor
 
   return (
-    <FormModal title="Solicitar permiso de salida" onClose={editor.close} onSubmit={() => editor.submit(form)} loading={editor.loading} submitLabel="Enviar solicitud">
+    <FormModal title="Solicitar permiso de salida" onClose={editor.close} onSubmit={() => editor.submit({ ...form, starts_at: toIso(form.starts_at), ends_at: toIso(form.ends_at) })} loading={editor.loading} submitLabel="Enviar solicitud">
       <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-900">
         Tu apoderado recibirá la solicitud. Si la autoriza, residencia hará la aprobación final.
       </p>
@@ -46,7 +48,7 @@ export default function PermisosEstudiante() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-cy="permisos-estudiante">
       <PageHeader
         title="Permisos de salida"
         description="Solicita salidas de la residencia y revisa en qué etapa está cada una."

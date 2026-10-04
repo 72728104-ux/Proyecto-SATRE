@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, History, Send, Sparkles } from 'lucide-react'
-import { fetchTutorSessions, sendTutorTurn } from '../../api/student'
+import { useSearchParams } from 'react-router-dom'
+import { History, Send, Sparkles } from 'lucide-react'
+import { buildTutorIntentBody, buildTutorStartBody, fetchTutorSessions, sendTutorTurn, tutorSeedFromSearch } from '../../api/student'
 import EmptyState from '../../components/EmptyState'
 import Field from '../../components/Field'
 import Pagination from '../../components/Pagination'
@@ -11,40 +12,47 @@ import { notifyError, toId, usePagedList } from '../admin/shared/hooks'
 import { LoadError, PageHeader, primaryButton, secondaryButton } from '../admin/shared/ui'
 import { StatusBadge, formatDateTime } from '../residencia/shared'
 import { TUTOR_STATUS, useMySummary } from './shared'
+import { createPhaseOf, displayStudentText, quizFromMessage } from './tutor/createProtocol'
+import CreatePhaseBar from './tutor/CreatePhaseBar'
+import HintActions from './tutor/HintActions'
+import TutorBubble from './tutor/TutorBubble'
 
 const MAX_HINTS = 3
 
 const toBubbles = (messages = []) =>
-  messages.map((message) => ({ key: `m-${message.id}`, role: message.role, content: message.content, options: message.options ?? [] }))
+  messages.map((message) => ({
+    key: `m-${message.id}`,
+    role: message.role,
+    content: message.role === 'student' ? displayStudentText(message.content) : message.content,
+    options: message.options ?? [],
+    create_phase: message.create_phase ?? null,
+    explanation: message.explanation ?? null,
+    reflection: message.reflection ?? null,
+    quiz: message.quiz ?? null,
+    diagram_mermaid: message.diagram_mermaid ?? null,
+    visual_resource: message.visual_resource ?? null,
+  }))
 
 let localKey = 0
-const bubble = (role, content, options = []) => ({ key: `l-${++localKey}`, role, content, options })
+const bubble = (role, content, extra = {}) => ({
+  key: `l-${++localKey}`,
+  role,
+  content: role === 'student' ? displayStudentText(content) : content,
+  options: extra.options ?? [],
+  create_phase: extra.create_phase ?? null,
+  explanation: extra.explanation ?? null,
+  reflection: extra.reflection ?? null,
+  quiz: extra.quiz ?? null,
+  diagram_mermaid: extra.diagram_mermaid ?? null,
+  visual_resource: extra.visual_resource ?? null,
+})
 
-function Bubble({ role, content }) {
-  const isTutor = role === 'tutor'
-  return (
-    <li className={`flex gap-2 ${isTutor ? '' : 'justify-end'}`}>
-      {isTutor ? (
-        <span className="mt-1 hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-800 min-[400px]:flex">
-          <Bot size={16} />
-        </span>
-      ) : null}
-      <p
-        className={`max-w-[85%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm sm:max-w-[75%] ${
-          isTutor ? 'rounded-tl-sm bg-slate-100 text-slate-800' : 'rounded-tr-sm bg-navy-900 text-white'
-        }`}
-      >
-        {content}
-      </p>
-    </li>
-  )
-}
+function StartForm({ courses, errors, loading, onStart, initial = null }) {
+  const [courseId, setCourseId] = useState(initial?.course_id ?? null)
+  const [topic, setTopic] = useState(initial?.topic ?? '')
+  const criterion = initial?.criterion ?? null
 
-function StartForm({ courses, errors, loading, onStart }) {
-  const [courseId, setCourseId] = useState(null)
-  const [topic, setTopic] = useState('')
-
-  if (!courses.length) {
+  if (!courses.length && !courseId) {
     return <EmptyState icon={Sparkles} title="No tienes cursos matriculados en el periodo vigente." />
   }
 
@@ -54,11 +62,13 @@ function StartForm({ courses, errors, loading, onStart }) {
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault()
-        onStart({ course_id: courseId, topic: topic.trim() })
+        onStart(buildTutorStartBody({ course_id: courseId, topic: topic.trim(), criterion }))
       }}
     >
       <p className="text-sm text-slate-600">
-        Elige el curso y escribe el tema que quieres reforzar. El tutor te guiará con preguntas y pistas; no te dará la respuesta final.
+        {criterion
+          ? 'Tema y criterio IB cargados desde la lectura. El tutor te guiará con preguntas y pistas; no te dará la respuesta final.'
+          : 'Elige el curso y escribe el tema que quieres reforzar. El tutor te guiará con preguntas y pistas; no te dará la respuesta final.'}
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field as="select" label="Curso" name="course_id" required value={courseId ?? ''} onChange={(e) => setCourseId(toId(e.target.value))} error={errors.course_id}>
@@ -80,6 +90,11 @@ function StartForm({ courses, errors, loading, onStart }) {
           error={errors.topic}
         />
       </div>
+      {criterion ? (
+        <p className="text-sm text-slate-600">
+          Criterio IB <span className="font-semibold text-navy-950">{criterion}</span>
+        </p>
+      ) : null}
       <button type="submit" className={`${primaryButton} w-full sm:w-auto`} disabled={loading}>
         <Sparkles size={16} />
         {loading ? 'Iniciando…' : 'Comenzar sesión'}
@@ -88,27 +103,8 @@ function StartForm({ courses, errors, loading, onStart }) {
   )
 }
 
-function Composer({ options, errors, loading, onOption, onMessage }) {
+function Composer({ errors, loading, onMessage }) {
   const [draft, setDraft] = useState('')
-
-  if (options.length) {
-    return (
-      <div className="grid gap-2 sm:grid-cols-2">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            disabled={loading}
-            onClick={() => onOption(option)}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-700 hover:border-teal-400 hover:bg-teal-50 disabled:opacity-60"
-          >
-            <span className="mr-2 font-semibold uppercase text-teal-700">{option.id})</span>
-            {option.text}
-          </button>
-        ))}
-      </div>
-    )
-  }
 
   return (
     <form
@@ -183,10 +179,15 @@ function SessionHistory({ list, activeId, onOpen }) {
 
 export default function IATutor() {
   const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const seedRef = useRef(tutorSeedFromSearch(searchParams))
+  const seed = seedRef.current
+  const startedRef = useRef(false)
   const { summary, loading: summaryLoading, error: summaryError, reload: reloadSummary } = useMySummary()
   const history = usePagedList(fetchTutorSessions)
   const [session, setSession] = useState(null)
   const [messages, setMessages] = useState([])
+  const [preloaded, setPreloaded] = useState(!seed)
   const turn = useMutation(sendTutorTurn, { onError: (error) => notifyError(toast, error, { form: true }) })
   const endRef = useRef(null)
 
@@ -200,21 +201,31 @@ export default function IATutor() {
       if (result.error?.fieldErrors?.session_id) setSession((current) => current && { ...current, status: 'completed' })
       return false
     }
-    const { available, data } = result.data
-    if (!available) {
-      toast.warning('El tutor no está disponible en este momento. Inténtalo en unos minutos.')
+    const payload = result.data ?? {}
+    if (!payload.available || !payload.data?.session || !payload.data?.reply?.text) {
+      toast.warning(payload.message || payload.reason || 'El tutor no está disponible en este momento. Inténtalo en unos minutos.')
       return false
     }
+    const { data } = payload
     setSession(data.session)
-    setMessages((current) => [...current, bubble('student', studentText), bubble('tutor', data.reply.text, data.reply.options ?? [])])
+    setMessages((current) => [...current, bubble('student', studentText), bubble('tutor', data.reply.text, data.reply)])
     history.reload()
     return true
   }
 
   const start = (body) => {
     setMessages([])
-    return send(body, body.topic)
+    return send(buildTutorStartBody(body), body.topic)
   }
+
+  useEffect(() => {
+    if (!seed || startedRef.current) return
+    startedRef.current = true
+    setSearchParams({}, { replace: true })
+    start(seed).finally(() => setPreloaded(true))
+    // El seed se consume una sola vez al montar (paso 5 → tutor).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const open = (row) => {
     turn.reset()
@@ -224,16 +235,19 @@ export default function IATutor() {
 
   const restart = () => {
     turn.reset()
+    seedRef.current = null
+    setPreloaded(true)
     setSession(null)
     setMessages([])
   }
 
   const lastTutor = [...messages].reverse().find((message) => message.role === 'tutor')
   const active = session?.status === 'active'
+  const waitingPreload = Boolean(seed) && !preloaded && !session
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="IA Tutor" description="Refuerzo académico guiado: diagnóstico, pistas graduales, verificación y reflexión." />
+    <div className="space-y-4" data-cy="ia-tutor">
+      <PageHeader title="IA Tutor" description="Refuerzo académico guiado con metodología C.R.E.A.T.E.: pistas, diagramas y autoevaluación." />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:col-span-2">
@@ -256,9 +270,19 @@ export default function IATutor() {
                 </div>
               </header>
 
+              <div className="mt-3">
+                <CreatePhaseBar phase={createPhaseOf(session, lastTutor)} />
+              </div>
+
               <ol aria-live="polite" className="my-4 max-h-[55svh] min-h-48 space-y-3 overflow-y-auto pr-1">
-                {messages.map((message) => (
-                  <Bubble key={message.key} role={message.role} content={message.content} />
+                {messages.map((message, index) => (
+                  <TutorBubble
+                    key={message.key}
+                    message={message}
+                    interactive={active && index === messages.length - 1 && message.role === 'tutor'}
+                    disabled={turn.loading}
+                    onSelect={(option) => send({ session_id: session.id, option_id: option.id }, option.text)}
+                  />
                 ))}
                 {turn.loading ? (
                   <li className="flex gap-2">
@@ -269,21 +293,29 @@ export default function IATutor() {
               </ol>
 
               {active ? (
-                <Composer
-                  key={`${session.id}-${messages.length}`}
-                  options={lastTutor?.options ?? []}
-                  errors={turn.fieldErrors}
-                  loading={turn.loading}
-                  onOption={(option) => send({ session_id: session.id, option_id: option.id }, option.text)}
-                  onMessage={(text) => send({ session_id: session.id, message: text }, text)}
-                />
+                <div className="space-y-3">
+                  {quizFromMessage(lastTutor) ? null : (
+                    <Composer
+                      key={`${session.id}-${messages.length}`}
+                      errors={turn.fieldErrors}
+                      loading={turn.loading}
+                      onMessage={(text) => send({ session_id: session.id, message: text }, text)}
+                    />
+                  )}
+                  <HintActions
+                    disabled={turn.loading}
+                    onIntent={(intent) => send(buildTutorIntentBody(session.id, intent.message), intent.message)}
+                  />
+                </div>
               ) : (
                 <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  Esta sesión terminó. Revisa tus notas de reflexión o inicia una nueva sesión.
+                  {session.status === 'no_catalog'
+                    ? 'Aún no hay una guía curada para este tema. Prueba con otro (por ejemplo, funciones lineales).'
+                    : 'Esta sesión terminó. Revisa tus notas de reflexión o inicia una nueva sesión.'}
                 </p>
               )}
             </>
-          ) : summaryLoading && !summary ? (
+          ) : waitingPreload || (summaryLoading && !summary) ? (
             <div className="space-y-3">
               <Skeleton className="h-4 w-2/3" />
               <Skeleton className="h-10 w-full" />
@@ -292,7 +324,7 @@ export default function IATutor() {
           ) : summaryError && !summary ? (
             <LoadError onRetry={reloadSummary} />
           ) : (
-            <StartForm courses={summary?.courses ?? []} errors={turn.fieldErrors} loading={turn.loading} onStart={start} />
+            <StartForm courses={summary?.courses ?? []} errors={turn.fieldErrors} loading={turn.loading} onStart={start} initial={seed} />
           )}
         </section>
 

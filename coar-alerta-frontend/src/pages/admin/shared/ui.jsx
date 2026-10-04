@@ -8,20 +8,24 @@ import { useApi } from '../../../hooks/useApi'
 import { toId, useDebounced } from './hooks'
 
 export const primaryButton =
-  'inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-navy-900 px-4 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-60'
+  'inline-flex h-11 min-[480px]:h-10 w-full min-[480px]:w-auto items-center justify-center gap-2 rounded-xl bg-navy-900 px-4 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-60'
 export const secondaryButton =
-  'inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+  'inline-flex h-11 min-[480px]:h-10 w-full min-[480px]:w-auto items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60'
 export const linkButton = 'text-sm font-medium text-teal-700 hover:text-teal-900 disabled:opacity-50'
+export const rowActions = 'flex flex-col gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:gap-3'
+export const actionButton = `${linkButton} inline-flex min-h-11 items-center justify-start min-[480px]:min-h-0`
+export const dangerActionButton =
+  'inline-flex min-h-11 items-center justify-start text-sm font-medium text-rose-700 hover:text-rose-900 min-[480px]:min-h-0'
 
-export function PageHeader({ title, description, actionLabel, onAction }) {
+export function PageHeader({ title, description, actionLabel, onAction, actionCy }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="font-display text-3xl text-navy-950">{title}</h1>
+        <h1 className="font-display text-2xl text-navy-950 sm:text-3xl">{title}</h1>
         {description ? <p className="text-sm text-slate-500">{description}</p> : null}
       </div>
       {actionLabel ? (
-        <button type="button" onClick={onAction} className={primaryButton}>
+        <button type="button" onClick={onAction} className={`${primaryButton} shrink-0`} data-cy={actionCy}>
           <Plus size={16} />
           {actionLabel}
         </button>

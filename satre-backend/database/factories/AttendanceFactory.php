@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Models\AcademicPeriod;
-use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\Student;
 use App\Models\User;
@@ -25,5 +24,20 @@ class AttendanceFactory extends Factory
             'recorded_by' => User::factory(),
             'notes' => null,
         ];
+    }
+
+    public function late(): static
+    {
+        return $this->state(fn (array $attributes) => ['status' => 'late']);
+    }
+
+    public function absentJustified(): static
+    {
+        return $this->state(fn (array $attributes) => ['status' => 'absent_justified']);
+    }
+
+    public function absentUnjustified(): static
+    {
+        return $this->state(fn (array $attributes) => ['status' => 'absent_unjustified']);
     }
 }

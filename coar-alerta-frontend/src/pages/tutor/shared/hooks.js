@@ -14,6 +14,23 @@ export const isMissingEndpoint = (error) => error?.status === 404
 
 export const studentName = (student) => `${student.last_name}, ${student.first_name}`
 
+/** Fecha local (YYYY-MM-DD). `toISOString()` adelanta el día en UTC−5. */
+export const localDate = (date = new Date()) =>
+  new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+
+export const ATTENDANCE_STATUS = {
+  present: { label: 'Presente', badge: 'present' },
+  late: { label: 'Tardanza', badge: 'late' },
+  absent_justified: { label: 'Falta justificada', badge: 'absent_justified' },
+  absent_unjustified: { label: 'Falta injustificada', badge: 'absent_unjustified' },
+}
+
+export const normalizeAttendanceStatus = (status) => {
+  if (status === 'justified') return 'absent_justified'
+  if (status === 'absent') return 'absent_unjustified'
+  return ATTENDANCE_STATUS[status] ? status : null
+}
+
 export const formatPct = (value) => (value === null || value === undefined ? '—' : `${Math.round(value * 100)}%`)
 export const formatNumber = (value, digits = 1) =>
   value === null || value === undefined ? '—' : Number(value).toFixed(digits)

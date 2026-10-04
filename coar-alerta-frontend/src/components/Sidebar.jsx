@@ -5,6 +5,7 @@ import {
   CalendarRange,
   ClipboardCheck,
   FileBarChart,
+  FileText,
   FileWarning,
   GraduationCap,
   Home,
@@ -46,6 +47,7 @@ const NAV = {
   [ROLES.ESTUDIANTE]: [
     { to: '/estudiante', label: 'Resumen', icon: LayoutDashboard },
     { to: '/estudiante/calificaciones', label: 'Calificaciones', icon: BookOpen },
+    { to: '/estudiante/lecturas', label: 'Lecturas', icon: FileText },
     { to: '/estudiante/asistencia', label: 'Asistencia', icon: ClipboardCheck },
     { to: '/estudiante/permisos', label: 'Permisos', icon: Home },
     { to: '/estudiante/tutor', label: 'IA Tutor', icon: Sparkles },

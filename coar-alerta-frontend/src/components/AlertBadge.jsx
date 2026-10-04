@@ -14,6 +14,8 @@ const STYLES = {
   tardanza: 'bg-amber-100 text-amber-900 ring-amber-200',
   late: 'bg-amber-100 text-amber-900 ring-amber-200',
   justified: 'bg-sky-100 text-sky-800 ring-sky-200',
+  absent_justified: 'bg-sky-100 text-sky-800 ring-sky-200',
+  absent_unjustified: 'bg-rose-100 text-rose-800 ring-rose-200',
   ausente: 'bg-rose-100 text-rose-800 ring-rose-200',
   permiso: 'bg-sky-100 text-sky-800 ring-sky-200',
 }
@@ -34,6 +36,8 @@ const LABELS = {
   tardanza: 'Tardanza',
   late: 'Tardanza',
   justified: 'Justificado',
+  absent_justified: 'Falta justificada',
+  absent_unjustified: 'Falta injustificada',
   ausente: 'Ausente',
   permiso: 'Con permiso',
 }

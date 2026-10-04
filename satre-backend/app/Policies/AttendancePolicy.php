@@ -29,8 +29,12 @@ class AttendancePolicy
 
     public function view(User $user, Attendance $attendance): bool
     {
-        if ($user->hasRole(Roles::ADMIN, Roles::TEACHER)) {
+        if ($user->hasRole(Roles::ADMIN)) {
             return true;
+        }
+
+        if ($user->hasRole(Roles::TEACHER)) {
+            return $this->teachesCourse($user, $attendance->course);
         }
 
         if ($user->hasRole(Roles::STUDENT)) {
@@ -38,5 +42,19 @@ class AttendancePolicy
         }
 
         return false;
+    }
+
+    public function update(User $user, Attendance $attendance): bool
+    {
+        if ($user->hasRole(Roles::ADMIN)) {
+            return true;
+        }
+
+        return $user->hasRole(Roles::TEACHER) && $this->teachesCourse($user, $attendance->course);
+    }
+
+    private function teachesCourse(User $user, ?Course $course): bool
+    {
+        return $course !== null && $user->teacher !== null && $user->teacher->id === $course->teacher_id;
     }
 }

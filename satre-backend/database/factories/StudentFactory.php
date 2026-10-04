@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Classroom;
 use App\Models\Student;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,5 +24,12 @@ class StudentFactory extends Factory
             'is_boarder' => true,
             'classroom_id' => Classroom::factory(),
         ];
+    }
+
+    public function withUser(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'user_id' => User::factory()->student(),
+        ]);
     }
 }

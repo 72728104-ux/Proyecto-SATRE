@@ -31,7 +31,8 @@ SQL_CURRENT_PERIOD = text(
 )
 
 SQL_STUDENT = text(
-    "SELECT id, classroom_id, is_boarder, status FROM students WHERE id = :student_id"
+    "SELECT id, classroom_id, is_boarder, status FROM students "
+    "WHERE id = :student_id AND deleted_at IS NULL"
 )
 
 SQL_CLASSROOM = text("SELECT id, academic_period_id FROM classrooms WHERE id = :classroom_id")
@@ -41,7 +42,7 @@ SQL_PERIOD_STUDENTS = text(
     "FROM students s "
     "JOIN enrollments e ON e.student_id = s.id AND e.status = 'active' "
     "JOIN courses c ON c.id = e.course_id AND c.academic_period_id = :period_id "
-    "WHERE s.status = 'active' "
+    "WHERE s.status = 'active' AND s.deleted_at IS NULL "
     "AND (:classroom_id IS NULL OR s.classroom_id = :classroom_id)"
 )
 
@@ -54,7 +55,8 @@ SQL_GRADES = text(
     "SELECT student_id, course_id, criterion, score, max_score, "
     "COALESCE(evaluation_date, DATE(recorded_at), DATE(created_at)) AS evaluation_date "
     "FROM grades "
-    "WHERE academic_period_id = :period_id AND student_id IN :student_ids"
+    "WHERE academic_period_id = :period_id AND student_id IN :student_ids "
+    "AND deleted_at IS NULL"
 ).bindparams(bindparam("student_ids", expanding=True))
 
 SQL_NIGHT_PRESENCES = text(
@@ -65,7 +67,8 @@ SQL_NIGHT_PRESENCES = text(
 
 SQL_INCIDENTS = text(
     "SELECT student_id, category, severity, incident_at FROM incidents "
-    "WHERE incident_at >= :since AND incident_at <= :until AND student_id IN :student_ids"
+    "WHERE incident_at >= :since AND incident_at <= :until AND student_id IN :student_ids "
+    "AND deleted_at IS NULL"
 ).bindparams(bindparam("student_ids", expanding=True))
 
 SQL_CLASSROOM_GRADES = text(
@@ -74,7 +77,7 @@ SQL_CLASSROOM_GRADES = text(
     "FROM grades g "
     "JOIN courses c ON c.id = g.course_id "
     "WHERE c.classroom_id = :classroom_id AND g.academic_period_id = :period_id "
-    "AND g.criterion IS NOT NULL"
+    "AND g.criterion IS NOT NULL AND g.deleted_at IS NULL"
 )
 
 

@@ -14,7 +14,7 @@ class Attendance extends Model
     /** @use HasFactory<AttendanceFactory> */
     use HasFactory;
 
-    public const STATUSES = ['present', 'absent', 'late', 'justified'];
+    public const STATUSES = ['present', 'late', 'absent_justified', 'absent_unjustified'];
 
     protected $fillable = [
         'student_id',
@@ -35,11 +35,18 @@ class Attendance extends Model
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
+        if ($user->hasRole(Roles::ADMIN)) {
+            return $query;
+        }
+
         if ($user->hasRole(Roles::STUDENT)) {
             return $query->where('student_id', $user->student?->id ?? 0);
         }
 
-        return $query;
+        return $query->whereHas(
+            'course',
+            fn (Builder $course) => $course->where('teacher_id', $user->teacher?->id ?? 0)
+        );
     }
 
     public function student(): BelongsTo

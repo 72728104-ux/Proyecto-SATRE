@@ -9,7 +9,7 @@ import Pagination from '../../components/Pagination'
 import { useToast } from '../../components/Toast'
 import { useMutation } from '../../hooks/useApi'
 import { notifyError, useEditor, useFormState, usePagedList } from '../admin/shared/hooks'
-import { FilterBar, FormModal, LoadError, PageHeader, linkButton } from '../admin/shared/ui'
+import { FilterBar, FormModal, LoadError, PageHeader, actionButton, rowActions } from '../admin/shared/ui'
 import {
   INCIDENT_CATEGORIES,
   INCIDENT_SEVERITY,
@@ -85,7 +85,7 @@ function IncidentModal({ editor }) {
 
 export default function Incidencias() {
   const toast = useToast()
-  const list = usePagedList(fetchIncidents, { status: 'open', severity: '' })
+  const list = usePagedList(fetchIncidents, { status: 'open', category: '', severity: '' })
   const editor = useEditor(saveIncident, {
     created: 'Incidencia registrada.',
     updated: 'Incidencia actualizada.',
@@ -102,11 +102,12 @@ export default function Incidencias() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-cy="incidencias">
       <PageHeader
-        title="Incidencias de convivencia"
-        description="Registro de faltas de conducta, salud, bienestar emocional y convivencia en la residencia."
+        title="Incidencias"
+        description="Registro de conducta, salud, bienestar emocional y convivencia en la residencia."
         actionLabel="Nueva incidencia"
+        actionCy="nueva-incidencia"
         onAction={() => editor.open()}
       />
 
@@ -114,6 +115,10 @@ export default function Incidencias() {
         <Field as="select" label="Estado" name="filter_status" value={list.filters.status} onChange={(e) => list.setFilter('status', e.target.value)}>
           <option value="">Todos</option>
           <OptionList options={mapOptions(INCIDENT_STATUS)} />
+        </Field>
+        <Field as="select" label="Categoría" name="filter_category" value={list.filters.category} onChange={(e) => list.setFilter('category', e.target.value)}>
+          <option value="">Todas</option>
+          <OptionList options={INCIDENT_CATEGORIES} />
         </Field>
         <Field as="select" label="Gravedad" name="filter_severity" value={list.filters.severity} onChange={(e) => list.setFilter('severity', e.target.value)}>
           <option value="">Todas</option>
@@ -132,19 +137,19 @@ export default function Incidencias() {
             { key: 'incident_at', header: 'Fecha', render: (row) => formatDateTime(row.incident_at) },
             { key: 'category', header: 'Categoría', render: (row) => labelOf(INCIDENT_CATEGORIES, row.category) },
             { key: 'severity', header: 'Gravedad', render: (row) => <StatusBadge map={INCIDENT_SEVERITY} value={row.severity} /> },
-            { key: 'description', header: 'Descripción', render: (row) => <span className="line-clamp-2 max-w-xs">{row.description}</span> },
+            { key: 'description', header: 'Descripción', render: (row) => <span className="line-clamp-3 sm:line-clamp-2 sm:max-w-xs">{row.description}</span> },
             { key: 'status', header: 'Estado', render: (row) => <StatusBadge map={INCIDENT_STATUS} value={row.status} /> },
             {
               key: 'actions',
               header: 'Acciones',
-              mobileLabel: ' ',
+              mobileLabel: 'Acciones',
               render: (row) => (
-                <div className="flex flex-wrap gap-3">
-                  <button type="button" className={linkButton} onClick={() => editor.open(row)}>
+                <div className={rowActions}>
+                  <button type="button" className={actionButton} onClick={() => editor.open(row)}>
                     Editar
                   </button>
                   {row.status === 'open' ? (
-                    <button type="button" className={linkButton} onClick={() => setResolving(row)}>
+                    <button type="button" className={actionButton} data-cy="resolver-incidencia" onClick={() => setResolving(row)}>
                       Resolver
                     </button>
                   ) : null}

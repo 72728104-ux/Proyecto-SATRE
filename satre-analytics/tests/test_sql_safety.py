@@ -27,3 +27,14 @@ def test_queries_use_bind_params():
     queries = [v for k, v in vars(db).items() if k.startswith("SQL_")]
     assert queries and all(isinstance(q, TextClause) for q in queries)
     assert all(q._bindparams for q in queries if q is not db.SQL_CURRENT_PERIOD)
+
+
+def test_soft_deleted_rows_are_excluded():
+    for sql in (
+        db.SQL_STUDENT,
+        db.SQL_PERIOD_STUDENTS,
+        db.SQL_GRADES,
+        db.SQL_INCIDENTS,
+        db.SQL_CLASSROOM_GRADES,
+    ):
+        assert "deleted_at IS NULL" in sql.text

@@ -11,7 +11,7 @@ import { useToast } from '../../components/Toast'
 import { useMutation } from '../../hooks/useApi'
 import { notifyError, useEditor, useFormState, usePagedList } from '../admin/shared/hooks'
 import { FilterBar, FormModal, LoadError, linkButton, secondaryButton } from '../admin/shared/ui'
-import { isMissingEndpoint, useTeacherScope } from './shared/hooks'
+import { isMissingEndpoint, localDate, useTeacherScope } from './shared/hooks'
 import { ClassroomPicker, RiskBadge } from './shared/ui'
 
 const STATUS = {
@@ -34,7 +34,6 @@ const OUTCOMES = [
 ]
 const labelOf = (options, value) => options.find((option) => option.value === value)?.label ?? value
 
-const today = () => new Date().toISOString().slice(0, 10)
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString('es-PE') : '—')
 
 function useValidatedSubmit(editor, validate, toBody) {
@@ -80,12 +79,12 @@ function InterventionModal({ editor }) {
 }
 
 function FollowUpModal({ editor }) {
-  const { form, bind } = useFormState({ follow_up_date: today(), outcome: '', notes: '' })
+  const { form, bind } = useFormState({ follow_up_date: localDate(), outcome: '', notes: '' })
   const { submit, errors } = useValidatedSubmit(
     editor,
     (values) => ({
       ...(values.follow_up_date ? {} : { follow_up_date: 'Indica la fecha.' }),
-      ...(values.follow_up_date > today() ? { follow_up_date: 'La fecha no puede ser futura.' } : {}),
+      ...(values.follow_up_date > localDate() ? { follow_up_date: 'La fecha no puede ser futura.' } : {}),
       ...(values.notes.trim() ? {} : { notes: 'Registra lo observado en el seguimiento.' }),
     }),
     (values) => ({ follow_up_date: values.follow_up_date, outcome: values.outcome || null, notes: values.notes.trim() }),
@@ -94,7 +93,7 @@ function FollowUpModal({ editor }) {
   return (
     <FormModal title="Registrar seguimiento" onClose={editor.close} onSubmit={() => submit(form)} loading={editor.loading}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Fecha" type="date" max={today()} {...bind('follow_up_date')} error={errors.follow_up_date} required />
+        <Field label="Fecha" type="date" max={localDate()} {...bind('follow_up_date')} error={errors.follow_up_date} required />
         <Field as="select" label="Resultado" {...bind('outcome')} error={errors.outcome}>
           <option value="">Sin evaluar</option>
           {OUTCOMES.map((option) => (
@@ -231,7 +230,7 @@ export default function AlertasTutor() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-cy="alertas-tutor">
       <div>
         <h1 className="font-display text-3xl text-navy-950">Alertas e intervenciones</h1>
         <p className="text-sm text-slate-500">Atiende las alertas de tu aula y registra cada intervención y su seguimiento.</p>

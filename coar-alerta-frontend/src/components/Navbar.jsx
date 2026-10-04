@@ -17,7 +17,7 @@ export default function Navbar({ onMenu }) {
         </div>
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
-        <RoleSwitcher />
+        {import.meta.env.DEV ? <RoleSwitcher /> : null}
         <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Notificaciones">
           <Bell size={18} />
         </button>

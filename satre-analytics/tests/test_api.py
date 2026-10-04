@@ -17,6 +17,8 @@ ENDPOINTS = [
     ("get", "/v1/classrooms/7/insights", None),
     ("post", "/v1/batch/risk", {"period_id": 3}),
     ("post", "/v1/socratic/next", {"topic": "pendiente"}),
+    ("post", "/api/v1/analytics/socratic-tutor", {"student_id": 1, "user_message": "ayuda"}),
+    ("get", "/api/v1/analytics/teacher-report/1", None),
 ]
 
 
@@ -36,10 +38,10 @@ def test_missing_internal_key_is_401(make_client, method, url, body):
 
 
 @pytest.mark.parametrize("method,url,body", ENDPOINTS)
-def test_wrong_internal_key_is_403(make_client, method, url, body):
+def test_wrong_internal_key_is_401(make_client, method, url, body):
     client = make_client(one_student_repo(), key="wrong-key")
     response = getattr(client, method)(url, json=body) if body else getattr(client, method)(url)
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_unknown_route_also_requires_key(make_client):
@@ -47,29 +49,14 @@ def test_unknown_route_also_requires_key(make_client):
 
 
 @pytest.mark.parametrize("path", ["/docs", "/openapi.json", "/redoc"])
-def test_public_docs_do_not_require_internal_key(make_client, path):
-    response = make_client(one_student_repo(), key=None).get(path)
-    assert response.status_code == 200
+def test_docs_are_disabled(make_client, path):
+    assert make_client(one_student_repo(), key=None).get(path).status_code == 401
+    assert make_client(one_student_repo()).get(path).status_code == 404
 
 
-def test_options_preflight_is_public_and_allows_vite(make_client):
-    client = make_client(one_student_repo(), key=None)
-    response = client.options(
-        "/api/auth/login",
-        headers={
-            "Origin": "http://localhost:5173",
-            "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "content-type",
-        },
-    )
-    assert response.status_code == 200
-    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
-    assert response.headers.get("access-control-allow-credentials") == "true"
-
-
-def test_options_without_key_is_not_401(make_client):
-    response = make_client(one_student_repo(), key=None).options("/health")
-    assert response.status_code != 401
+def test_wrong_key_of_different_length_is_401_not_500(make_client):
+    response = make_client(one_student_repo(), key="corta").get("/health")
+    assert response.status_code == 401
 
 
 def test_health_with_key(make_client):

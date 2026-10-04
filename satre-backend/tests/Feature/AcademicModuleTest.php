@@ -344,11 +344,23 @@ class AcademicModuleTest extends TestCase
 
         $this->assertEqualsCanonicalizing(['convivencia', 'conducta'], array_column($response->json('data'), 'category'));
 
+        $this->actingAs($guardianUser, 'sanctum')
+            ->getJson('/api/incidents?category=conducta')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.category', 'conducta');
+
         $this->actingAs($monitor, 'sanctum')
             ->getJson('/api/incidents?student_id='.$context['student']->id)
             ->assertOk()
             ->assertJsonCount(4, 'data')
             ->assertJsonPath('data.0.description', 'Detalle confidencial');
+
+        $this->actingAs($monitor, 'sanctum')
+            ->getJson('/api/incidents?category=salud&student_id='.$context['student']->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.category', 'salud');
 
         $this->assertNotNull($visible->id);
     }

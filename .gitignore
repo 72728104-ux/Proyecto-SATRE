@@ -1,0 +1,25 @@
+# Ignorar dependencias
+node_modules/
+vendor/
+
+# Ignorar builds y almacenamiento
+dist/
+build/
+storage/
+
+# Ignorar variables de entorno
+.env
+*.env
+
+# Ignorar ejecutables pesados
+python-manager-26.3.msix
+
+# Respaldos y certificados locales
+/backups/
+deploy/nginx/certs/*.pem
+deploy/nginx/certs/*.key
+deploy/nginx/certs/*.crt
+
+# Ignorar configuraciones de editor
+.vscode/
+.cursor/

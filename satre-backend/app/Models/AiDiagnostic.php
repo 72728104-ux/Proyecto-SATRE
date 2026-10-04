@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use Database\Factories\AiDiagnosticFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AiDiagnostic extends Model
 {
+    /** @use HasFactory<AiDiagnosticFactory> */
+    use HasFactory;
+
     public const TYPE_TEACHER_INSIGHT = 'teacher_insight';
 
     public const TYPE_STUDENT_PROFILE = 'student_profile';
@@ -39,5 +44,10 @@ class AiDiagnostic extends Model
     public function classroom(): BelongsTo
     {
         return $this->belongsTo(Classroom::class);
+    }
+
+    public function academicPeriod(): BelongsTo
+    {
+        return $this->belongsTo(AcademicPeriod::class);
     }
 }
