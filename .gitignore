@@ -1,25 +1,38 @@
-# Ignorar dependencias
+# Dependencias
 node_modules/
 vendor/
+venv/
+.venv/
 
-# Ignorar builds y almacenamiento
+# Python / Cache / Entornos
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Compilados y Builds
 dist/
 build/
 storage/
 
-# Ignorar variables de entorno
+# Variables de entorno (Ignora .env en la raíz y en subcarpetas)
 .env
 *.env
+**/.env
+**/.env.*
+!.env.example
 
-# Ignorar ejecutables pesados
+# Archivos pesados y ejecutables
 python-manager-26.3.msix
+*.msix
+*.exe
 
-# Respaldos y certificados locales
+# Respaldos y certificados locales (SSL/TLS)
 /backups/
 deploy/nginx/certs/*.pem
 deploy/nginx/certs/*.key
 deploy/nginx/certs/*.crt
 
-# Ignorar configuraciones de editor
+# IDEs y Editores de código
 .vscode/
 .cursor/
+.idea/
