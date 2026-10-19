@@ -1,17 +1,16 @@
 import { apiRequest } from './client.js'
-
-const withQuery = (path, params = {}) => {
-  const entries = Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
-  return entries.length ? `${path}?${new URLSearchParams(entries)}` : path
-}
+import { withQuery } from './query.js'
 
 const today = () => {
   const date = new Date()
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
 
-/** Cursos del docente autenticado (cada uno trae su `classroom`). */
-export const fetchTeacherCourses = (options) => apiRequest('/courses', options)
+/** Cursos del docente autenticado (cada uno trae su `classroom`). El catálogo pide `per_page` para no truncar en 15. */
+export const fetchTeacherCourses = (options = {}) => {
+  const { per_page = 100, ...requestOptions } = options
+  return apiRequest(withQuery('/courses', { per_page }), requestOptions)
+}
 
 /** §4.3: hoja de matrículas + asistencia del día (`GET /attendances/session`). */
 export const fetchAttendanceSession = (courseId, attendanceDate, options) =>
@@ -27,12 +26,30 @@ export const fetchGrades = (params, options) => apiRequest(withQuery('/grades', 
 export const saveGrade = (id, body) => apiRequest(id ? `/grades/${id}` : '/grades', { method: id ? 'PUT' : 'POST', body })
 
 /** `{ available, data }`; `data` sigue el contrato §5.4 (vista completa para docentes). */
-export const fetchStudentRisk = (studentId, options) =>
-  apiRequest(`/ai-analytics/students/${studentId}/risk`, { silent: true, ...options })
+export const fetchStudentRisk = (studentId, options = {}) => {
+  const { refresh = false, ...requestOptions } = options
+  return apiRequest(withQuery(`/ai-analytics/students/${studentId}/risk`, refresh ? { refresh: 1 } : {}), {
+    silent: true,
+    ...requestOptions,
+  })
+}
 
 /** `{ available, stale, generated_at, data: { insufficient_data, courses, top_gaps, error_matrix } }`. */
 export const fetchClassroomInsights = (classroomId, options) =>
   apiRequest(`/ai-analytics/teacher/insights/${classroomId}`, { silent: true, ...options })
+
+/**
+ * Asistente pedagógico TOBE-5.
+ * `{ available, data: { reply: { text, summary, recommended_actions, suggested_materials, criterion_focus }, metrics, engine } }`.
+ */
+export const sendTeacherAssistant = (body, options) =>
+  apiRequest('/v1/analytics/teacher-assistant', {
+    method: 'POST',
+    body,
+    timeout: 45000,
+    silent: true,
+    ...options,
+  })
 
 /**
  * Contrato esperado (§4.4): `{ data: { insufficient_data, summary: { students, grade_mean, pass_rate, attendance_rate,

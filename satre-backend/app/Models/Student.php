@@ -19,6 +19,7 @@ class Student extends Model
         'user_id',
         'student_code',
         'document_number',
+        'dni',
         'first_name',
         'last_name',
         'status',

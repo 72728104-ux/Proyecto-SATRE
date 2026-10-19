@@ -9,7 +9,7 @@ import { useLoadErrorToast } from '../admin/shared/hooks'
 const SELECTED_STUDENT_KEY = `${STORAGE_PREFIX}guardian.studentId`
 const EMPTY_STUDENTS = []
 
-export const PASSING_SCORE = 4
+export { PASSING_SCORE, formatScore, formatScoreWithLiteral } from '../../utils/mineduScale'
 
 export const ATTENDANCE_STATUS = {
   present: { label: 'Presente' },
@@ -31,7 +31,6 @@ export const INCIDENT_CATEGORIES = [
   { value: 'convivencia', label: 'Convivencia' },
 ]
 
-export const formatScore = (value) => (value === null || value === undefined ? '—' : Number(value).toFixed(1))
 export const formatRate = (rate) => (rate === null || rate === undefined ? '—' : `${Math.round(rate * 1000) / 10}%`)
 
 const readStoredStudentId = (students) => {

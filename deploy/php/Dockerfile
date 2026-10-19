@@ -3,7 +3,7 @@ FROM composer:2 AS composer
 FROM php:8.2-fpm-bookworm
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git unzip libzip-dev libicu-dev \
+    && apt-get install -y --no-install-recommends git libicu-dev libzip-dev unzip \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql bcmath intl zip opcache pcntl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -21,8 +21,15 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-in
 
 COPY satre-backend ./
 RUN composer dump-autoload --optimize --no-dev \
-    && mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache
+    && mkdir -p storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        storage/app/public \
+        bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache /var/www/backend
+
+USER www-data
 
 ENTRYPOINT ["satre-entrypoint"]
 CMD ["php-fpm", "-F"]

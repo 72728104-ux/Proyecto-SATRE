@@ -7,7 +7,8 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * D2 / §4.7: solo auditoría y notificaciones. No dispara snapshots ni cálculo de riesgo.
+ * Auditoría/notificaciones al registrar una nota.
+ * El recálculo de riesgo lo dispara GradeObserver (created/updated).
  */
 class GradeRecorded
 {

@@ -16,24 +16,36 @@ use App\Models\Student;
 use App\Models\TutorMessage;
 use App\Models\TutorSession;
 use App\Models\User;
+use App\Support\InstitutionalIdentity;
+use App\Support\MineduScale;
 use Illuminate\Database\Seeder;
 
 /**
  * Datos operativos de 5to A para los 5 roles (asistencia IB, incidencias, permisos, tutor).
  */
-class DemoFiveRolesRecordsSeeder extends Seeder
+class FiveRolesRecordsSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
+
         $period = AcademicPeriod::query()->where('is_current', true)->first();
         $course = Course::query()->where('code', 'MAT-AA')->first();
-        $teacherUser = User::query()->where('email', 'tutor@coar.edu.pe')->first();
-        $monitorUser = User::query()->where('email', 'residencia@coar.edu.pe')->first();
+        $teacherUser = User::query()
+            ->where('dni', InstitutionalIdentity::TEACHER_DNI)
+            ->orWhere('email', InstitutionalIdentity::seededTeacherEmail())
+            ->first();
+        $monitorUser = User::query()
+            ->where('dni', InstitutionalIdentity::MONITOR_DNI)
+            ->orWhere('email', InstitutionalIdentity::MONITOR_EMAIL)
+            ->first();
         $valeria = Student::query()->where('student_code', 'EST-0003')->first();
-        $guardian = Guardian::query()->where('email', 'apoderado@coar.edu.pe')->first();
+        $guardian = Guardian::query()->where('email', InstitutionalIdentity::GUARDIAN_EMAIL)->first();
 
         if ($period === null || $course === null || $teacherUser === null || $monitorUser === null || $valeria === null) {
-            $this->command?->warn('DemoFiveRolesRecordsSeeder: faltan datos de DemoUserSeeder/AcademicPo01Seeder.');
+            $this->command?->warn('FiveRolesRecordsSeeder: faltan datos de usuarios institucionales o AcademicPo01Seeder.');
 
             return;
         }
@@ -69,7 +81,7 @@ class DemoFiveRolesRecordsSeeder extends Seeder
                     [
                         'academic_period_id' => $period->id,
                         'evaluation_name' => 'Criterio '.$criterion.' · prueba 1',
-                        'score' => [6, 5, 4, 3][($index + $criterionIndex) % 4],
+                        'score' => MineduScale::normalize([6, 5, 4, 3][($index + $criterionIndex) % 4], 7),
                         'max_score' => Grade::MAX_SCORE,
                         'recorded_by' => $teacherUser->id,
                         'recorded_at' => now()->subDays(20 - $criterionIndex),
@@ -131,7 +143,7 @@ class DemoFiveRolesRecordsSeeder extends Seeder
                 'risk_level' => RiskPrediction::LEVEL_MEDIUM,
                 'risk_score' => 41.50,
                 'factors' => [
-                    ['key' => 'grade_level', 'label' => 'Promedio IB', 'value' => 4.5, 'contribution' => 12.0],
+                    ['key' => 'grade_level', 'label' => 'Promedio Minedu', 'value' => 12.86, 'contribution' => 12.0],
                     ['key' => 'tardiness', 'label' => 'Tardanzas', 'value' => 0.20, 'contribution' => 5.0],
                 ],
                 'data_coverage' => 0.85,

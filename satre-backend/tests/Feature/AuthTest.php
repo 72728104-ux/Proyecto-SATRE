@@ -119,6 +119,7 @@ class AuthTest extends TestCase
             ->postJson('/api/auth/register', [
                 'name' => 'Otra Admin',
                 'email' => 'otra.admin@coar.edu.pe',
+                'dni' => '10000099',
                 'role' => Roles::ADMIN,
             ])
             ->assertCreated()

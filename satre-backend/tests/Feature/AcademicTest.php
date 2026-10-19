@@ -19,10 +19,12 @@ use App\Models\Role;
 use App\Models\Student;
 use App\Models\StudentFeatureSnapshot;
 use App\Models\Teacher;
+use App\Models\RiskPrediction;
 use App\Models\User;
 use App\Support\Roles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -30,43 +32,45 @@ class AcademicTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_teacher_records_ib_grade_and_update_audits_old_and_new_values(): void
+    public function test_teacher_records_minedu_grade_and_update_audits_old_and_new_values(): void
     {
         $context = $this->academicContext();
 
         $gradeId = $this->actingAs($context['teacherUser'], 'sanctum')
             ->postJson('/api/academic/grades', $this->gradePayload($context))
             ->assertCreated()
-            ->assertJsonPath('data.score', 5)
+            ->assertJsonPath('data.score', 16.5)
+            ->assertJsonPath('data.literal', 'A')
             ->assertJsonPath('data.criterion', 'B')
             ->assertJsonPath('data.max_score', Grade::MAX_SCORE)
             ->json('data.id');
 
         $created = AuditLog::query()->where('action', 'grade.recorded')->firstOrFail();
         $this->assertSame([], $created->old_values ?? []);
-        $this->assertEquals(5, $created->new_values['score']);
+        $this->assertEquals(16.5, (float) $created->new_values['score']);
         $this->assertSame('B', $created->new_values['criterion']);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->putJson("/api/academic/grades/$gradeId", ['score' => 6, 'criterion' => 'C'])
+            ->putJson("/api/academic/grades/$gradeId", ['score' => 19, 'criterion' => 'C'])
             ->assertOk()
-            ->assertJsonPath('data.score', 6)
+            ->assertJsonPath('data.score', 19)
+            ->assertJsonPath('data.literal', 'AD')
             ->assertJsonPath('data.criterion', 'C');
 
         $updated = AuditLog::query()->where('action', 'grade.updated')->firstOrFail();
-        $this->assertEquals(5, $updated->old_values['score']);
-        $this->assertEquals(6, $updated->new_values['score']);
+        $this->assertEquals(16.5, (float) $updated->old_values['score']);
+        $this->assertEquals(19, (float) $updated->new_values['score']);
         $this->assertSame('B', $updated->old_values['criterion']);
         $this->assertSame('C', $updated->new_values['criterion']);
         $this->assertNotNull($updated->ip_address);
         $this->assertSame($context['teacherUser']->id, $updated->user_id);
     }
 
-    public function test_grade_validates_ib_scale_and_criteria_a_to_d(): void
+    public function test_grade_validates_minedu_vigesimal_scale_and_criteria_a_to_d(): void
     {
         $context = $this->academicContext();
 
-        foreach ([0, 8, 4.5, 20] as $score) {
+        foreach ([-0.01, 20.01, 21] as $score) {
             $this->actingAs($context['teacherUser'], 'sanctum')
                 ->postJson('/api/academic/grades', ['score' => $score] + $this->gradePayload($context))
                 ->assertStatus(422)
@@ -90,7 +94,7 @@ class AcademicTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_recording_grade_dispatches_event_without_computing_risk(): void
+    public function test_recording_and_updating_grade_dispatches_risk_refresh(): void
     {
         Queue::fake();
         $context = $this->academicContext();
@@ -99,15 +103,60 @@ class AcademicTest extends TestCase
             $seen++;
         });
 
+        $gradeId = $this->actingAs($context['teacherUser'], 'sanctum')
+            ->postJson('/api/academic/grades', $this->gradePayload($context))
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertSame(1, $seen);
+        $this->assertSame(0, StudentFeatureSnapshot::query()->count());
+        Queue::assertPushed(EvaluateStudentRiskJob::class, fn (EvaluateStudentRiskJob $job) => $job->studentId === $context['student']->id
+            && $job->periodId === $context['period']->id);
+        Queue::assertNotPushed(RunRiskBatchJob::class);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'grade.recorded']);
+
+        Queue::fake();
+
+        $this->actingAs($context['teacherUser'], 'sanctum')
+            ->putJson("/api/academic/grades/$gradeId", ['score' => 8])
+            ->assertOk();
+
+        Queue::assertPushed(EvaluateStudentRiskJob::class, fn (EvaluateStudentRiskJob $job) => $job->studentId === $context['student']->id
+            && $job->periodId === $context['period']->id);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'grade.updated']);
+    }
+
+    public function test_recording_grade_persists_python_risk_for_the_student(): void
+    {
+        config([
+            'services.python_analytics.url' => 'http://analytics.test',
+            'services.python_analytics.key' => 'test-internal-key',
+        ]);
+        $context = $this->academicContext();
+        Http::fake([
+            'http://analytics.test/v1/students/*' => Http::response([
+                'student_id' => $context['student']->id,
+                'period_id' => $context['period']->id,
+                'model_version' => 'rules-1.0',
+                'insufficient_data' => false,
+                'data_coverage' => 0.25,
+                'risk_level' => RiskPrediction::LEVEL_LOW,
+                'risk_score' => 12.0,
+                'factors' => [],
+                'recommendation' => 'Seguimiento regular.',
+                'needs_human_review' => false,
+            ]),
+        ]);
+
         $this->actingAs($context['teacherUser'], 'sanctum')
             ->postJson('/api/academic/grades', $this->gradePayload($context))
             ->assertCreated();
 
-        $this->assertSame(1, $seen);
-        $this->assertSame(0, StudentFeatureSnapshot::query()->count());
-        Queue::assertNotPushed(EvaluateStudentRiskJob::class);
-        Queue::assertNotPushed(RunRiskBatchJob::class);
-        $this->assertDatabaseHas('audit_logs', ['action' => 'grade.recorded']);
+        $this->assertDatabaseHas('risk_predictions', [
+            'student_id' => $context['student']->id,
+            'academic_period_id' => $context['period']->id,
+            'risk_level' => RiskPrediction::LEVEL_LOW,
+        ]);
     }
 
     public function test_recording_incident_dispatches_event_without_computing_risk(): void
@@ -294,7 +343,7 @@ class AcademicTest extends TestCase
             'evaluation_name' => 'Prueba 1',
             'criterion' => 'B',
             'evaluation_date' => '2026-04-15',
-            'score' => 5,
+            'score' => 16.5,
         ];
     }
 

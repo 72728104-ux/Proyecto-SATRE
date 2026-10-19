@@ -9,14 +9,14 @@ use Throwable;
 
 /**
  * Único cliente HTTP hacia satre-analytics (§2, §4.6, §5).
- * Timeout 8 s, header X-Internal-Key, 1 reintento. Nunca lanza: si Python
- * falla devuelve ['available' => false, 'status' => ?int].
+ * Timeout 30 s y Http::retry(3, 1000) hacia http://127.0.0.1:8001.
+ * Nunca lanza: si Python falla devuelve ['available' => false, 'status' => ?int].
  */
 class PythonAnalyticsClient
 {
-    private const ATTEMPTS = 2;
+    private const ATTEMPTS = 3;
 
-    private const RETRY_SLEEP_MS = 200;
+    private const RETRY_SLEEP_MS = 1000;
 
     public function studentRisk(int $studentId, ?int $periodId = null): array
     {
@@ -51,19 +51,41 @@ class PythonAnalyticsClient
      */
     public function socraticHybrid(array $payload): array
     {
-        // Gemini puede superar el timeout de 8 s del motor determinista.
-        $timeout = max((int) config('services.python_analytics.timeout', 8), 30);
-
         return $this->send(
             'post',
             '/api/v1/analytics/socratic-tutor',
             AnalyticsPrivacy::forHybridTutor($payload),
-            $timeout,
+            30,
+            self::ATTEMPTS,
+            self::RETRY_SLEEP_MS,
         );
     }
 
-    private function send(string $method, string $path, array $data, ?int $timeout = null): array
+    /**
+     * Asistente docente TOBE-5: Gemini + brechas Minedu A–D.
+     *
+     * @param  array{classroom_id: int, user_message: string, student_id?: ?int, history?: list<array{role: string, content: string}>, criterion?: ?string}  $payload
+     */
+    public function teacherAssistant(array $payload): array
     {
+        return $this->send(
+            'post',
+            '/api/v1/analytics/teacher-assistant',
+            AnalyticsPrivacy::forTeacherAssistant($payload),
+            30,
+            self::ATTEMPTS,
+            self::RETRY_SLEEP_MS,
+        );
+    }
+
+    private function send(
+        string $method,
+        string $path,
+        array $data,
+        ?int $timeout = null,
+        ?int $attempts = null,
+        ?int $retrySleepMs = null,
+    ): array {
         $baseUrl = config('services.python_analytics.url');
 
         if (blank($baseUrl)) {
@@ -73,11 +95,15 @@ class PythonAnalyticsClient
         try {
             $response = Http::withHeaders(['X-Internal-Key' => (string) config('services.python_analytics.key')])
                 ->acceptJson()
-                ->timeout($timeout ?? (int) config('services.python_analytics.timeout', 8))
-                ->retry(self::ATTEMPTS, self::RETRY_SLEEP_MS, throw: false)
+                ->timeout($timeout ?? (int) config('services.python_analytics.timeout', 30))
+                ->retry($attempts ?? self::ATTEMPTS, $retrySleepMs ?? self::RETRY_SLEEP_MS, throw: false)
                 ->{$method}(rtrim($baseUrl, '/').$path, $data);
         } catch (Throwable $e) {
-            return $this->unavailable($path, null, class_basename($e));
+            $status = method_exists($e, 'getCode') && is_int($e->getCode()) && $e->getCode() >= 400
+                ? $e->getCode()
+                : null;
+
+            return $this->unavailable($path, $status, class_basename($e), $e->getMessage());
         }
 
         $json = $response->json();
@@ -88,12 +114,12 @@ class PythonAnalyticsClient
                 : 'http_error';
             $message = is_array($json) && is_string($json['message'] ?? null)
                 ? $json['message']
-                : null;
+                : ($response->body() ?: sprintf('HTTP %s desde satre-analytics.', $response->status()));
 
             return $this->unavailable($path, $response->status(), $reason, $message);
         }
 
-        return ['available' => true] + $json;
+        return $json + ['available' => true];
     }
 
     private function unavailable(string $path, ?int $status, string $reason, ?string $message = null): array
@@ -102,6 +128,7 @@ class PythonAnalyticsClient
             'endpoint' => preg_replace('/\d+/', '{id}', $path),
             'status' => $status,
             'reason' => $reason,
+            'message' => $message,
         ]);
 
         return array_filter([

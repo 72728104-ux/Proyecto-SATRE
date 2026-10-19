@@ -21,6 +21,7 @@ class StoreUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'dni' => ['required', 'digits:8', 'unique:users,dni', 'unique:students,dni', 'unique:teachers,dni'],
             'role' => ['required', 'string', Rule::in(Roles::all())],
             'password' => ['nullable', 'string', 'min:10'],
             'profile' => [Rule::requiredIf($this->input('role') !== Roles::ADMIN), 'array'],

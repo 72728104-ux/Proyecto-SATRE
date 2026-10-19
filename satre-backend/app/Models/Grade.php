@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\MineduScale;
 use App\Support\Roles;
 use Database\Factories\GradeFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,15 +14,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Grade extends Model
 {
     /** @use HasFactory<GradeFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, MineduScale, SoftDeletes;
 
-    public const MIN_SCORE = 1;
+    public const MIN_SCORE = 0;
 
-    public const MAX_SCORE = 7;
+    public const MAX_SCORE = 20;
 
-    public const PASSING_SCORE = 4;
+    public const PASSING_SCORE = 11;
 
     public const CRITERIA = ['A', 'B', 'C', 'D'];
+
+    protected $attributes = [
+        'max_score' => self::MAX_SCORE,
+    ];
 
     protected $fillable = [
         'student_id',
@@ -39,8 +44,8 @@ class Grade extends Model
     protected function casts(): array
     {
         return [
-            'score' => 'integer',
-            'max_score' => 'integer',
+            'score' => 'decimal:2',
+            'max_score' => 'decimal:2',
             'evaluation_date' => 'date',
             'recorded_at' => 'datetime',
         ];

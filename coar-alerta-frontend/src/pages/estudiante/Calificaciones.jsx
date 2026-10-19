@@ -8,8 +8,8 @@ import Skeleton from '../../components/Skeleton'
 import { usePagedList } from '../admin/shared/hooks'
 import { FilterBar, LoadError, PageHeader } from '../admin/shared/ui'
 import { formatDate } from '../residencia/shared'
-import ScoreBadge from './ScoreBadge'
-import { CRITERIA, formatScore, useMySummary } from './shared'
+import ScoreBadge from '../../components/ScoreBadge'
+import { CRITERIA, PASSING_SCORE, formatScoreWithLiteral, useMySummary } from './shared'
 
 function CriteriaBreakdown({ courses }) {
   return (
@@ -18,16 +18,16 @@ function CriteriaBreakdown({ courses }) {
         <article key={course.course_id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <h2 className="font-semibold text-navy-950">{course.course_name}</h2>
-            <ScoreBadge value={course.average} />
+            <ScoreBadge value={course.average} literal={course.literal} />
           </div>
           <dl className="mt-4 grid grid-cols-4 gap-2 text-center">
             {CRITERIA.map((criterion) => {
               const value = course.criteria?.[criterion] ?? null
-              const tone = value === null ? 'text-slate-400' : value >= 4 ? 'text-emerald-700' : 'text-rose-700'
+              const tone = value === null ? 'text-slate-400' : value >= PASSING_SCORE ? 'text-emerald-700' : 'text-rose-700'
               return (
                 <div key={criterion} className="rounded-xl bg-slate-50 px-1 py-2">
                   <dt className="text-xs font-medium text-slate-500">Crit. {criterion}</dt>
-                  <dd className={`mt-1 text-lg font-semibold ${tone}`}>{formatScore(value)}</dd>
+                  <dd className={`mt-1 text-lg font-semibold ${tone}`}>{formatScoreWithLiteral(value)}</dd>
                 </div>
               )
             })}
@@ -50,8 +50,8 @@ export default function Calificaciones() {
         title="Mis calificaciones"
         description={
           summary?.grades.average != null
-            ? `Promedio general IB ${formatScore(summary.grades.average)} · escala 1–7, aprobatorio ≥ 4`
-            : 'Notas IB por curso (escala 1–7, aprobatorio ≥ 4) y criterios A–D.'
+            ? `Promedio general ${formatScoreWithLiteral(summary.grades.average, summary.grades.literal)} · escala 0–20, aprobatorio ≥ ${PASSING_SCORE}`
+            : `Notas Minedu por curso (escala 0–20, AD/A/B/C, aprobatorio ≥ ${PASSING_SCORE}) y criterios A–D.`
         }
       />
 
@@ -64,7 +64,7 @@ export default function Calificaciones() {
       ) : selectedCourses.length ? (
         <CriteriaBreakdown courses={selectedCourses} />
       ) : !list.filters.course_id ? (
-        <EmptyState icon={BookOpen} title="Aún no hay notas IB en este periodo." description="Cuando tu docente registre evaluaciones, verás el desglose por criterio A–D." />
+        <EmptyState icon={BookOpen} title="Aún no hay notas en este periodo." description="Cuando tu docente registre evaluaciones, verás el desglose por criterio A–D." />
       ) : null}
 
       <FilterBar>
@@ -97,7 +97,7 @@ export default function Calificaciones() {
             { key: 'course_name', header: 'Curso' },
             { key: 'criterion', header: 'Criterio', render: (row) => (row.criterion ? `Criterio ${row.criterion}` : '—') },
             { key: 'evaluation_date', header: 'Fecha', render: (row) => formatDate(row.evaluation_date) },
-            { key: 'score', header: 'Nota IB', render: (row) => <ScoreBadge value={row.score} max={row.max_score} /> },
+            { key: 'score', header: 'Nota', render: (row) => <ScoreBadge value={row.score} literal={row.literal} /> },
           ]}
           rows={list.rows}
         />

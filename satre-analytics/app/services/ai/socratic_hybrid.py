@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.services.ai.create_protocol import (
     detect_intent,
     next_create_phase,
@@ -19,7 +21,7 @@ from app.services.ai.create_protocol import (
 )
 from app.services.ai.external_client import ExternalAIService
 from app.services.deterministic.grading_scaler import PeruvianGradingScaler
-from app.services.deterministic.risk_engine import calculate_student_risk
+from app.services.deterministic.risk_engine import _empty_analytics, calculate_student_risk
 from app.services.privacy.guardrails import PrivacyGuardService
 
 logger = logging.getLogger("satre.analytics")
@@ -65,7 +67,14 @@ class HybridSocraticService:
         intent: str | None = None,
         criterion: str | None = None,
     ) -> dict[str, Any]:
-        analytics = calculate_student_risk(db, student_id)
+        try:
+            analytics = calculate_student_risk(db, student_id)
+        except SQLAlchemyError:
+            logger.exception(
+                "socratic-hybrid academic context fallback student_hash=%s",
+                hash(student_id) % 10000,
+            )
+            analytics = _empty_analytics(student_id)
         insufficient = bool(analytics.get("insufficient_data"))
         payload = _with_minedu_grade(analytics)
         resolved_intent = intent or detect_intent(user_message)
@@ -87,8 +96,8 @@ class HybridSocraticService:
             "socratic-hybrid invoking gemini student_hash=%s insufficient_data=%s phase=%s intent=%s message_chars=%s",
             hash(student_id) % 10000,
             insufficient,
-            phase,
-            resolved_intent,
+            PrivacyGuardService.sanitize_student_input(phase),
+            PrivacyGuardService.sanitize_student_input(resolved_intent),
             len(safe_message),
         )
         ai_response = await self.ai_client.generate_socratic_guidance(

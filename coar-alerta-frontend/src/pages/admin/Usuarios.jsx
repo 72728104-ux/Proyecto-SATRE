@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext'
 import { API_ROLE_TO_UI, ROLE_LABELS } from '../../data/roles'
 import { useMutation } from '../../hooks/useApi'
 import { notifyError, useEditor, useFormState, usePagedList } from './shared/hooks'
+import { institutionalEmail } from '../../data/institution'
 import { ClassroomSelect, FilterBar, FormModal, LoadError, PageHeader, linkButton, primaryButton } from './shared/ui'
 
 const ROLE_OPTIONS = Object.entries(API_ROLE_TO_UI).map(([slug, ui]) => ({ slug, label: ROLE_LABELS[ui] }))
@@ -38,19 +39,28 @@ const PROFILE_FIELDS = {
 
 function UserFormModal({ editor }) {
   const isNew = !editor.editing.id
+  const { collegeHasResidence } = useAuth()
   const { form, set, bind } = useFormState({
     name: editor.editing.name ?? '',
     email: editor.editing.email ?? '',
+    dni: editor.editing.dni ?? '',
     role: 'teacher',
     password: '',
     profile: {},
   })
   const errors = editor.errors
   const setProfile = (name, value) => set('profile', { ...form.profile, [name]: value })
+  const applyDni = (dni) => {
+    set('dni', dni)
+    const suggested = institutionalEmail(form.role, dni)
+    if (suggested && (!form.email || form.email === institutionalEmail(form.role, form.dni))) {
+      set('email', suggested)
+    }
+  }
 
   const submit = () => {
-    if (!isNew) return editor.submit({ name: form.name, email: form.email })
-    const body = { name: form.name, email: form.email, role: form.role }
+    if (!isNew) return editor.submit({ name: form.name, email: form.email, dni: form.dni })
+    const body = { name: form.name, email: form.email, dni: form.dni, role: form.role }
     if (form.password) body.password = form.password
     if (form.role !== 'admin') body.profile = form.profile
     return editor.submit(body)
@@ -59,7 +69,18 @@ function UserFormModal({ editor }) {
   return (
     <FormModal title={isNew ? 'Nuevo usuario' : 'Editar usuario'} onClose={editor.close} onSubmit={submit} loading={editor.loading}>
       <Field label="Nombre completo" {...bind('name')} error={errors.name} required autoFocus />
-      <Field label="Correo" type="email" {...bind('email')} error={errors.email} required />
+      <Field
+        label="DNI"
+        name="dni"
+        inputMode="numeric"
+        maxLength={8}
+        value={form.dni}
+        onChange={(e) => applyDni(e.target.value.replace(/\D/g, '').slice(0, 8))}
+        error={errors.dni}
+        hint="8 dígitos. El correo institucional se sugiere para alumno y docente."
+        required
+      />
+      <Field label="Correo institucional" type="email" {...bind('email')} error={errors.email} required />
       {isNew ? (
         <>
           <Field
@@ -68,8 +89,11 @@ function UserFormModal({ editor }) {
             name="role"
             value={form.role}
             onChange={(e) => {
-              set('role', e.target.value)
+              const role = e.target.value
+              set('role', role)
               set('profile', {})
+              const suggested = institutionalEmail(role, form.dni)
+              if (suggested) set('email', suggested)
             }}
             error={errors.role}
             required
@@ -109,15 +133,17 @@ function UserFormModal({ editor }) {
                 onChange={(value) => setProfile('classroom_id', value)}
                 error={errors['profile.classroom_id']}
               />
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={Boolean(form.profile.is_boarder)}
-                  onChange={(e) => setProfile('is_boarder', e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                Reside en el internado
-              </label>
+              {collegeHasResidence ? (
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.profile.is_boarder)}
+                    onChange={(e) => setProfile('is_boarder', e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Reside en el internado
+                </label>
+              ) : null}
             </>
           ) : null}
           {errors.profile ? <p className="text-xs text-rose-600">{errors.profile}</p> : null}
@@ -179,6 +205,7 @@ export default function Usuarios() {
 
   const columns = [
     { key: 'name', header: 'Nombre', primary: true },
+    { key: 'dni', header: 'DNI' },
     { key: 'email', header: 'Correo' },
     { key: 'role', header: 'Rol', render: (row) => roleLabel(row.role) },
     {
@@ -231,7 +258,7 @@ export default function Usuarios() {
           label="Buscar"
           type="search"
           name="search"
-          placeholder="Nombre o correo"
+          placeholder="Nombre, correo o DNI"
           value={list.filters.search}
           onChange={(e) => list.setFilter('search', e.target.value)}
           className="sm:col-span-2"

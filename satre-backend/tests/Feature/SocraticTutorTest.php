@@ -6,8 +6,10 @@ use App\Models\AcademicPeriod;
 use App\Models\Classroom;
 use App\Models\Course;
 use App\Models\Enrollment;
+use App\Models\RiskPrediction;
 use App\Models\Role;
 use App\Models\Student;
+use App\Models\TutorMessage;
 use App\Models\TutorSession;
 use App\Models\User;
 use App\Support\Roles;
@@ -27,6 +29,8 @@ class SocraticTutorTest extends TestCase
     private const BASE_URL = 'http://analytics.test';
 
     private const ENDPOINT = '/api/ai-analytics/student/socratic-tutor';
+
+    private const DELETE_ENDPOINT = '/api/v1/socratic/sessions';
 
     private Course $course;
 
@@ -174,7 +178,64 @@ class SocraticTutorTest extends TestCase
         Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
     }
 
-    public function test_gemini_failure_is_reported_without_catalog_fallback(): void
+    public function test_insufficient_academic_context_still_persists_when_gemini_replies(): void
+    {
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response($this->hybridTurn(
+                'conectar',
+                '¿Qué recuerdas de las funciones lineales?',
+                insufficient: true,
+            )),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.reply.text', '¿Qué recuerdas de las funciones lineales?')
+            ->assertJsonPath('data.session.status', TutorSession::STATUS_ACTIVE);
+
+        $this->assertSame(1, TutorSession::query()->count());
+    }
+
+    public function test_analytics_http_500_returns_courtesy_fallback(): void
+    {
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response('upstream crash', 500),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.reply.text', $this->courtesyText('Funciones lineales'));
+
+        $this->assertSame(1, TutorSession::query()->count());
+    }
+
+    public function test_analytics_database_error_returns_200_without_storing(): void
+    {
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response([
+                'available' => false,
+                'insufficient_data' => true,
+                'reason' => 'database_error',
+                'message' => 'No se pudo leer el contexto académico del tutor.',
+            ]),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
+            ->assertOk()
+            ->assertJsonPath('available', false)
+            ->assertJsonPath('data', null)
+            ->assertJsonPath('reason', 'database_error')
+            ->assertJsonPath('message', 'No se pudo leer el contexto académico del tutor.');
+
+        $this->assertSame(0, TutorSession::query()->count());
+    }
+
+    public function test_gemini_failure_uses_courtesy_fallback_without_catalog(): void
     {
         Http::fake([
             self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response([
@@ -183,6 +244,9 @@ class SocraticTutorTest extends TestCase
                     'available' => false,
                     'reason' => 'quota_exhausted',
                     'message' => 'La cuota de la API de IA está agotada.',
+                    'http_status' => 429,
+                    'provider_status' => 'RESOURCE_EXHAUSTED',
+                    'provider_error' => 'quota',
                 ],
             ]),
             self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('diagnostico', 'question', [
@@ -193,13 +257,45 @@ class SocraticTutorTest extends TestCase
         $this->actingAs($this->studentUser, 'sanctum')
             ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
             ->assertOk()
-            ->assertJsonPath('available', false)
-            ->assertJsonPath('data', null)
-            ->assertJsonPath('reason', 'quota_exhausted')
-            ->assertJsonPath('message', 'La cuota de la API de IA está agotada.');
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.session.status', TutorSession::STATUS_ACTIVE)
+            ->assertJsonPath('data.done', false)
+            ->assertJsonFragment(['text' => $this->courtesyText('Funciones lineales')]);
 
         Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
-        $this->assertSame(0, TutorSession::query()->count());
+        $this->assertSame(1, TutorSession::query()->count());
+        $this->assertSame('fallback', TutorSession::query()->sole()->state['engine']);
+    }
+
+    public function test_gemini_http_errors_log_and_return_courtesy_fallback(): void
+    {
+        foreach ([
+            [401, 'auth_error', 'La API Key de IA fue rechazada.'],
+            [429, 'quota_exhausted', 'La cuota de la API de IA está agotada.'],
+            [503, 'api_unavailable', 'La API de IA no está disponible temporalmente.'],
+        ] as [$status, $reason, $message]) {
+            Http::fake([
+                self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response([
+                    'socratic_response' => [
+                        'available' => false,
+                        'reason' => $reason,
+                        'message' => $message,
+                        'http_status' => $status,
+                        'provider_status' => 'UNAVAILABLE',
+                        'provider_error' => "HTTP {$status}",
+                    ],
+                ]),
+            ]);
+
+            $this->actingAs($this->studentUser, 'sanctum')
+                ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Pendiente'])
+                ->assertOk()
+                ->assertJsonPath('available', true)
+                ->assertJsonPath('data.reply.text', $this->courtesyText('Pendiente'));
+
+            TutorMessage::query()->delete();
+            TutorSession::query()->delete();
+        }
     }
 
     public function test_tutor_chat_alias_forwards_to_python_and_persists(): void
@@ -288,17 +384,99 @@ class SocraticTutorTest extends TestCase
         Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/v1/socratic/next'));
     }
 
-    public function test_python_down_returns_200_unavailable_without_storing(): void
+    public function test_hybrid_gemini_path_retries_three_times(): void
+    {
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::sequence()
+                ->push(['message' => 'busy'], 503)
+                ->push(['message' => 'busy'], 503)
+                ->push($this->hybridTurn('conectar', '¿Qué ya sabes de la pendiente?')),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.reply.text', '¿Qué ya sabes de la pendiente?');
+
+        Http::assertSentCount(3);
+    }
+
+    public function test_direct_gemini_flash_is_used_when_analytics_is_down(): void
+    {
+        config([
+            'services.gemini.key' => 'test-gemini-key',
+            'services.gemini.model' => 'gemini-1.5-flash',
+            'services.gemini.base_url' => 'https://generativelanguage.googleapis.com/v1beta',
+        ]);
+
+        Http::fake([
+            self::BASE_URL.'/*' => Http::failedConnection(),
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent' => Http::response([
+                'candidates' => [
+                    ['content' => ['parts' => [['text' => '¿Qué ejemplo cotidiano tiene una pendiente?']]]],
+                ],
+            ]),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.reply.text', '¿Qué ejemplo cotidiano tiene una pendiente?')
+            ->assertJsonPath('data.session.create_phase', 'conectar');
+    }
+
+    public function test_student_can_publish_create_article_in_session(): void
+    {
+        Http::fake();
+        $session = $this->tutorSession(TutorSession::STATUS_ACTIVE);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, [
+                'session_id' => $session->id,
+                'message' => "[ARTICLE_PUBLISH]\nFase: evaluar\nTítulo: Pendiente en la vida diaria\n---\nLa pendiente mide cuánto cambia y al avanzar x.",
+            ])
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.reply.type', 'article')
+            ->assertJsonPath('data.session.article.title', 'Pendiente en la vida diaria')
+            ->assertJsonPath('data.session.article.published', true)
+            ->assertJsonPath('data.session.article.create_phase', 'evaluar');
+
+        $this->assertSame('Pendiente en la vida diaria', $session->fresh()->state['article']['title']);
+        Http::assertNothingSent();
+    }
+
+    public function test_hybrid_mermaid_nodes_with_parentheses_are_quoted(): void
+    {
+        $reply = $this->hybridTurn('explicar', 'Observa el diagrama.');
+        $reply['reply']['diagram_mermaid'] = "flowchart TD\n    A[Inicio (x1, y1)] --> B[Fin]";
+        $reply['socratic_response']['diagram_mermaid'] = $reply['reply']['diagram_mermaid'];
+
+        Http::fake([
+            self::BASE_URL.'/api/v1/analytics/socratic-tutor' => Http::response($reply),
+            self::BASE_URL.'/v1/socratic/next' => Http::response($this->pythonTurn('pista', 'hint')),
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
+            ->assertOk()
+            ->assertJsonPath('data.reply.diagram_mermaid', "flowchart TD\n    A[\"Inicio (x1, y1)\"] --> B[Fin]");
+    }
+
+    public function test_python_down_returns_courtesy_fallback_and_persists(): void
     {
         Http::fake([self::BASE_URL.'/*' => Http::failedConnection()]);
 
         $this->actingAs($this->studentUser, 'sanctum')
             ->postJson(self::ENDPOINT, ['course_id' => $this->course->id, 'topic' => 'Funciones lineales'])
             ->assertOk()
-            ->assertJsonPath('available', false)
-            ->assertJsonPath('data', null);
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.session.status', TutorSession::STATUS_ACTIVE)
+            ->assertJsonPath('data.reply.text', $this->courtesyText('Funciones lineales'));
 
-        $this->assertSame(0, TutorSession::query()->count());
+        $this->assertSame(1, TutorSession::query()->count());
     }
 
     public function test_access_rules_and_validation(): void
@@ -353,7 +531,71 @@ class SocraticTutorTest extends TestCase
             ->assertJsonPath('data.0.messages.0.options.0.text', 'Recta');
     }
 
-    private function hybridTurn(string $phase, string $text, array $options = []): array
+    public function test_student_deletes_own_session_and_article_draft_without_touching_analytics(): void
+    {
+        $session = $this->tutorSession(TutorSession::STATUS_ACTIVE);
+        $session->forceFill([
+            'state' => [
+                'step' => 'pista',
+                'hint_level' => 1,
+                'article' => [
+                    'title' => 'Pendiente cotidiana',
+                    'body' => 'Borrador del artículo.',
+                    'published' => false,
+                ],
+            ],
+        ])->save();
+        $session->messages()->create(['role' => TutorMessage::ROLE_TUTOR, 'content' => '¿Qué ya sabes?', 'meta' => null]);
+        $session->messages()->create(['role' => TutorMessage::ROLE_STUDENT, 'content' => 'Es una recta.', 'meta' => null]);
+
+        $prediction = RiskPrediction::factory()->create([
+            'student_id' => $this->student->id,
+            'academic_period_id' => $this->course->academic_period_id,
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->deleteJson(self::DELETE_ENDPOINT.'/'.$session->id)
+            ->assertOk()
+            ->assertJsonPath('message', 'Sesión eliminada.')
+            ->assertJsonPath('data.id', $session->id);
+
+        $this->assertDatabaseMissing('tutor_sessions', ['id' => $session->id]);
+        $this->assertDatabaseMissing('tutor_messages', ['tutor_session_id' => $session->id]);
+        $this->assertDatabaseHas('risk_predictions', ['id' => $prediction->id]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->getJson(self::ENDPOINT.'/sessions')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_student_cannot_delete_another_students_session(): void
+    {
+        $other = Student::factory()->create();
+        $foreign = TutorSession::query()->create([
+            'student_id' => $other->id,
+            'course_id' => $this->course->id,
+            'topic' => 'Ajeno',
+            'status' => TutorSession::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($this->studentUser, 'sanctum')
+            ->deleteJson(self::DELETE_ENDPOINT.'/'.$foreign->id)
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('tutor_sessions', ['id' => $foreign->id]);
+
+        $this->actingAs($this->userWithRole(Roles::TEACHER), 'sanctum')
+            ->deleteJson(self::DELETE_ENDPOINT.'/'.$foreign->id)
+            ->assertForbidden();
+    }
+
+    private function courtesyText(string $topic): string
+    {
+        return "Ahora no pude consultar al tutor de IA. Mientras se restablece, cuéntame con tus palabras qué recuerdas de «{$topic}». ¿Qué parte te resulta más confusa?";
+    }
+
+    private function hybridTurn(string $phase, string $text, array $options = [], bool $insufficient = false): array
     {
         $reply = [
             'type' => 'question',
@@ -368,7 +610,7 @@ class SocraticTutorTest extends TestCase
         }
 
         return [
-            'insufficient_data' => false,
+            'insufficient_data' => $insufficient,
             'create_phase' => $phase,
             'done' => false,
             'socratic_response' => [

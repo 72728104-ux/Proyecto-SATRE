@@ -77,14 +77,14 @@ def attendance_rows(student_id, present=0, late=0, unexcused=0):
     return pd.DataFrame({"student_id": [student_id] * len(statuses), "status": statuses})
 
 
-def grade_rows(student_id, scores, start=None, step_days=14, course_id=1):
+def grade_rows(student_id, scores, start=None, step_days=14, course_id=1, max_score=7):
     start = start or (TODAY - timedelta(days=step_days * len(scores)))
     return pd.DataFrame({
         "student_id": [student_id] * len(scores),
         "course_id": [course_id] * len(scores),
         "criterion": ["A"] * len(scores),
         "score": scores,
-        "max_score": [7] * len(scores),
+        "max_score": [max_score] * len(scores),
         "evaluation_date": [start + timedelta(days=step_days * i) for i in range(len(scores))],
     })
 

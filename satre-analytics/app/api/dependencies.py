@@ -50,11 +50,19 @@ def get_external_ai_service() -> ExternalAIService:
     """
     from app.core.config import Settings as CoreSettings
 
+    loaded_key = config.ensure_gemini_api_key()
     runtime = config.get_settings()
+    if loaded_key and not runtime.gemini_api_key:
+        config.get_settings.cache_clear()
+        runtime = config.get_settings()
     settings = CoreSettings.model_construct(
         x_internal_key=runtime.internal_key,
-        gemini_api_key=runtime.gemini_api_key,
-        ai_model_name=runtime.ai_model_name,
+        gemini_api_key=loaded_key or runtime.gemini_api_key,
+        ai_model_name=config.resolve_ai_model_name(runtime.ai_model_name),
+        ai_fallback_model_name=config.resolve_ai_model_name(
+            runtime.ai_fallback_model_name,
+            fallback=config.STABLE_AI_FALLBACK_MODEL_NAME,
+        ),
         ai_timeout_seconds=runtime.ai_timeout_seconds,
     )
     return ExternalAIService(settings=settings)

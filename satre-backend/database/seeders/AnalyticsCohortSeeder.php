@@ -8,6 +8,8 @@ use App\Models\Course;
 use App\Models\Role;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Support\InstitutionalIdentity;
+use App\Support\MineduScale;
 use App\Support\Roles;
 use Faker\Generator;
 use Illuminate\Database\Seeder;
@@ -20,11 +22,9 @@ use RuntimeException;
  * Cohorte 4to B para probar el motor de riesgo (§5.3) y los insights por criterio.
  * No altera 5to A: los estudiantes llevan código ANL-001…ANL-030.
  */
-class DemoAnalyticsSeeder extends Seeder
+class AnalyticsCohortSeeder extends Seeder
 {
-    private const PASSWORD = 'coar2026';
-
-    private const TEACHER_EMAIL = 'tutor.4b@coar.edu.pe';
+    private const TEACHER_DNI = InstitutionalIdentity::COHORT_TEACHER_DNI;
 
     private const ADMIN_EMAIL = 'admin@coar.edu.pe';
 
@@ -49,9 +49,13 @@ class DemoAnalyticsSeeder extends Seeder
 
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
+
         $period = AcademicPeriod::query()->where('is_current', true)->orderByDesc('id')->first();
         if ($period === null) {
-            $this->command?->warn('DemoAnalyticsSeeder: no hay periodo académico actual. Se omite la cohorte.');
+            $this->command?->warn('AnalyticsCohortSeeder: no hay periodo académico actual. Se omite la cohorte.');
 
             return;
         }
@@ -60,12 +64,22 @@ class DemoAnalyticsSeeder extends Seeder
         $this->report($summary);
     }
 
+    private function seedSecret(): string
+    {
+        $secret = (string) config('satre.seed_secret');
+        if ($secret === '') {
+            throw new RuntimeException('SATRE_SEED_SECRET must be set to seed local users.');
+        }
+
+        return $secret;
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function seedCohort(AcademicPeriod $period, Generator $faker): array
     {
-        $this->purgeDemoCohort();
+        $this->purgeSeedCohort();
 
         $asOf = $this->asOf($period);
         if ($period->start_date->copy()->startOfDay()->gt($asOf->copy()->subDays(7))) {
@@ -105,10 +119,12 @@ class DemoAnalyticsSeeder extends Seeder
             $profile = $slot['profile'];
             $ordinal = $slot['ordinal'];
 
+            $dni = sprintf('82%06d', $number);
             $studentId = DB::table('students')->insertGetId([
                 'user_id' => null,
                 'student_code' => $code,
-                'document_number' => sprintf('82%06d', $number),
+                'document_number' => $dni,
+                'dni' => $dni,
                 'first_name' => $faker->firstName(),
                 'last_name' => $faker->lastName().' '.$faker->lastName(),
                 'status' => 'active',
@@ -222,7 +238,7 @@ class DemoAnalyticsSeeder extends Seeder
             'counts' => $counts,
             'grave' => $grave,
             'sparse' => $sparse,
-            'teacher_email' => self::TEACHER_EMAIL,
+            'teacher_email' => InstitutionalIdentity::cohortTeacherEmail(),
             'teacher_name' => $teacher->user->name,
         ];
     }
@@ -249,21 +265,37 @@ class DemoAnalyticsSeeder extends Seeder
             throw new RuntimeException('No existe el rol teacher. Ejecuta RoleSeeder primero.');
         }
 
-        $user = User::query()->updateOrCreate(
-            ['email' => self::TEACHER_EMAIL],
-            [
-                'name' => 'Ana Flores Cárdenas',
-                'role_id' => $roleId,
-                'password' => self::PASSWORD,
-                'must_change_password' => false,
-                'password_changed_at' => now(),
-                'is_active' => true,
-            ]
-        );
+        $email = InstitutionalIdentity::cohortTeacherEmail();
+        $user = User::query()
+            ->where('dni', self::TEACHER_DNI)
+            ->orWhere('email', $email)
+            ->orWhere('email', 'tutor.4b@coar.edu.pe')
+            ->first();
+
+        $payload = [
+            'dni' => self::TEACHER_DNI,
+            'email' => $email,
+            'name' => 'Ana Flores Cárdenas',
+            'role_id' => $roleId,
+            'password' => $this->seedSecret(),
+            'must_change_password' => false,
+            'password_changed_at' => now(),
+            'is_active' => true,
+        ];
+
+        if ($user) {
+            $user->fill($payload)->save();
+        } else {
+            $user = User::query()->create($payload);
+        }
 
         return Teacher::query()->updateOrCreate(
             ['user_id' => $user->id],
-            ['employee_code' => 'DOC-4B01', 'specialty' => 'Ciencias IB']
+            [
+                'employee_code' => 'DOC-4B01',
+                'dni' => self::TEACHER_DNI,
+                'specialty' => 'Ciencias IB',
+            ]
         );
     }
 
@@ -423,8 +455,8 @@ class DemoAnalyticsSeeder extends Seeder
                 'evaluation_name' => 'Criterio '.$spec['criterion'].' · '.self::CRITERION_LABELS[$spec['criterion']].' '.$spec['round'],
                 'criterion' => $spec['criterion'],
                 'evaluation_date' => $dates[$index],
-                'score' => $spec['score'],
-                'max_score' => 7,
+                'score' => MineduScale::normalize($spec['score'], 7),
+                'max_score' => MineduScale::MAX,
                 'recorded_by' => $recorderId,
                 'recorded_at' => $recordedAt->toDateTimeString(),
                 'created_at' => $now,
@@ -683,8 +715,8 @@ class DemoAnalyticsSeeder extends Seeder
                 'evaluation_name' => 'Criterio '.$criterion.' · registro parcial',
                 'criterion' => $criterion,
                 'evaluation_date' => $gradeDates[$index],
-                'score' => $score,
-                'max_score' => 7,
+                'score' => MineduScale::normalize($score, 7),
+                'max_score' => MineduScale::MAX,
                 'recorded_by' => $recorderId,
                 'recorded_at' => Carbon::parse($gradeDates[$index])->setTime(11, 15)->toDateTimeString(),
                 'created_at' => $now,
@@ -771,7 +803,7 @@ class DemoAnalyticsSeeder extends Seeder
         }
     }
 
-    private function purgeDemoCohort(): void
+    private function purgeSeedCohort(): void
     {
         $ids = DB::table('students')->where('student_code', 'like', 'ANL-%')->pluck('id');
         if ($ids->isEmpty()) {
@@ -839,8 +871,8 @@ class DemoAnalyticsSeeder extends Seeder
             ),
             'Escalamiento (grave salud/emocional en los 7 días previos al corte):',
             ...array_map(fn (string $line) => '  '.$line, $summary['grave']),
-            'Credenciales (contraseña '.self::PASSWORD.'):',
-            sprintf('  Admin: %s (%s)', self::ADMIN_EMAIL, $admin?->name ?? 'DemoUserSeeder'),
+            'Credenciales (usar SATRE_SEED_SECRET):',
+            sprintf('  Admin: %s (%s)', self::ADMIN_EMAIL, $admin?->name ?? 'seeder de usuarios'),
             sprintf('  Docente del aula: %s (%s)', $summary['teacher_email'], $summary['teacher_name']),
         ];
 

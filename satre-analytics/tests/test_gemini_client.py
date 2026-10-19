@@ -10,8 +10,11 @@ from app.core import config as core_config
 from app.services.ai.create_protocol import SocraticCreateTurn
 from app.services.ai.external_client import (
     DEFAULT_MODEL_NAME,
+    TEACHER_ASSISTANT_FALLBACK_MODEL,
     ExternalAIService,
+    TeacherAssistantReply,
     TeacherPedagogicalPlan,
+    _load_gemini_key_from_dotenv,
     generate_content,
     get_client,
 )
@@ -63,21 +66,46 @@ def gemini_env(monkeypatch):
     monkeypatch.setenv("INTERNAL_KEY", "k" * 32)
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key-not-real")
     monkeypatch.setenv("AI_MODEL_NAME", DEFAULT_MODEL_NAME)
+    monkeypatch.setenv("AI_FALLBACK_MODEL_NAME", DEFAULT_MODEL_NAME)
     monkeypatch.setenv("AI_TIMEOUT_SECONDS", "10")
     _clear_caches()
     yield
     _clear_caches()
 
 
+def test_ensure_gemini_api_key_reads_dotenv_when_process_key_is_blank(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text("GEMINI_API_KEY=dotenv-loaded-key-not-real\n", encoding="utf-8")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    assert config.ensure_gemini_api_key(env_file) == "dotenv-loaded-key-not-real"
+    assert os.environ["GEMINI_API_KEY"] == "dotenv-loaded-key-not-real"
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    assert _load_gemini_key_from_dotenv(env_file) == "dotenv-loaded-key-not-real"
+
+
+def test_unstable_model_alias_uses_stable_flash():
+    assert config.resolve_ai_model_name("gemini-3.5-flash-lite") == "gemini-1.5-flash"
+    assert config.resolve_ai_model_name("gemini-3.8-flash") == "gemini-1.5-flash"
+    assert config.resolve_ai_model_name("gemini-1.5-flash") == "gemini-1.5-flash"
+    assert (
+        config.resolve_ai_model_name(
+            "gemini-3.5-flash-lite",
+            fallback=config.STABLE_AI_FALLBACK_MODEL_NAME,
+        )
+        == "gemini-1.5-flash-8b"
+    )
+
+
 def test_core_settings_default_model_and_timeout():
-    assert core_config.Settings.model_fields["ai_model_name"].default == "gemini-3.8-flash"
-    assert core_config.Settings.model_fields["ai_timeout_seconds"].default == 20.0
-    assert DEFAULT_MODEL_NAME == "gemini-3.8-flash"
+    assert core_config.Settings.model_fields["ai_model_name"].default == "gemini-1.5-flash"
+    assert core_config.Settings.model_fields["ai_fallback_model_name"].default == "gemini-1.5-flash-8b"
+    assert core_config.Settings.model_fields["ai_timeout_seconds"].default == 30.0
+    assert DEFAULT_MODEL_NAME == "gemini-1.5-flash"
 
 
 def test_generate_content_uses_ai_model_name(monkeypatch, gemini_env):
     class SyncModels:
-        def generate_content(self, model, contents):
+        def generate_content(self, model, contents, config=None):
             assert model == DEFAULT_MODEL_NAME
             assert contents == "explica la pendiente"
             return FakeResponse(text="  pista socratica  ")
@@ -101,14 +129,17 @@ def test_get_settings_reads_gemini_env(monkeypatch):
     monkeypatch.setenv("INTERNAL_KEY", "k" * 32)
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key-not-real")
     monkeypatch.setenv("AI_MODEL_NAME", DEFAULT_MODEL_NAME)
+    monkeypatch.setenv("AI_FALLBACK_MODEL_NAME", DEFAULT_MODEL_NAME)
     _clear_caches()
     try:
         legacy = config.get_settings()
         core = core_config.get_settings()
         assert legacy.gemini_api_key == "test-gemini-key-not-real"
         assert legacy.ai_model_name == DEFAULT_MODEL_NAME
+        assert legacy.ai_fallback_model_name == DEFAULT_MODEL_NAME
         assert core.gemini_api_key == "test-gemini-key-not-real"
         assert core.ai_model_name == DEFAULT_MODEL_NAME
+        assert core.ai_fallback_model_name == DEFAULT_MODEL_NAME
         assert core.internal_key == "k" * 32
     finally:
         _clear_caches()
@@ -137,6 +168,8 @@ async def test_socratic_uses_pedagogical_system_instruction(gemini_env):
         instruction = config.system_instruction
         assert "No entregues la respuesta final" in instruction
         assert "C.R.E.A.T.E." in instruction
+        assert 'A["Inicio (x1, y1)"]' in instruction
+        assert "comillas dobles" in instruction
         assert PrivacyGuardService.SYSTEM_PRIVACY_INSTRUCTION[:40] in instruction
         assert config.response_mime_type == "application/json"
         assert config.response_schema is SocraticCreateTurn
@@ -190,6 +223,63 @@ async def test_teacher_plan_forces_json_schema(gemini_env):
     assert result["summary"] == plan.summary
     assert result["actions"] == plan.actions
     assert result["materials"] == plan.materials
+
+
+@pytest.mark.asyncio
+async def test_teacher_assistant_forces_json_schema_and_minedu_prompt(gemini_env):
+    reply = TeacherAssistantReply(
+        text="Para el criterio D, usa un taller de producción.",
+        summary="Remedial en criterio D",
+        actions=["Rúbrica analítica D"],
+        materials=["Ficha MINEDU"],
+        criterion_focus="D",
+    )
+
+    async def handler(_model, contents, config):
+        assert config.response_mime_type == "application/json"
+        assert config.response_schema is TeacherAssistantReply
+        assert "escala Minedu" in config.system_instruction or "Minedu" in config.system_instruction
+        prompt = contents[-1].parts[0].text
+        assert "0–20" in prompt or "0-20" in prompt or "MINEDU" in prompt
+        return FakeResponse(text=reply.model_dump_json(), parsed=reply)
+
+    service = ExternalAIService(
+        client=FakeClient(handler),
+        settings=core_config.get_settings(),
+    )
+    result = await service.generate_teacher_assistant(
+        system_privacy=PrivacyGuardService.SYSTEM_PRIVACY_INSTRUCTION,
+        context={"scale": "minedu_0_20", "passing_score": 11, "criterion_focus": "D"},
+        sanitized_message="¿Qué actividades remediales sugieres para la competencia D?",
+    )
+    assert result["available"] is True
+    assert result["text"] == reply.text
+    assert result["actions"] == reply.actions
+    assert result["criterion_focus"] == "D"
+    assert TEACHER_ASSISTANT_FALLBACK_MODEL == "gemini-1.5-flash-8b"
+
+
+@pytest.mark.asyncio
+async def test_auth_error_returns_available_false(gemini_env):
+    async def handler(_model, _contents, _config):
+        raise errors.ClientError(
+            401,
+            {"error": {"code": 401, "status": "UNAUTHENTICATED", "message": "API key invalid"}},
+        )
+
+    service = ExternalAIService(
+        client=FakeClient(handler),
+        settings=core_config.get_settings(),
+    )
+    result = await service.generate_socratic_guidance(
+        system_privacy=PrivacyGuardService.SYSTEM_PRIVACY_INSTRUCTION,
+        context={"anonymous_id": "STUDENT_UUID_test"},
+        sanitized_message="ayuda",
+    )
+    assert result["available"] is False
+    assert result["reason"] == "auth_error"
+    assert result["http_status"] == 401
+    assert result["provider_status"] == "UNAUTHENTICATED"
 
 
 @pytest.mark.asyncio
@@ -263,6 +353,8 @@ async def test_service_unavailable_returns_available_false(gemini_env):
     )
     assert result["available"] is False
     assert result["reason"] == "api_unavailable"
+    assert result["http_status"] == 503
+    assert result["provider_status"] == "UNAVAILABLE"
 
 
 @pytest.mark.asyncio
@@ -284,3 +376,77 @@ async def test_safety_blocked_response(gemini_env):
     )
     assert result["available"] is False
     assert result["reason"] == "safety_blocked"
+
+
+@pytest.mark.asyncio
+async def test_capacity_error_falls_back_to_secondary_model(gemini_env, monkeypatch):
+    monkeypatch.setenv("AI_MODEL_NAME", "gemini-1.5-flash")
+    monkeypatch.setenv("AI_FALLBACK_MODEL_NAME", "gemini-1.5-flash-8b")
+    _clear_caches()
+    turn = SocraticCreateTurn(
+        create_phase="conectar",
+        explanation="¿Qué ya sabes de la pendiente?",
+        reflection="Comprueba tu definición.",
+    )
+    models_tried = []
+
+    async def handler(model, _contents, _config):
+        models_tried.append(model)
+        if model == "gemini-1.5-flash":
+            raise errors.ServerError(
+                503,
+                {"error": {"code": 503, "status": "UNAVAILABLE", "message": "high demand"}},
+            )
+        return FakeResponse(text=turn.model_dump_json(), parsed=turn)
+
+    service = ExternalAIService(
+        client=FakeClient(handler),
+        settings=core_config.get_settings(),
+    )
+    result = await service.generate_socratic_guidance(
+        system_privacy=PrivacyGuardService.SYSTEM_PRIVACY_INSTRUCTION,
+        context={"anonymous_id": "STUDENT_UUID_test"},
+        sanitized_message="ayuda",
+    )
+    assert models_tried == ["gemini-1.5-flash", "gemini-1.5-flash-8b"]
+    assert result["available"] is True
+    assert "pendiente" in result["explanation"]
+
+
+@pytest.mark.asyncio
+async def test_unknown_model_falls_back_and_logs_provider_error(gemini_env, monkeypatch, capsys, caplog):
+    monkeypatch.setenv("AI_MODEL_NAME", "gemini-3.5-flash-lite")
+    monkeypatch.setenv("AI_FALLBACK_MODEL_NAME", "gemini-1.5-flash-8b")
+    _clear_caches()
+    turn = SocraticCreateTurn(
+        create_phase="conectar",
+        explanation="¿Qué ya sabes de la pendiente?",
+        reflection="Comprueba tu definición.",
+    )
+    models_tried = []
+
+    async def handler(model, _contents, _config):
+        models_tried.append(model)
+        if model == "gemini-1.5-flash":
+            raise errors.ClientError(
+                404,
+                {"error": {"code": 404, "status": "NOT_FOUND", "message": "model not found"}},
+            )
+        return FakeResponse(text=turn.model_dump_json(), parsed=turn)
+
+    service = ExternalAIService(
+        client=FakeClient(handler),
+        settings=core_config.get_settings(),
+    )
+    assert service._model == "gemini-1.5-flash"
+    result = await service.generate_socratic_guidance(
+        system_privacy=PrivacyGuardService.SYSTEM_PRIVACY_INSTRUCTION,
+        context={"anonymous_id": "STUDENT_UUID_test"},
+        sanitized_message="ayuda",
+    )
+    captured = capsys.readouterr()
+    assert models_tried == ["gemini-1.5-flash", "gemini-1.5-flash-8b"]
+    assert result["available"] is True
+    assert "[satre-analytics] Gemini APIError" in captured.out
+    assert "model not found" in captured.out.lower() or "NOT_FOUND" in captured.out
+    assert "gemini APIError" in caplog.text.lower() or "NOT_FOUND" in caplog.text

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Support\InstitutionalIdentity;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -17,9 +18,9 @@ class AuthService
     /**
      * @return array{token: string, expires_at: Carbon, user: User}
      */
-    public function login(string $email, string $password): array
+    public function login(string $identifier, string $password): array
     {
-        $user = User::query()->with('role')->where('email', $email)->first();
+        $user = $this->findByLogin($identifier);
 
         if ($user === null || ! Hash::check($password, $user->password)) {
             throw ValidationException::withMessages([
@@ -126,6 +127,18 @@ class AuthService
                 'email' => 'El enlace de restablecimiento no es válido o ha expirado.',
             ]);
         }
+    }
+
+    private function findByLogin(string $identifier): ?User
+    {
+        $identifier = trim($identifier);
+        $query = User::query()->with('role');
+
+        if (InstitutionalIdentity::isDni($identifier)) {
+            return $query->where('dni', $identifier)->first();
+        }
+
+        return $query->where('email', $identifier)->first();
     }
 
     /**

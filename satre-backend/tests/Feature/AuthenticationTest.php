@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Support\InstitutionalIdentity;
 use App\Support\Roles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +32,39 @@ class AuthenticationTest extends TestCase
             'email' => 'tutor@coar.edu.pe',
             'password' => 'incorrecta',
         ])->assertStatus(422);
+    }
+
+    public function test_login_accepts_institutional_email_or_dni(): void
+    {
+        $this->createUserWithRole(Roles::TEACHER, [
+            'name' => 'Luis Mendoza Aliaga',
+            'email' => InstitutionalIdentity::seededTeacherEmail(),
+            'dni' => InstitutionalIdentity::TEACHER_DNI,
+            'password' => 'coar2026',
+        ]);
+
+        $this->postJson('/api/auth/login', [
+            'email' => InstitutionalIdentity::seededTeacherEmail(),
+            'password' => 'coar2026',
+        ])->assertOk()
+            ->assertJsonPath('user.email', InstitutionalIdentity::seededTeacherEmail())
+            ->assertJsonPath('user.dni', InstitutionalIdentity::TEACHER_DNI);
+
+        $this->postJson('/api/auth/login', [
+            'email' => InstitutionalIdentity::TEACHER_DNI,
+            'password' => 'coar2026',
+        ])->assertOk()
+            ->assertJsonPath('user.email', InstitutionalIdentity::seededTeacherEmail())
+            ->assertJsonPath('user.dni', InstitutionalIdentity::TEACHER_DNI);
+    }
+
+    public function test_login_rejects_identifier_that_is_neither_email_nor_dni(): void
+    {
+        $this->postJson('/api/auth/login', [
+            'email' => '1234567',
+            'password' => 'coar2026',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
     }
 
     public function test_login_returns_token_and_role_for_active_user(): void
@@ -134,7 +168,8 @@ class AuthenticationTest extends TestCase
             ->getJson('/api/auth/me')
             ->assertOk()
             ->assertJsonPath('user.id', $user->id)
-            ->assertJsonPath('user.role.slug', Roles::MONITOR);
+            ->assertJsonPath('user.role.slug', Roles::MONITOR)
+            ->assertJsonPath('user.college_has_residence', true);
 
         $this->withToken($token)
             ->postJson('/api/auth/logout')
@@ -147,6 +182,26 @@ class AuthenticationTest extends TestCase
         $this->withToken($token)
             ->getJson('/api/auth/me')
             ->assertUnauthorized();
+    }
+
+    public function test_profile_exposes_college_residence_flag_from_config(): void
+    {
+        $user = $this->createUserWithRole(Roles::TEACHER, [
+            'email' => 'tutor@coar.edu.pe',
+            'password' => 'coar2026',
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertJsonPath('user.college_has_residence', true);
+
+        config(['app.college_has_residence' => false]);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertJsonPath('user.college_has_residence', false);
     }
 
     private function createUserWithRole(string $slug, array $attributes): User

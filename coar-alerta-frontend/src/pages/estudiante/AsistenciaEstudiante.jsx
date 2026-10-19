@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BedDouble, ClipboardCheck } from 'lucide-react'
 import { fetchMyAttendances, fetchMyPresences } from '../../api/student'
+import { useAuth } from '../../context/AuthContext'
 import DataTable from '../../components/DataTable'
 import EmptyState from '../../components/EmptyState'
 import Field from '../../components/Field'
@@ -97,8 +98,10 @@ function ResidenceAttendance() {
 
 export default function AsistenciaEstudiante() {
   const [tab, setTab] = useState('classroom')
+  const { collegeHasResidence } = useAuth()
   const { summary } = useMySummary()
   const rate = summary?.attendance?.rate
+  const tabs = collegeHasResidence ? TABS : TABS.filter((item) => item.id !== 'residence')
 
   return (
     <div className="space-y-4">
@@ -107,29 +110,37 @@ export default function AsistenciaEstudiante() {
         description={
           rate != null
             ? `Asistencia a clases del periodo: ${formatRate(rate)} (presente o tardanza).`
-            : 'Historial de asistencia en aula y controles de residencia.'
+            : collegeHasResidence
+              ? 'Historial de asistencia en aula y controles de residencia.'
+              : 'Historial de asistencia en aula.'
         }
       />
 
-      <div role="tablist" aria-label="Tipo de asistencia" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:inline-grid sm:w-auto">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium ${
-              tab === id ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600 hover:text-navy-900'
-            }`}
-          >
-            <Icon size={16} />
-            {label}
-          </button>
-        ))}
-      </div>
+      {tabs.length > 1 ? (
+        <div role="tablist" aria-label="Tipo de asistencia" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:inline-grid sm:w-auto">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium ${
+                tab === id ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600 hover:text-navy-900'
+              }`}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      {tab === 'classroom' ? <ClassroomAttendance courses={summary?.courses ?? []} /> : <ResidenceAttendance />}
+      {tab === 'classroom' || !collegeHasResidence ? (
+        <ClassroomAttendance courses={summary?.courses ?? []} />
+      ) : (
+        <ResidenceAttendance />
+      )}
     </div>
   )
 }

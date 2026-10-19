@@ -2,7 +2,8 @@ import { fetchMyRisk, fetchMySummary } from '../../api/student'
 import { useApi } from '../../hooks/useApi'
 import { useLoadErrorToast } from '../admin/shared/hooks'
 
-export const PASSING_SCORE = 4
+export { PASSING_SCORE, formatScore, formatScoreWithLiteral } from '../../utils/mineduScale'
+
 export const CRITERIA = ['A', 'B', 'C', 'D']
 
 export const ALERT_STATUS = {
@@ -38,7 +39,6 @@ export const TUTOR_STATUS = {
   no_catalog: { label: 'Sin guía', badge: 'observado' },
 }
 
-export const formatScore = (value) => (value === null || value === undefined ? '—' : Number(value).toFixed(1))
 export const formatRate = (rate) => (rate === null || rate === undefined ? '—' : `${Math.round(rate * 1000) / 10}%`)
 
 export function useMySummary() {

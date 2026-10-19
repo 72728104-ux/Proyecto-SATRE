@@ -7,13 +7,14 @@ from unittest.mock import AsyncMock
 import pandas as pd
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import OperationalError
 
 from app import config
 from app.api.dependencies import verify_internal_key
 from app.services.ai.socratic_hybrid import HybridSocraticService
 from app.services.ai.teacher_hybrid import HybridTeacherReportService
 from app.services.deterministic.grading_scaler import PeruvianGradingScaler
-from app.services.deterministic.risk_engine import calculate_student_risk, ib_mean_to_vigesimal
+from app.services.deterministic.risk_engine import calculate_student_risk, vigesimal_score
 from tests.conftest import FakeRepository, attendance_rows, grade_rows
 
 STUDENT_ID = 12
@@ -34,11 +35,15 @@ class ForbiddenAI:
     async def generate_teacher_recommendation(self, **_kwargs):
         raise AssertionError("Gemini no debe invocarse cuando insufficient_data es True")
 
+    async def generate_teacher_assistant(self, **_kwargs):
+        raise AssertionError("Gemini no debe invocarse en este caso")
+
 
 class RecordingAI:
     def __init__(self):
         self.socratic_calls: list[dict] = []
         self.teacher_calls: list[dict] = []
+        self.assistant_calls: list[dict] = []
 
     async def generate_socratic_guidance(self, **kwargs):
         self.socratic_calls.append(kwargs)
@@ -53,6 +58,17 @@ class RecordingAI:
             "materials": ["Ficha MINEDU de recuperación"],
         }
 
+    async def generate_teacher_assistant(self, **kwargs):
+        self.assistant_calls.append(kwargs)
+        return {
+            "available": True,
+            "text": "Para el criterio D, usa rúbricas analíticas y un taller de producción.",
+            "summary": "Remedial en criterio D (En Inicio)",
+            "actions": ["Taller de producción con rúbrica D"],
+            "materials": ["Ficha MINEDU de recuperación"],
+            "criterion_focus": "D",
+        }
+
 
 def _student_frame(student_id: int = STUDENT_ID) -> pd.DataFrame:
     return pd.DataFrame([{"student_id": student_id, "classroom_id": 7, "is_boarder": 1}])
@@ -62,7 +78,14 @@ def insufficient_repo(student_id: int = STUDENT_ID) -> FakeRepository:
     return FakeRepository(
         students=_student_frame(student_id),
         attendance=attendance_rows(student_id, present=2),
-        grades=grade_rows(student_id, [5]),
+    )
+
+
+def one_minedu_grade_repo(student_id: int = STUDENT_ID) -> FakeRepository:
+    return FakeRepository(
+        students=_student_frame(student_id),
+        attendance=attendance_rows(student_id, present=1),
+        grades=grade_rows(student_id, [16.5], max_score=20),
     )
 
 
@@ -70,27 +93,77 @@ def sufficient_repo(student_id: int = STUDENT_ID, scores=None) -> FakeRepository
     return FakeRepository(
         students=_student_frame(student_id),
         attendance=attendance_rows(student_id, present=8),
-        grades=grade_rows(student_id, scores or [5, 5, 5]),
+        grades=grade_rows(student_id, scores or [6, 6, 6]),
     )
 
 
-def test_ib_mean_to_vigesimal_and_minedu_label():
-    vigesimal = ib_mean_to_vigesimal(5.0)
-    assert vigesimal == pytest.approx(14.29)
+CLASSROOM_ID = 7
+ASSISTANT_PII_MESSAGE = (
+    "Soy Ana Pérez Rojas, DNI 74839201, "
+    "¿qué actividades remediales sugieres para la competencia D en este grupo?"
+)
+ASSISTANT_PII_HISTORY = [
+    {"role": "teacher", "content": "El alumno José Luis Quispe tiene DNI 12345678"},
+    {"role": "assistant", "content": "Reformulemos sin datos personales."},
+]
+
+
+def classroom_repo(student_id: int = STUDENT_ID) -> FakeRepository:
+    rows = []
+    for sid, scores in ((student_id, {"A": 15, "B": 12, "C": 11, "D": 8}), (student_id + 1, {"A": 16, "B": 13, "C": 10, "D": 7})):
+        for criterion, score in scores.items():
+            rows.append({
+                "student_id": sid,
+                "course_id": 1,
+                "course_code": "MAT-AA",
+                "course_name": "Matematicas",
+                "criterion": criterion,
+                "score": score,
+                "max_score": 20,
+            })
+    other = student_id + 1
+    return FakeRepository(
+        students=pd.DataFrame([
+            {"student_id": student_id, "classroom_id": CLASSROOM_ID, "is_boarder": 1},
+            {"student_id": other, "classroom_id": CLASSROOM_ID, "is_boarder": 0},
+        ]),
+        attendance=pd.concat([
+            attendance_rows(student_id, present=8),
+            attendance_rows(other, present=8),
+        ]),
+        grades=pd.concat([
+            grade_rows(student_id, [16, 15, 14], max_score=20),
+            grade_rows(other, [10, 9, 8], max_score=20),
+        ]),
+        classroom_grades=pd.DataFrame(rows),
+    )
+
+
+def test_vigesimal_score_is_native_minedu_scale():
+    vigesimal = vigesimal_score(16.0)
+    assert vigesimal == pytest.approx(16.0)
     assert PeruvianGradingScaler.to_qualitative(vigesimal) == "A"
 
 
-def test_calculate_student_risk_marks_insufficient_below_min_evaluations():
+def test_calculate_student_risk_marks_insufficient_without_grades():
     analytics = calculate_student_risk(insufficient_repo(), STUDENT_ID)
     assert analytics["insufficient_data"] is True
     assert analytics["risk_score"] is None
 
 
+def test_calculate_student_risk_assigns_level_with_one_minedu_grade():
+    analytics = calculate_student_risk(one_minedu_grade_repo(), STUDENT_ID)
+    assert analytics["insufficient_data"] is False
+    assert analytics["risk_level"] in {"BAJO", "MEDIO", "ALTO"}
+    assert analytics["grade_count"] == 1
+    assert analytics["vigesimal_score"] == pytest.approx(16.5)
+
+
 def test_calculate_student_risk_exposes_vigesimal_when_data_suffices():
     analytics = calculate_student_risk(sufficient_repo(), STUDENT_ID)
     assert analytics["insufficient_data"] is False
-    assert analytics["vigesimal_score"] == pytest.approx(14.29)
-    assert analytics["grade_mean"] == pytest.approx(5.0)
+    assert analytics["vigesimal_score"] == pytest.approx(17.14)
+    assert analytics["grade_mean"] == pytest.approx(17.142857, abs=0.01)
 
 
 @pytest.mark.asyncio
@@ -103,6 +176,29 @@ async def test_socratic_calls_gemini_even_with_insufficient_data():
     assert result["socratic_response"]["guidance"].startswith("¿Qué variable")
     assert len(ai.socratic_calls) == 1
     assert "74839201" not in ai.socratic_calls[0]["sanitized_message"]
+
+
+class BrokenAcademicRepo(FakeRepository):
+    def get_student(self, student_id):
+        raise OperationalError("SELECT", {"student_id": student_id}, Exception("no such table: students"))
+
+
+def test_calculate_student_risk_returns_empty_when_query_fails():
+    analytics = calculate_student_risk(BrokenAcademicRepo(), STUDENT_ID)
+    assert analytics["insufficient_data"] is True
+    assert analytics["risk_score"] is None
+
+
+@pytest.mark.asyncio
+async def test_socratic_calls_gemini_when_academic_context_query_fails():
+    ai = RecordingAI()
+    result = await HybridSocraticService(ai).process_interaction(
+        BrokenAcademicRepo(), STUDENT_ID, "explica la pendiente",
+    )
+    assert result["insufficient_data"] is True
+    assert result["socratic_response"]["guidance"].startswith("¿Qué variable")
+    assert len(ai.socratic_calls) == 1
+    assert ai.socratic_calls[0]["sanitized_message"] == "explica la pendiente"
 
 
 @pytest.mark.asyncio
@@ -192,10 +288,77 @@ async def test_teacher_hybrid_returns_metrics_plus_pedagogical_plan():
     assert "dni" not in context
 
 
+@pytest.mark.asyncio
+async def test_teacher_assistant_calls_gemini_with_sanitized_classroom_query():
+    ai = RecordingAI()
+    result = await HybridTeacherReportService(ai).answer_teacher_query(
+        classroom_repo(),
+        CLASSROOM_ID,
+        ASSISTANT_PII_MESSAGE,
+        ASSISTANT_PII_HISTORY,
+        criterion="D",
+    )
+
+    assert result["available"] is True
+    assert result["insufficient_data"] is False
+    assert result["scope"] == "classroom"
+    assert result["deterministic_metrics"]["passing_score"] == 11
+    assert result["deterministic_metrics"]["criteria"] == ["A", "B", "C", "D"]
+    assert result["assistant_response"]["text"].startswith("Para el criterio D")
+    assert result["assistant_response"]["recommended_actions"] == ["Taller de producción con rúbrica D"]
+    assert result["assistant_response"]["criterion_focus"] == "D"
+
+    assert len(ai.assistant_calls) == 1
+    call = ai.assistant_calls[0]
+    assert "74839201" not in call["sanitized_message"]
+    assert "Ana Pérez Rojas" not in call["sanitized_message"]
+    assert "[DNI_PROTEGIDO]" in call["sanitized_message"]
+    assert "[ESTUDIANTE_ANONIMO]" in call["sanitized_message"]
+    history_blob = str(call["history"])
+    assert "12345678" not in history_blob
+    assert "José Luis Quispe" not in history_blob
+    context = call["context"]
+    assert context["scale"] == "minedu_0_20"
+    assert context["passing_score"] == 11
+    assert context["criterion_focus"] == "D"
+    assert "student_id" not in context
+    assert "dni" not in str(context).lower()
+
+
+@pytest.mark.asyncio
+async def test_teacher_assistant_calls_gemini_even_with_insufficient_data():
+    ai = RecordingAI()
+    result = await HybridTeacherReportService(ai).answer_teacher_query(
+        insufficient_repo(),
+        CLASSROOM_ID,
+        "¿Qué actividades remediales sugieres para la competencia D en este grupo?",
+    )
+    assert result["insufficient_data"] is True
+    assert result["assistant_response"]["available"] is True
+    assert len(ai.assistant_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_teacher_assistant_includes_anonymous_student_metrics():
+    ai = RecordingAI()
+    result = await HybridTeacherReportService(ai).answer_teacher_query(
+        classroom_repo(),
+        CLASSROOM_ID,
+        "¿Qué intervención recomiendas para este alumno?",
+        student_id=STUDENT_ID,
+    )
+    assert result["scope"] == "student"
+    assert result["deterministic_metrics"]["risk_level"] in {"BAJO", "MEDIO", "ALTO"}
+    student = ai.assistant_calls[0]["context"]["student"]
+    assert student["anonymous_id"].startswith("STUDENT_UUID_")
+    assert "student_id" not in student
+
+
 # --- API FastAPI + Gemini mockeado (CI/CD sin API keys reales) ---------------
 
 SOCRATIC_URL = "/api/v1/analytics/socratic-tutor"
 TEACHER_URL = f"/api/v1/analytics/teacher-report/{STUDENT_ID}"
+ASSISTANT_URL = "/api/v1/analytics/teacher-assistant"
 
 MOCK_GUIDANCE = "¿Qué variable puedes aislar primero?"
 MOCK_TEACHER_PLAN = {
@@ -203,6 +366,14 @@ MOCK_TEACHER_PLAN = {
     "summary": "Acompañamiento en Logro Esperado",
     "actions": ["Retroalimentación formativa"],
     "materials": ["Ficha MINEDU de recuperación"],
+}
+MOCK_ASSISTANT = {
+    "available": True,
+    "text": "Para el criterio D, usa rúbricas analíticas y un taller de producción.",
+    "summary": "Remedial en criterio D (En Inicio)",
+    "actions": ["Taller de producción con rúbrica D"],
+    "materials": ["Ficha MINEDU de recuperación"],
+    "criterion_focus": "D",
 }
 
 
@@ -218,6 +389,7 @@ def mock_gemini_client(monkeypatch):
     )
     socratic = AsyncMock(return_value={"available": True, "guidance": MOCK_GUIDANCE})
     teacher = AsyncMock(return_value=dict(MOCK_TEACHER_PLAN))
+    assistant = AsyncMock(return_value=dict(MOCK_ASSISTANT))
     monkeypatch.setattr(
         "app.services.ai.external_client.ExternalAIService.generate_socratic_guidance",
         socratic,
@@ -226,12 +398,17 @@ def mock_gemini_client(monkeypatch):
         "app.services.ai.external_client.ExternalAIService.generate_teacher_recommendation",
         teacher,
     )
+    monkeypatch.setattr(
+        "app.services.ai.external_client.ExternalAIService.generate_teacher_assistant",
+        assistant,
+    )
     fake = SimpleNamespace(
         generate_socratic_guidance=socratic,
         generate_teacher_recommendation=teacher,
+        generate_teacher_assistant=assistant,
     )
     app.dependency_overrides[get_external_ai_service] = lambda: fake
-    yield SimpleNamespace(socratic=socratic, teacher=teacher)
+    yield SimpleNamespace(socratic=socratic, teacher=teacher, assistant=assistant)
     app.dependency_overrides.pop(get_external_ai_service, None)
 
 
@@ -285,6 +462,20 @@ def test_socratic_api_insufficient_data_still_calls_gemini(make_client, mock_gem
     assert body["socratic_response"]["guidance"] == MOCK_GUIDANCE
     mock_gemini_client.socratic.assert_called_once()
     mock_gemini_client.teacher.assert_not_called()
+
+
+def test_socratic_api_database_error_still_calls_gemini(make_client, mock_gemini_client):
+    response = make_client(BrokenAcademicRepo()).post(
+        SOCRATIC_URL,
+        json={"student_id": STUDENT_ID, "user_message": "explica la pendiente", "topic": "Pendiente"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["insufficient_data"] is True
+    assert body.get("reason") != "database_error"
+    assert body["socratic_response"]["available"] is True
+    assert body["socratic_response"]["guidance"] == MOCK_GUIDANCE
+    mock_gemini_client.socratic.assert_called_once()
 
 
 def test_teacher_api_insufficient_data_is_200_without_gemini(make_client, mock_gemini_client):
@@ -346,4 +537,59 @@ def test_teacher_api_returns_200_and_hybrid_structure(make_client, mock_gemini_c
     assert context["qualitative_grade"] == "AD"
     assert "student_id" not in context
     mock_gemini_client.socratic.assert_not_called()
+
+
+def test_teacher_assistant_api_missing_key_is_401(make_client):
+    response = make_client(classroom_repo(), key=None).post(
+        ASSISTANT_URL,
+        json={"classroom_id": CLASSROOM_ID, "user_message": "¿Cómo va el aula?"},
+    )
+    assert response.status_code == 401
+
+
+def test_teacher_assistant_api_returns_200_and_hybrid_structure(make_client, mock_gemini_client):
+    response = make_client(classroom_repo()).post(
+        ASSISTANT_URL,
+        json={
+            "classroom_id": CLASSROOM_ID,
+            "user_message": ASSISTANT_PII_MESSAGE,
+            "history": ASSISTANT_PII_HISTORY,
+            "criterion": "D",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["available"] is True
+    assert body["insufficient_data"] is False
+    assert body["scope"] == "classroom"
+    assert body["deterministic_metrics"]["passing_score"] == 11
+    assert body["deterministic_metrics"]["criteria"] == ["A", "B", "C", "D"]
+    assert body["assistant_response"]["available"] is True
+    assert body["assistant_response"]["text"] == MOCK_ASSISTANT["text"]
+    assert body["assistant_response"]["recommended_actions"] == MOCK_ASSISTANT["actions"]
+    assert body["assistant_response"]["criterion_focus"] == "D"
+
+    mock_gemini_client.assistant.assert_called_once()
+    call = mock_gemini_client.assistant.call_args.kwargs
+    assert "74839201" not in call["sanitized_message"]
+    assert "[DNI_PROTEGIDO]" in call["sanitized_message"]
+    assert call["context"]["criterion_focus"] == "D"
+    assert "student_id" not in call["context"]
+    mock_gemini_client.socratic.assert_not_called()
+    mock_gemini_client.teacher.assert_not_called()
+
+
+def test_teacher_assistant_api_insufficient_data_still_calls_gemini(make_client, mock_gemini_client):
+    response = make_client(insufficient_repo()).post(
+        ASSISTANT_URL,
+        json={
+            "classroom_id": CLASSROOM_ID,
+            "user_message": "¿Qué actividades remediales sugieres para la competencia D en este grupo?",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["insufficient_data"] is True
+    assert body["assistant_response"]["available"] is True
+    mock_gemini_client.assistant.assert_called_once()
 

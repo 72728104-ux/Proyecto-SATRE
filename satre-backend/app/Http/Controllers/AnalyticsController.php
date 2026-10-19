@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SocraticTutorTurnRequest;
+use App\Http\Requests\TeacherAssistantRequest;
 use App\Http\Resources\RiskPredictionResource;
 use App\Http\Resources\TutorSessionResource;
 use App\Models\Classroom;
@@ -11,9 +12,13 @@ use App\Models\Student;
 use App\Models\TutorSession;
 use App\Services\AnalyticsService;
 use App\Services\SocraticTutorService;
+use App\Services\TeacherAssistantService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class AnalyticsController extends Controller
 {
@@ -24,13 +29,49 @@ class AnalyticsController extends Controller
         return response()->json($analytics->classroomInsights($classroom));
     }
 
+    public function teacherAssistant(TeacherAssistantRequest $request, TeacherAssistantService $assistant): JsonResponse
+    {
+        $classroom = Classroom::query()->findOrFail($request->validated('classroom_id'));
+        $this->authorize('viewInsights', $classroom);
+
+        $student = null;
+        if ($request->filled('student_id')) {
+            $student = Student::query()->findOrFail($request->validated('student_id'));
+            $this->authorize('viewRisk', $student);
+            abort_unless($this->studentBelongsToClassroom($student, $classroom), 403);
+        }
+
+        try {
+            $result = $assistant->ask($classroom, $student, $request->validated());
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            Log::warning('teacher assistant failed', [
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'available' => false,
+                'data' => null,
+                'reason' => 'internal_error',
+                'message' => 'El asistente docente no está disponible en este momento.',
+            ]);
+        }
+
+        return response()->json($result);
+    }
+
     public function studentRisk(Request $request, Student $student, AnalyticsService $analytics): JsonResponse
     {
         $this->authorize('viewRisk', $student);
 
+        $canRefresh = $request->user()->can('viewRiskDetail', $student);
+
         $prediction = $analytics->predictionFor(
             $student,
-            $request->user()->can('viewRiskDetail', $student),
+            $canRefresh,
+            $canRefresh && $request->boolean('refresh'),
         );
 
         return response()->json([
@@ -70,7 +111,23 @@ class AnalyticsController extends Controller
             $this->authorize('create', [TutorSession::class, $course]);
         }
 
-        $result = $tutor->turn($student, $course, $session, $request->validated());
+        try {
+            $result = $tutor->turn($student, $course, $session, $request->validated());
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            Log::warning('socratic tutor turn failed', [
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'available' => false,
+                'data' => null,
+                'reason' => 'internal_error',
+                'message' => 'El tutor no está disponible en este momento.',
+            ]);
+        }
 
         if (! $result['available']) {
             return response()->json($result);
@@ -84,5 +141,17 @@ class AnalyticsController extends Controller
                 'done' => $result['data']['done'],
             ],
         ]);
+    }
+
+    private function studentBelongsToClassroom(Student $student, Classroom $classroom): bool
+    {
+        if ((int) $student->classroom_id === (int) $classroom->id) {
+            return true;
+        }
+
+        return $student->enrollments()
+            ->where('status', 'active')
+            ->whereHas('course', fn ($query) => $query->where('classroom_id', $classroom->id))
+            ->exists();
     }
 }

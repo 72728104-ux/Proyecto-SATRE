@@ -1,4 +1,33 @@
-import { useEffect, useId, useState } from 'react'
+import { Component, useEffect, useId, useState } from 'react'
+import { sanitizeMermaidChart } from './sanitizeMermaid'
+
+function MermaidFallback() {
+  return (
+    <div
+      className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+      data-cy="tutor-mermaid-error"
+      role="status"
+    >
+      No se pudo mostrar el diagrama.
+    </div>
+  )
+}
+
+class MermaidErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { failed: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    if (this.state.failed) return <MermaidFallback />
+    return this.props.children
+  }
+}
 
 let mermaidLoader = null
 
@@ -11,6 +40,7 @@ function loadMermaid() {
         securityLevel: 'strict',
         theme: 'neutral',
         fontFamily: 'inherit',
+        suppressErrorRendering: true,
       })
       return mermaid
     })
@@ -20,7 +50,7 @@ function loadMermaid() {
 
 export default function MermaidDiagram({ chart }) {
   const reactId = useId().replace(/:/g, '')
-  const source = String(chart || '').trim()
+  const source = sanitizeMermaidChart(chart)
   const [ready, setReady] = useState({ source: '', svg: '', failed: false })
 
   useEffect(() => {
@@ -43,14 +73,14 @@ export default function MermaidDiagram({ chart }) {
   if (ready.source !== source) {
     return <div className="h-24 animate-pulse rounded-xl bg-slate-100" aria-hidden="true" />
   }
-  if (ready.failed) {
-    return <pre className="overflow-x-auto rounded-xl bg-slate-50 p-3 text-xs text-slate-600">{source}</pre>
-  }
+  if (ready.failed) return <MermaidFallback />
   return (
-    <div
-      className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3"
-      data-cy="tutor-mermaid"
-      dangerouslySetInnerHTML={{ __html: ready.svg }}
-    />
+    <MermaidErrorBoundary>
+      <div
+        className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3"
+        data-cy="tutor-mermaid"
+        dangerouslySetInnerHTML={{ __html: ready.svg }}
+      />
+    </MermaidErrorBoundary>
   )
 }

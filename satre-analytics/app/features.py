@@ -18,12 +18,18 @@ FEATURE_COLUMNS = [
 ]
 
 
-def to_ib_scale(scores: pd.Series, max_scores: pd.Series) -> pd.Series:
-    """Normaliza a escala IB 1–7. max_score nulo o 0 se asume 7."""
+def to_minedu_scale(scores: pd.Series, max_scores: pd.Series) -> pd.Series:
+    """Normaliza a escala vigesimal Minedu 0–20. max_score nulo o 0 se asume 20."""
     score = pd.to_numeric(scores, errors="coerce")
     max_score = pd.to_numeric(max_scores, errors="coerce")
-    max_score = max_score.where(max_score > 0, config.IB_MAX_SCORE).fillna(config.IB_MAX_SCORE)
-    return score * config.IB_MAX_SCORE / max_score
+    max_score = max_score.where(max_score > 0, config.MINEDU_MAX_SCORE).fillna(config.MINEDU_MAX_SCORE)
+    scaled = score * config.MINEDU_MAX_SCORE / max_score
+    return scaled.clip(lower=config.MINEDU_MIN_SCORE, upper=config.MINEDU_MAX_SCORE)
+
+
+def to_ib_scale(scores: pd.Series, max_scores: pd.Series) -> pd.Series:
+    """Alias histórico: las notas se evalúan en vigesimal 0–20."""
+    return to_minedu_scale(scores, max_scores)
 
 
 def _attendance_features(attendance: pd.DataFrame) -> pd.DataFrame:
@@ -48,14 +54,14 @@ def _grade_features(grades: pd.DataFrame) -> pd.DataFrame:
     if grades.empty:
         return pd.DataFrame(columns=cols)
     df = grades.dropna(subset=["student_id"]).copy()
-    df["ib"] = to_ib_scale(df["score"], df["max_score"])
-    df = df.dropna(subset=["ib"])
+    df["vigesimal"] = to_minedu_scale(df["score"], df["max_score"])
+    df = df.dropna(subset=["vigesimal"])
     rows = {}
     for student_id, group in df.groupby("student_id"):
-        trend = compute_trend(group["evaluation_date"], group["ib"])
+        trend = compute_trend(group["evaluation_date"], group["vigesimal"])
         rows[student_id] = {
             "grade_count": int(len(group)),
-            "grade_mean": float(group["ib"].mean()),
+            "grade_mean": float(group["vigesimal"].mean()),
             "grade_slope": trend.slope,
             "grade_r2": trend.r2,
             "grade_n": trend.n,

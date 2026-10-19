@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Brain, Download, ShieldAlert, UserSearch, Users } from 'lucide-react'
+import { Brain, Download, RefreshCw, ShieldAlert, UserSearch, Users } from 'lucide-react'
 import { exportClassroomReport, fetchStudentRisk } from '../../api/teacher'
 import EmptyState from '../../components/EmptyState'
 import Field from '../../components/Field'
@@ -91,13 +91,16 @@ export default function DashboardTutor() {
   const scope = useTeacherScope()
   const roster = useClassroomRoster(scope.classroomId, scope.courses)
   const [filter, setFilter] = useState('')
+  const forceRefresh = useRef(false)
 
   const risks = useApi(
     async ({ signal }) => {
       if (!roster.data) return null
+      const refresh = forceRefresh.current
+      forceRefresh.current = false
       return Promise.all(
         roster.data.map((student) =>
-          fetchStudentRisk(student.student_id, { signal })
+          fetchStudentRisk(student.student_id, { signal, refresh })
             .then((payload) => ({
               student,
               risk: payload.available ? payload.data : null,
@@ -112,6 +115,11 @@ export default function DashboardTutor() {
     },
     [roster.data],
   )
+
+  const recalculateRisk = () => {
+    forceRefresh.current = true
+    risks.reload()
+  }
 
   const rows = useMemo(
     () =>
@@ -131,7 +139,7 @@ export default function DashboardTutor() {
     <div>
       <h1 className="font-display text-3xl text-navy-950">Riesgo del aula</h1>
       <p className="text-sm text-slate-500">
-        Puntaje explicable por estudiante (asistencia, notas IB, incidencias y presencia). Es una señal para priorizar tutoría, no un diagnóstico.
+        Puntaje explicable por estudiante (asistencia, notas, incidencias y presencia). Es una señal para priorizar tutoría, no un diagnóstico.
       </p>
     </div>
   )
@@ -158,7 +166,19 @@ export default function DashboardTutor() {
     <div className="space-y-6" data-cy="dashboard-tutor">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         {header}
-        <DownloadReportButton classroomId={scope.classroomId} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <button
+            type="button"
+            className={secondaryButton}
+            data-cy="recalculate-risk"
+            disabled={!scope.classroomId || !roster.data?.length || risks.loading}
+            onClick={recalculateRisk}
+          >
+            <RefreshCw size={16} className={risks.loading && risks.data ? 'animate-spin' : undefined} />
+            {risks.loading && risks.data ? 'Recalculando…' : 'Recalcular Riesgo'}
+          </button>
+          <DownloadReportButton classroomId={scope.classroomId} />
+        </div>
       </div>
 
       <FilterBar>

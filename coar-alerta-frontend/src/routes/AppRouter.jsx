@@ -1,9 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { CHANGE_PASSWORD_PATH, FORGOT_PASSWORD_PATH, RESET_PASSWORD_PATH, ROLES } from '../data/roles'
 import { useAuth } from '../context/AuthContext'
+import { CHANGE_PASSWORD_PATH, FORGOT_PASSWORD_PATH, RESET_PASSWORD_PATH, ROLES } from '../data/roles'
 import DashboardLayout from '../layouts/DashboardLayout'
 import Forbidden from '../components/Forbidden'
 import NotFound from '../components/NotFound'
+import Landing from '../pages/Landing'
 import Login from '../pages/Login'
 import CambiarContrasena from '../pages/CambiarContrasena'
 import RecuperarContrasena from '../pages/RecuperarContrasena'
@@ -13,7 +14,6 @@ import Usuarios from '../pages/admin/Usuarios'
 import Aulas from '../pages/admin/Aulas'
 import Cursos from '../pages/admin/Cursos'
 import Periodos from '../pages/admin/Periodos'
-import Matriculas from '../pages/admin/Matriculas'
 import Auditoria from '../pages/admin/Auditoria'
 import DashboardTutor from '../pages/tutor/DashboardTutor'
 import NotasIB from '../pages/tutor/NotasIB'
@@ -37,13 +37,19 @@ import AutorizarPermisos from '../pages/apoderado/AutorizarPermisos'
 import IncidenciasApoderado from '../pages/apoderado/IncidenciasApoderado'
 import ProtectedRoute, { GuestRoute } from './ProtectedRoute'
 
-export default function AppRouter() {
-  const { isAuthenticated, homePath } = useAuth()
+/** `/tutor/ia` es IA Docente; el estudiante que llega ahí va al IA Tutor canónico. */
+function TutorIaGateway() {
+  const { role } = useAuth()
+  if (role === ROLES.ESTUDIANTE) return <Navigate to="/estudiante/tutor" replace />
+  return <IADocente />
+}
 
+export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<GuestRoute />}>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path={FORGOT_PASSWORD_PATH} element={<RecuperarContrasena />} />
           <Route path={RESET_PASSWORD_PATH} element={<RestablecerContrasena />} />
@@ -61,7 +67,6 @@ export default function AppRouter() {
               <Route path="/admin/aulas" element={<Aulas />} />
               <Route path="/admin/cursos" element={<Cursos />} />
               <Route path="/admin/periodos" element={<Periodos />} />
-              <Route path="/admin/matriculas" element={<Matriculas />} />
               <Route path="/admin/auditoria" element={<Auditoria />} />
             </Route>
 
@@ -70,11 +75,14 @@ export default function AppRouter() {
               <Route path="/tutor/notas" element={<NotasIB />} />
               <Route path="/tutor/asistencia" element={<AsistenciaAula />} />
               <Route path="/tutor/reporte" element={<ReporteGrupo />} />
-              <Route path="/tutor/ia" element={<IADocente />} />
               <Route path="/tutor/alertas" element={<AlertasTutor />} />
             </Route>
 
-            <Route element={<ProtectedRoute roles={[ROLES.RESIDENCIA]} />}>
+            <Route element={<ProtectedRoute roles={[ROLES.TUTOR, ROLES.ESTUDIANTE]} />}>
+              <Route path="/tutor/ia" element={<TutorIaGateway />} />
+            </Route>
+
+            <Route element={<ProtectedRoute roles={[ROLES.RESIDENCIA]} requiresResidence />}>
               <Route path="/residencia" element={<DashboardMonitor />} />
               <Route path="/residencia/presencia" element={<PresenciaNocturna />} />
               <Route path="/residencia/incidencias" element={<Incidencias />} />
@@ -87,22 +95,26 @@ export default function AppRouter() {
               <Route path="/estudiante/calificaciones" element={<Calificaciones />} />
               <Route path="/estudiante/lecturas" element={<LecturasEstudiante />} />
               <Route path="/estudiante/asistencia" element={<AsistenciaEstudiante />} />
-              <Route path="/estudiante/permisos" element={<PermisosEstudiante />} />
               <Route path="/estudiante/tutor" element={<IATutor />} />
+            </Route>
+
+            <Route element={<ProtectedRoute roles={[ROLES.ESTUDIANTE]} requiresResidence />}>
+              <Route path="/estudiante/permisos" element={<PermisosEstudiante />} />
             </Route>
 
             <Route element={<ProtectedRoute roles={[ROLES.APODERADO]} />}>
               <Route path="/apoderado" element={<DashboardApoderado />} />
-              <Route path="/apoderado/permisos" element={<AutorizarPermisos />} />
               <Route path="/apoderado/incidencias" element={<IncidenciasApoderado />} />
+            </Route>
+
+            <Route element={<ProtectedRoute roles={[ROLES.APODERADO]} requiresResidence />}>
+              <Route path="/apoderado/permisos" element={<AutorizarPermisos />} />
             </Route>
 
             <Route path="/403" element={<Forbidden />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Route>
-
-        <Route path="/" element={<Navigate to={isAuthenticated ? homePath : '/login'} replace />} />
       </Routes>
     </BrowserRouter>
   )

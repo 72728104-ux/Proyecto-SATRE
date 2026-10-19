@@ -42,6 +42,13 @@ def test_minedu_phrases_are_not_treated_as_names():
     assert "En Proceso" in sanitized
 
 
+def test_newlines_are_stripped_to_prevent_log_injection():
+    raw = "tema\r\nINFO fake-log"
+    sanitized = PrivacyGuardService.sanitize_student_input(raw)
+    assert "\n" not in sanitized
+    assert "\r" not in sanitized
+
+
 def test_empty_input_returns_empty_string():
     assert PrivacyGuardService.sanitize_student_input("") == ""
     assert PrivacyGuardService.sanitize_student_input(None) == ""

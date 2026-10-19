@@ -63,6 +63,27 @@ class AnalyticsPrivacyTest extends TestCase
         $this->assertArrayNotHasKey('incidents', $payload);
     }
 
+    public function test_teacher_assistant_keeps_classroom_and_strips_pii(): void
+    {
+        $payload = AnalyticsPrivacy::forTeacherAssistant([
+            'classroom_id' => 7,
+            'student_id' => 12,
+            'user_message' => '¿Qué actividades remediales sugieres para la competencia D?',
+            'history' => [['role' => 'teacher', 'content' => 'estado del aula']],
+            'criterion' => 'D',
+            'name' => 'Valeria Chávez',
+            'dni' => '78901234',
+            'incidents' => [['category' => 'salud']],
+        ]);
+
+        $this->assertSame(7, $payload['classroom_id']);
+        $this->assertSame(12, $payload['student_id']);
+        $this->assertSame('D', $payload['criterion']);
+        $this->assertArrayNotHasKey('name', $payload);
+        $this->assertArrayNotHasKey('dni', $payload);
+        $this->assertArrayNotHasKey('incidents', $payload);
+    }
+
     public function test_nested_personal_keys_are_stripped(): void
     {
         $payload = AnalyticsPrivacy::stripForbidden([

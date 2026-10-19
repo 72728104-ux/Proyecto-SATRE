@@ -108,7 +108,7 @@ class AnalyticsBridgeTest extends TestCase
         $this->assertSame(1, AiDiagnostic::query()->count());
     }
 
-    public function test_python_500_returns_available_false_with_one_retry(): void
+    public function test_python_500_returns_available_false_with_three_attempts(): void
     {
         Http::fake([self::BASE_URL.'/*' => Http::response(['message' => 'boom'], 500)]);
 
@@ -117,7 +117,7 @@ class AnalyticsBridgeTest extends TestCase
             ->assertOk()
             ->assertExactJson(['available' => false, 'stale' => false, 'generated_at' => null, 'data' => null]);
 
-        Http::assertSentCount(2);
+        Http::assertSentCount(3);
     }
 
     public function test_python_timeout_returns_available_false_and_keeps_stale_data(): void
@@ -238,6 +238,39 @@ class AnalyticsBridgeTest extends TestCase
             ->getJson("/api/ai-analytics/students/{$this->student->id}/risk")
             ->assertOk()
             ->assertExactJson(['available' => false, 'data' => null]);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_staff_can_force_refresh_fresh_student_risk(): void
+    {
+        $this->prediction(RiskPrediction::LEVEL_MEDIUM);
+        Http::fake([
+            self::BASE_URL.'/v1/students/*' => Http::response($this->riskPayload(RiskPrediction::LEVEL_HIGH)),
+        ]);
+
+        $this->actingAs($this->teacherUser, 'sanctum')
+            ->getJson("/api/ai-analytics/students/{$this->student->id}/risk?refresh=1")
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.risk_level', 'ALTO');
+
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), "/v1/students/{$this->student->id}/risk"));
+        $this->assertSame(2, RiskPrediction::query()->count());
+        $this->assertSame('ALTO', RiskPrediction::query()->latest('id')->value('risk_level'));
+    }
+
+    public function test_student_cannot_force_refresh_risk(): void
+    {
+        $this->prediction(RiskPrediction::LEVEL_MEDIUM);
+        Http::fake();
+        $studentUser = $this->userWithRole(Roles::STUDENT);
+        $this->student->update(['user_id' => $studentUser->id]);
+
+        $this->actingAs($studentUser, 'sanctum')
+            ->getJson("/api/ai-analytics/students/{$this->student->id}/risk?refresh=1")
+            ->assertOk()
+            ->assertJsonPath('data.risk_level', 'MEDIO');
 
         Http::assertNothingSent();
     }

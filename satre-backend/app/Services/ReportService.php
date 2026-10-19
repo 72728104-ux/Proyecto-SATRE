@@ -235,7 +235,7 @@ class ReportService
     {
         $summary = $report['summary'];
         $rows = [
-            ['seccion', 'aula', 'periodo', 'estudiantes', 'promedio_ib', 'tasa_aprobados', 'tasa_asistencia', 'alertas_abiertas'],
+            ['seccion', 'aula', 'periodo', 'estudiantes', 'promedio_minedu', 'tasa_aprobados', 'tasa_asistencia', 'alertas_abiertas'],
             [
                 'resumen',
                 $report['classroom']['name'],
@@ -247,7 +247,7 @@ class ReportService
                 $summary['open_alerts'],
             ],
             [],
-            ['seccion', 'codigo', 'apellidos', 'nombres', 'promedio_ib', 'tasa_asistencia', 'riesgo', 'alertas_abiertas'],
+            ['seccion', 'codigo', 'apellidos', 'nombres', 'promedio_minedu', 'tasa_asistencia', 'riesgo', 'alertas_abiertas'],
         ];
 
         foreach ($report['students'] as $student) {
@@ -264,7 +264,7 @@ class ReportService
         }
 
         $rows[] = [];
-        $rows[] = ['seccion', 'curso_id', 'curso', 'promedio_ib', 'tasa_aprobados', 'tasa_asistencia'];
+        $rows[] = ['seccion', 'curso_id', 'curso', 'promedio_minedu', 'tasa_aprobados', 'tasa_asistencia'];
         foreach ($report['courses'] as $course) {
             $rows[] = [
                 'curso',
@@ -294,15 +294,15 @@ class ReportService
             '',
             'Resumen',
             'Estudiantes: '.$summary['students'],
-            'Promedio IB: '.$this->fmt($summary['grade_mean']),
-            'Aprobados (>= 4): '.$this->pct($summary['pass_rate']),
+            'Promedio Minedu: '.$this->fmt($summary['grade_mean']),
+            'Aprobados (>= '.Grade::PASSING_SCORE.'): '.$this->pct($summary['pass_rate']),
             'Asistencia: '.$this->pct($summary['attendance_rate']),
             'Alertas abiertas: '.$summary['open_alerts'],
             '',
             'Distribucion de riesgo  ALTO: '.$risk['ALTO'].'  MEDIO: '.$risk['MEDIO'].'  BAJO: '.$risk['BAJO'],
             '',
             'Estudiantes',
-            'Codigo | Apellidos, Nombres | Promedio IB | Asistencia | Riesgo | Alertas',
+            'Codigo | Apellidos, Nombres | Promedio Minedu | Asistencia | Riesgo | Alertas',
         ];
 
         foreach ($report['students'] as $student) {
@@ -320,7 +320,7 @@ class ReportService
 
         $lines[] = '';
         $lines[] = 'Cursos';
-        $lines[] = 'Curso | Promedio IB | Aprobados | Asistencia';
+        $lines[] = 'Curso | Promedio Minedu | Aprobados | Asistencia';
         foreach ($report['courses'] as $course) {
             $lines[] = sprintf(
                 '%s | %s | %s | %s',

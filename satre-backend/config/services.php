@@ -38,7 +38,14 @@ return [
     'python_analytics' => [
         'url' => env('PYTHON_ANALYTICS_URL', env('ANALYTICS_SERVICE_URL', 'http://127.0.0.1:8001')),
         'key' => env('PYTHON_ANALYTICS_KEY', env('ANALYTICS_INTERNAL_KEY')),
-        'timeout' => (int) env('PYTHON_ANALYTICS_TIMEOUT', 8),
+        'timeout' => (int) env('PYTHON_ANALYTICS_TIMEOUT', 30),
+    ],
+
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
+        'base_url' => env('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 30),
     ],
 
 ];

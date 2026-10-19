@@ -30,4 +30,9 @@ class TutorSessionPolicy
             && $user->student !== null
             && $user->student->id === $session->student_id;
     }
+
+    public function delete(User $user, TutorSession $session): bool
+    {
+        return $this->update($user, $session);
+    }
 }

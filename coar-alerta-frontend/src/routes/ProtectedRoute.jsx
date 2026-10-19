@@ -3,13 +3,16 @@ import Forbidden from '../components/Forbidden'
 import { useAuth } from '../context/AuthContext'
 import { CHANGE_PASSWORD_PATH, ROLE_HOME } from '../data/roles'
 
-export default function ProtectedRoute({ roles, allowPendingPasswordChange = false }) {
-  const { isAuthenticated, role, homePath, mustChangePassword } = useAuth()
+export default function ProtectedRoute({ roles, allowPendingPasswordChange = false, requiresResidence = false }) {
+  const { isAuthenticated, role, homePath, mustChangePassword, collegeHasResidence } = useAuth()
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
   if (mustChangePassword && !allowPendingPasswordChange) return <Navigate to={CHANGE_PASSWORD_PATH} replace />
   if (!ROLE_HOME[role]) return <Forbidden message="Tu cuenta no tiene un rol habilitado en SATRE." />
   if (roles && !roles.includes(role)) return <Navigate to={homePath} replace />
+  if (requiresResidence && !collegeHasResidence) {
+    return <Forbidden message="El módulo de residencia no está habilitado para este colegio." />
+  }
 
   return <Outlet />
 }

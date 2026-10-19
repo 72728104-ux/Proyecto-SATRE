@@ -29,8 +29,8 @@ class RiskPredictionFactory extends Factory
                 ],
                 [
                     'key' => 'grade_level',
-                    'label' => 'Promedio IB',
-                    'value' => 4.1,
+                    'label' => 'Promedio Minedu',
+                    'value' => 11.71,
                     'contribution' => 8.6,
                 ],
             ],

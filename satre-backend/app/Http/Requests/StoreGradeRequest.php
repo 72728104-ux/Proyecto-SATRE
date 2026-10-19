@@ -24,7 +24,7 @@ class StoreGradeRequest extends FormRequest
             'evaluation_name' => ['required', 'string', 'max:255'],
             'criterion' => ['nullable', 'string', Rule::in(Grade::CRITERIA)],
             'evaluation_date' => ['required', 'date'],
-            'score' => ['required', 'integer', 'between:'.Grade::MIN_SCORE.','.Grade::MAX_SCORE],
+            'score' => ['required', 'numeric', 'between:'.Grade::MIN_SCORE.','.Grade::MAX_SCORE],
         ];
     }
 }

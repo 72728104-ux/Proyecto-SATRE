@@ -2,8 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Models\Student;
 use App\Services\AnalyticsService;
-use App\Services\PythonAnalyticsClient;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -13,14 +13,14 @@ class EvaluateStudentRiskJob implements ShouldQueue
 
     public function __construct(public int $studentId, public int $periodId) {}
 
-    public function handle(PythonAnalyticsClient $client, AnalyticsService $analytics): void
+    public function handle(AnalyticsService $analytics): void
     {
-        $result = $client->studentRisk($this->studentId, $this->periodId);
+        $student = Student::query()->find($this->studentId);
 
-        if (! $result['available']) {
+        if ($student === null) {
             return;
         }
 
-        $analytics->storeRisk($result, $this->periodId);
+        $analytics->refreshStudentRisk($student, $this->periodId);
     }
 }

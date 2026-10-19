@@ -1,6 +1,10 @@
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  throw new Error('VITE_API_URL must be defined in production.')
+}
+
 const DEFAULT_API_URL = 'http://127.0.0.1:8000/api'
 
-function normalizeApiBase(raw) {
+export function normalizeApiBase(raw) {
   const fallback = DEFAULT_API_URL
   const value = String(raw ?? fallback).trim().replace(/\/+$/, '')
   try {

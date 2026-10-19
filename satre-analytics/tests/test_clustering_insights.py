@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from app.clustering import LABEL_ACADEMIC, LABEL_ATTENDANCE, LABEL_STABLE, assign_profiles
 from app.insights import build_insights
@@ -54,7 +55,7 @@ def test_insights_gaps_by_criterion_with_methodologies():
     assert gap["criterion"] == "A"
     assert gap["pct_below_4"] == 0.75
     assert gap["methodologies"]
-    assert result["error_matrix"][0]["rows"][0]["A"] == 3.0
+    assert result["error_matrix"][0]["rows"][0]["A"] == pytest.approx(8.57)
 
 
 def test_insights_ignores_grades_without_valid_criterion():

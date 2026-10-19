@@ -84,6 +84,14 @@ def test_risk_contract_with_insufficient_data_is_200(make_client):
     assert body["model_version"] == "rules-1.0"
 
 
+def test_risk_contract_with_one_minedu_grade_assigns_level(make_client):
+    repo = one_student_repo(grades=grade_rows(1, [8], max_score=20))
+    body = make_client(repo).get("/v1/students/1/risk?period_id=3").json()
+    assert body["insufficient_data"] is False
+    assert body["risk_level"] in {"BAJO", "MEDIO", "ALTO"}
+    assert body["risk_score"] is not None
+
+
 def test_risk_contract_with_data(make_client):
     repo = one_student_repo(
         attendance=attendance_rows(1, present=8, unexcused=2),
@@ -161,6 +169,19 @@ def test_insights_operational_error_returns_fallback_200(make_client):
     assert body["top_gaps"] == []
     assert body["error_matrix"] == []
     assert "message" not in body
+
+
+def test_insights_fallback_keeps_resolved_period_id(make_client):
+    class Down(FakeRepository):
+        def classroom_grades(self, classroom_id, period_id):
+            raise _db_down()
+
+    response = make_client(Down()).get("/v1/classrooms/7/insights")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["insufficient_data"] is True
+    assert body["classroom_id"] == 7
+    assert body["period_id"] == 3
 
 
 def test_insights_dependency_operational_error_is_fallback_200(make_client):

@@ -13,11 +13,21 @@ import {
   ScrollText,
   Shield,
   Sparkles,
-  UserPlus,
   Users,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
+import CoarLogo from './CoarLogo'
 import { ROLES } from '../data/roles'
+
+const RESIDENCE_NAV_LABELS = new Set([
+  'Permisos',
+  'Residencia',
+  'Pernocta',
+  'Alergias',
+  'Presencia nocturna',
+  'Asistencia Nocturna',
+  'Autorizar permisos',
+])
 
 const NAV = {
   [ROLES.ADMIN]: [
@@ -26,41 +36,46 @@ const NAV = {
     { to: '/admin/aulas', label: 'Aulas', icon: GraduationCap },
     { to: '/admin/cursos', label: 'Cursos', icon: BookOpen },
     { to: '/admin/periodos', label: 'Periodos', icon: CalendarRange },
-    { to: '/admin/matriculas', label: 'Matrículas', icon: UserPlus },
     { to: '/admin/auditoria', label: 'Auditoría', icon: ScrollText },
   ],
   [ROLES.TUTOR]: [
     { to: '/tutor', label: 'Riesgo del aula', icon: Shield },
     { to: '/tutor/asistencia', label: 'Asistencia', icon: ClipboardCheck },
-    { to: '/tutor/notas', label: 'Notas IB', icon: BookOpen },
+    { to: '/tutor/notas', label: 'Calificaciones', icon: BookOpen },
     { to: '/tutor/reporte', label: 'Reporte de grupo', icon: FileBarChart },
     { to: '/tutor/ia', label: 'IA Docente', icon: Sparkles },
     { to: '/tutor/alertas', label: 'Alertas', icon: BellRing },
   ],
   [ROLES.RESIDENCIA]: [
-    { to: '/residencia', label: 'Resumen', icon: LayoutDashboard },
-    { to: '/residencia/presencia', label: 'Presencia nocturna', icon: BedDouble },
-    { to: '/residencia/incidencias', label: 'Incidencias', icon: FileWarning },
-    { to: '/residencia/permisos', label: 'Permisos', icon: ClipboardCheck },
-    { to: '/residencia/alertas', label: 'Alertas', icon: BellRing },
+    { to: '/residencia', label: 'Resumen', icon: LayoutDashboard, requiresResidence: true },
+    { to: '/residencia/presencia', label: 'Presencia nocturna', icon: BedDouble, requiresResidence: true },
+    { to: '/residencia/incidencias', label: 'Incidencias', icon: FileWarning, requiresResidence: true },
+    { to: '/residencia/permisos', label: 'Permisos', icon: ClipboardCheck, requiresResidence: true },
+    { to: '/residencia/alertas', label: 'Alertas', icon: BellRing, requiresResidence: true },
   ],
   [ROLES.ESTUDIANTE]: [
     { to: '/estudiante', label: 'Resumen', icon: LayoutDashboard },
     { to: '/estudiante/calificaciones', label: 'Calificaciones', icon: BookOpen },
     { to: '/estudiante/lecturas', label: 'Lecturas', icon: FileText },
     { to: '/estudiante/asistencia', label: 'Asistencia', icon: ClipboardCheck },
-    { to: '/estudiante/permisos', label: 'Permisos', icon: Home },
+    { to: '/estudiante/permisos', label: 'Permisos', icon: Home, requiresResidence: true },
     { to: '/estudiante/tutor', label: 'IA Tutor', icon: Sparkles },
   ],
   [ROLES.APODERADO]: [
     { to: '/apoderado', label: 'Resumen', icon: LayoutDashboard },
-    { to: '/apoderado/permisos', label: 'Autorizar permisos', icon: ClipboardCheck },
+    { to: '/apoderado/permisos', label: 'Autorizar permisos', icon: ClipboardCheck, requiresResidence: true },
     { to: '/apoderado/incidencias', label: 'Incidencias', icon: FileWarning },
   ],
 }
 
-export default function Sidebar({ role, open, onClose }) {
+export function visibleNavItems(role, collegeHasResidence = true) {
   const items = NAV[role] ?? []
+  if (collegeHasResidence) return items
+  return items.filter((item) => !item.requiresResidence && !RESIDENCE_NAV_LABELS.has(item.label))
+}
+
+export default function Sidebar({ role, collegeHasResidence = true, open, onClose }) {
+  const items = visibleNavItems(role, collegeHasResidence)
 
   return (
     <>
@@ -70,9 +85,12 @@ export default function Sidebar({ role, open, onClose }) {
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="border-b border-white/10 px-5 py-5">
-          <p className="font-display text-lg leading-tight">COAR Junín</p>
-          <p className="mt-1 text-xs text-white/60">Sistema de alerta temprana</p>
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
+          <CoarLogo size={40} />
+          <div>
+            <p className="font-display text-lg leading-tight">COAR Junín</p>
+            <p className="mt-1 text-xs text-white/60">Sistema de alerta temprana</p>
+          </div>
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {items.map(({ to, label, icon: Icon }) => (

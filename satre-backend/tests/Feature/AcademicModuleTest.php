@@ -26,34 +26,36 @@ class AcademicModuleTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_teacher_records_grade_in_ib_scale_and_update_is_audited(): void
+    public function test_teacher_records_grade_in_minedu_scale_and_update_is_audited(): void
     {
         $context = $this->academicContext();
 
         $gradeId = $this->actingAs($context['teacherUser'], 'sanctum')
             ->postJson('/api/grades', $this->gradePayload($context))
             ->assertCreated()
-            ->assertJsonPath('data.score', 5)
+            ->assertJsonPath('data.score', 16.5)
+            ->assertJsonPath('data.literal', 'A')
             ->assertJsonPath('data.criterion', 'B')
             ->json('data.id');
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'grade.recorded', 'auditable_id' => $gradeId]);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->putJson("/api/grades/$gradeId", ['score' => 6])
+            ->putJson("/api/grades/$gradeId", ['score' => 19])
             ->assertOk()
-            ->assertJsonPath('data.score', 6);
+            ->assertJsonPath('data.score', 19)
+            ->assertJsonPath('data.literal', 'AD');
 
         $log = AuditLog::query()->where('action', 'grade.updated')->firstOrFail();
-        $this->assertEquals(5, $log->old_values['score']);
-        $this->assertEquals(6, $log->new_values['score']);
+        $this->assertEquals(16.5, (float) $log->old_values['score']);
+        $this->assertEquals(19, (float) $log->new_values['score']);
     }
 
-    public function test_grade_outside_ib_range_or_invalid_criterion_is_rejected(): void
+    public function test_grade_outside_minedu_range_or_invalid_criterion_is_rejected(): void
     {
         $context = $this->academicContext();
 
-        foreach ([0, 8, 4.5] as $score) {
+        foreach ([-0.01, 20.01] as $score) {
             $this->actingAs($context['teacherUser'], 'sanctum')
                 ->postJson('/api/grades', ['score' => $score] + $this->gradePayload($context))
                 ->assertStatus(422)
@@ -76,10 +78,10 @@ class AcademicModuleTest extends TestCase
             ->postJson('/api/grades', $this->gradePayload($context))
             ->assertForbidden();
 
-        $grade = $this->createGrade($context, 5);
+        $grade = $this->createGrade($context, 16.5);
 
         $this->actingAs($otherTeacherUser, 'sanctum')
-            ->putJson("/api/grades/{$grade->id}", ['score' => 2])
+            ->putJson("/api/grades/{$grade->id}", ['score' => 8])
             ->assertForbidden();
 
         $this->actingAs($otherTeacherUser, 'sanctum')
@@ -226,8 +228,8 @@ class AcademicModuleTest extends TestCase
     {
         $context = $this->academicContext();
         [$studentUser, $guardianUser] = $this->studentWithGuardian($context['student']);
-        $this->createGrade($context, 3);
-        $this->createGrade($context, 6);
+        $this->createGrade($context, 10);
+        $this->createGrade($context, 16);
         Attendance::factory()->create([
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
@@ -249,7 +251,7 @@ class AcademicModuleTest extends TestCase
             ->getJson('/api/me/summary')
             ->assertOk()
             ->assertJsonPath('data.student.id', $context['student']->id)
-            ->assertJsonPath('data.grades.average', 4.5)
+            ->assertJsonPath('data.grades.average', 13)
             ->assertJsonPath('data.attendance.total', 1)
             ->assertJsonPath('data.attendance.rate', 1)
             ->assertJsonPath('data.alerts.open', 1);
@@ -309,6 +311,19 @@ class AcademicModuleTest extends TestCase
             ->assertJsonPath('data.residence.rate', 0.75);
 
         $context['student']->update(['is_boarder' => false]);
+        $this->actingAs($studentUser, 'sanctum')
+            ->getJson('/api/me/summary')
+            ->assertOk()
+            ->assertJsonPath('data.residence', null);
+    }
+
+    public function test_me_summary_omits_residence_when_college_has_no_residence(): void
+    {
+        config(['app.college_has_residence' => false]);
+        $context = $this->academicContext();
+        [$studentUser] = $this->studentWithGuardian($context['student']);
+        $context['student']->update(['is_boarder' => true]);
+
         $this->actingAs($studentUser, 'sanctum')
             ->getJson('/api/me/summary')
             ->assertOk()
@@ -389,11 +404,11 @@ class AcademicModuleTest extends TestCase
             'evaluation_name' => 'Prueba 1',
             'criterion' => 'B',
             'evaluation_date' => '2026-04-15',
-            'score' => 5,
+            'score' => 16.5,
         ];
     }
 
-    private function createGrade(array $context, int $score): Grade
+    private function createGrade(array $context, float $score): Grade
     {
         return Grade::query()->create([
             'student_id' => $context['student']->id,

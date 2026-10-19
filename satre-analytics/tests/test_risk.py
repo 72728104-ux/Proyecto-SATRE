@@ -24,8 +24,8 @@ def features_for(attendance=None, grades=None, night=None, incidents=None, is_bo
 
 # --- insufficient_data --------------------------------------------------------
 
-def test_insufficient_when_few_attendances_and_few_grades():
-    row = features_for(attendance=attendance_rows(1, present=4), grades=grade_rows(1, [5, 6]))
+def test_insufficient_when_few_attendances_and_no_grades():
+    row = features_for(attendance=attendance_rows(1, present=4))
     result = score_student(row)
     assert result["insufficient_data"] is True
     assert result["risk_level"] is None
@@ -38,8 +38,16 @@ def test_enough_attendance_alone_is_sufficient():
     assert score_student(row)["insufficient_data"] is False
 
 
+def test_one_minedu_grade_assigns_risk_level():
+    row = features_for(grades=grade_rows(1, [16.5], max_score=20))
+    result = score_student(row)
+    assert result["insufficient_data"] is False
+    assert result["risk_level"] in {"BAJO", "MEDIO", "ALTO"}
+    assert result["risk_score"] is not None
+
+
 def test_enough_grades_alone_is_sufficient():
-    row = features_for(grades=grade_rows(1, [5, 5, 5]))
+    row = features_for(grades=grade_rows(1, [5]))
     assert score_student(row)["insufficient_data"] is False
 
 
@@ -79,8 +87,8 @@ def test_full_coverage_score_matches_formula():
     result = score_student(row)
     expected = 100 * (
         0.25 * (0.10 / 0.20)
-        + 0.25 * max(0.0, min((4.5 - 5.5) / 3.5, 1.0))
-        + 0.20 * min(1.0 / 0.5, 1.0)
+        + 0.25 * max(0.0, min((config.GRADE_REFERENCE - 5.5 * 20 / 7) / config.GRADE_SPAN, 1.0))
+        + 0.20 * min((1.0 * 20 / 7) / config.TREND_SLOPE_CAP, 1.0)
         + 0.15 * (2 / 6)
         + 0.10 * min(0.1 / 0.15, 1)
         + 0.05 * (0.10 / 0.25)
@@ -143,5 +151,5 @@ def test_unreliable_trend_is_excluded():
 def test_declining_trend_contributes():
     row = features_for(attendance=attendance_rows(1, present=10), grades=grade_rows(1, [7, 6, 5, 4], step_days=30))
     value, component = components(row)["grade_trend"]
-    assert value == pytest.approx(-1.0)
+    assert value == pytest.approx(-20.0 / 7.0)
     assert component == pytest.approx(1.0)

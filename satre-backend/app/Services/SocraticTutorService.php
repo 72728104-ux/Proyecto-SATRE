@@ -6,18 +6,23 @@ use App\Models\Course;
 use App\Models\Student;
 use App\Models\TutorMessage;
 use App\Models\TutorSession;
+use App\Support\MermaidSyntax;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Turno del tutor socrático (§4.6 / TOBE-3). Solo Gemini vía
- * /api/v1/analytics/socratic-tutor. Si satre-analytics o Gemini fallan se
- * reporta el error real; no hay fallback al catálogo estático.
+ * /api/v1/analytics/socratic-tutor. Si el proveedor de IA falla (401/429/5xx,
+ * timeout o key inválida) se registra el error exacto y se persiste un turno
+ * de cortesía; no se usa el catálogo estático /v1/socratic/next.
  */
 class SocraticTutorService
 {
     public function __construct(
         private readonly PythonAnalyticsClient $client,
+        private readonly GeminiClient $gemini,
     ) {}
 
     /**
@@ -38,7 +43,9 @@ class SocraticTutorService
         $optionId = $data['option_id'] ?? null;
         $intent = $this->detectIntent($message, $optionId);
 
-        $result = $this->tryHybrid($student, $session, $topic, $criterion, $message, $optionId, $intent);
+        $result = $this->isArticleIntent($intent)
+            ? $this->tryArticle($student, $session, $topic, $criterion, $message, $intent)
+            : $this->tryHybrid($student, $session, $topic, $criterion, $message, $optionId, $intent);
 
         if (! is_string($result['reply']['text'] ?? null)) {
             return [
@@ -95,6 +102,10 @@ class SocraticTutorService
             if (is_array($state) && isset($reply['create_phase'])) {
                 $state['create_phase'] = $reply['create_phase'];
             }
+            if (is_array($result['article'] ?? null)) {
+                $state = is_array($state) ? $state : [];
+                $state['article'] = $result['article'];
+            }
 
             $session->update([
                 'state' => $state,
@@ -115,6 +126,18 @@ class SocraticTutorService
     }
 
     /**
+     * Borra historial y borrador de artículo del estudiante.
+     * No toca predicciones de riesgo ni diagnósticos agregados de analítica.
+     */
+    public function delete(TutorSession $session): void
+    {
+        DB::transaction(function () use ($session): void {
+            $session->messages()->delete();
+            $session->delete();
+        });
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function tryHybrid(
@@ -127,15 +150,33 @@ class SocraticTutorService
         ?string $intent,
     ): array {
         $userMessage = $message ?? $this->optionText($session, $optionId) ?? $topic;
-        $hybrid = $this->client->socraticHybrid([
-            'student_id' => $student->id,
-            'user_message' => $userMessage,
-            'history' => $this->hybridHistory($session),
-            'topic' => $topic,
-            'create_phase' => $session?->state['create_phase'] ?? $this->phaseFromStep($session?->state['step'] ?? null),
-            'intent' => $intent,
-            'criterion' => $criterion,
-        ]);
+        $phaseHint = $session?->state['create_phase'] ?? $this->phaseFromStep($session?->state['step'] ?? null);
+
+        try {
+            $hybrid = $this->client->socraticHybrid([
+                'student_id' => $student->id,
+                'user_message' => $userMessage,
+                'history' => $this->hybridHistory($session),
+                'topic' => $topic,
+                'create_phase' => $phaseHint,
+                'intent' => $intent,
+                'criterion' => $criterion,
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('socratic tutor: excepción al llamar satre-analytics', [
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->geminiOrCourtesy(
+                $topic,
+                $phaseHint,
+                $userMessage,
+                class_basename($e),
+                $session,
+                $intent,
+            );
+        }
 
         $response = $hybrid['socratic_response'] ?? null;
         $reason = is_array($response)
@@ -144,18 +185,27 @@ class SocraticTutorService
         $errorMessage = is_array($response)
             ? ($response['message'] ?? $hybrid['message'] ?? null)
             : ($hybrid['message'] ?? null);
+        $httpStatus = is_array($response)
+            ? ($response['http_status'] ?? $hybrid['status'] ?? null)
+            : ($hybrid['status'] ?? null);
 
-        if (! ($hybrid['available'] ?? false)) {
-            return [
-                'reason' => $reason ?? 'analytics_unavailable',
-                'message' => $errorMessage ?? 'satre-analytics no está disponible.',
-            ];
-        }
+        if (! ($hybrid['available'] ?? false) || ! is_array($response) || ! ($response['available'] ?? false)) {
+            $this->logProviderFailure($hybrid, is_array($response) ? $response : null, $reason, $errorMessage, $httpStatus);
 
-        if (! is_array($response) || ! ($response['available'] ?? false)) {
+            if ($this->shouldUseCourtesyFallback($reason, $httpStatus)) {
+                return $this->geminiOrCourtesy(
+                    $topic,
+                    $hybrid['create_phase'] ?? $phaseHint,
+                    $userMessage,
+                    $reason ?? 'gemini_unavailable',
+                    $session,
+                    $intent,
+                );
+            }
+
             return [
                 'reason' => $reason ?? 'gemini_unavailable',
-                'message' => $errorMessage ?? 'Gemini no devolvió una guía socrática.',
+                'message' => $errorMessage ?? 'El tutor de IA no pudo completar este turno.',
             ];
         }
 
@@ -201,6 +251,101 @@ class SocraticTutorService
     }
 
     /**
+     * @param  array<string, mixed>  $hybrid
+     * @param  array<string, mixed>|null  $response
+     */
+    private function logProviderFailure(array $hybrid, ?array $response, ?string $reason, ?string $message, mixed $httpStatus): void
+    {
+        Log::warning('socratic tutor: fallo del proveedor de IA', [
+            'reason' => $reason,
+            'message' => $message,
+            'http_status' => is_numeric($httpStatus) ? (int) $httpStatus : $httpStatus,
+            'provider_status' => $response['provider_status'] ?? $hybrid['provider_status'] ?? null,
+            'provider_error' => $response['provider_error'] ?? $hybrid['provider_error'] ?? null,
+            'endpoint' => '/api/v1/analytics/socratic-tutor',
+        ]);
+    }
+
+    private function shouldUseCourtesyFallback(?string $reason, mixed $httpStatus): bool
+    {
+        if (in_array($reason, [
+            'analytics_unavailable',
+            'gemini_unavailable',
+            'quota_exhausted',
+            'api_unavailable',
+            'timeout',
+            'not_configured',
+            'api_error',
+            'auth_error',
+            'http_error',
+            'internal_error',
+            'invalid_response',
+            'safety_blocked',
+            'ConnectionException',
+        ], true)) {
+            return true;
+        }
+
+        return in_array((int) $httpStatus, [401, 403, 408, 429, 500, 502, 503, 504], true);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function courtesyFallback(
+        string $topic,
+        ?string $phase,
+        string $reason,
+        ?TutorSession $session,
+        ?string $intent,
+    ): array {
+        $createPhase = $phase ?: 'conectar';
+        $hintLevel = (int) ($session?->state['hint_level'] ?? 0);
+        if ($intent === 'hint') {
+            $hintLevel = min($hintLevel + 1, 3);
+        }
+
+        return [
+            'engine' => 'fallback',
+            'reply' => $this->courtesyReply($topic, $createPhase),
+            'done' => false,
+            'step' => $this->stepFromPhase($createPhase),
+            'hint_level' => $hintLevel,
+            'state' => [
+                'version' => 2,
+                'engine' => 'fallback',
+                'create_phase' => $createPhase,
+                'step' => $this->stepFromPhase($createPhase),
+                'hint_level' => $hintLevel,
+                'turns' => (int) ($session?->state['turns'] ?? 0) + 1,
+                'fallback_reason' => $reason,
+            ],
+            'meta' => [
+                'scaffold_id' => 'hybrid-create',
+                'criterion' => $session?->criterion,
+                'fallback' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function courtesyReply(string $topic, string $phase): array
+    {
+        $safeTopic = trim($topic) !== '' ? trim($topic) : 'este tema';
+        $text = "Ahora no pude consultar al tutor de IA. Mientras se restablece, cuéntame con tus palabras qué recuerdas de «{$safeTopic}». ¿Qué parte te resulta más confusa?";
+
+        return [
+            'type' => 'question',
+            'text' => $text,
+            'create_phase' => $phase,
+            'explanation' => $text,
+            'reflection' => 'Escribe un ejemplo con tus propias palabras; no hace falta que sea perfecto.',
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $reply
      * @return array<string, mixed>
      */
@@ -219,7 +364,9 @@ class SocraticTutorService
             'explanation' => $reply['explanation'] ?? $text,
             'reflection' => $reply['reflection'] ?? null,
             'quiz' => $quiz,
-            'diagram_mermaid' => $reply['diagram_mermaid'] ?? null,
+            'diagram_mermaid' => MermaidSyntax::sanitize(
+                is_string($reply['diagram_mermaid'] ?? null) ? $reply['diagram_mermaid'] : null,
+            ),
             'visual_resource' => $this->publicVisual($reply['visual_resource'] ?? null),
         ];
         if ($options) {
@@ -253,6 +400,262 @@ class SocraticTutorService
             ->all();
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function geminiOrCourtesy(
+        string $topic,
+        ?string $phase,
+        string $userMessage,
+        string $reason,
+        ?TutorSession $session,
+        ?string $intent,
+    ): array {
+        $createPhase = $phase ?: 'conectar';
+        $direct = $this->gemini->generate(
+            $this->socraticPrompt($topic, $createPhase, $userMessage, $intent),
+            $this->socraticSystemInstruction(),
+        );
+
+        if ($direct['available'] ?? false) {
+            return $this->directGeminiResult($topic, $createPhase, (string) $direct['text'], $session, $intent);
+        }
+
+        return $this->courtesyFallback($topic, $createPhase, $reason, $session, $intent);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function tryArticle(
+        Student $student,
+        ?TutorSession $session,
+        string $topic,
+        ?string $criterion,
+        ?string $message,
+        string $intent,
+    ): array {
+        $draft = $this->mergeArticleDraft($session, $this->parseArticleDraft($message));
+        $phase = $draft['create_phase'] ?? $session?->state['create_phase'] ?? 'conectar';
+
+        if ($intent === 'article_publish') {
+            $article = array_merge($draft, [
+                'published' => true,
+                'published_at' => now()->toIso8601String(),
+            ]);
+            $title = $article['title'] !== '' ? $article['title'] : $topic;
+            $text = "Artículo «{$title}» publicado. Puedes seguir editándolo en el panel o usarlo como evidencia C.R.E.A.T.E.";
+
+            return $this->articleResult($text, $phase, $article, $session, $intent, 'publish');
+        }
+
+        $direct = $this->gemini->generate(
+            $this->articlePrompt($intent, $topic, $draft),
+            $this->articleSystemInstruction($intent),
+        );
+        if ($direct['available'] ?? false) {
+            return $this->articleResult((string) $direct['text'], $phase, $draft, $session, $intent, 'gemini');
+        }
+
+        $hybrid = $this->tryHybrid($student, $session, $topic, $criterion, $message, null, $intent);
+        if (is_string($hybrid['reply']['text'] ?? null)) {
+            $hybrid['article'] = $draft;
+            $hybrid['reply']['type'] = 'article';
+
+            return $hybrid;
+        }
+
+        $text = 'No pude consultar a la IA ahora. Sigue el paso C.R.E.A.T.E. indicado y escribe un párrafo con tus palabras; luego reintenta la asistencia.';
+
+        return $this->articleResult($text, $phase, $draft, $session, $intent, 'fallback');
+    }
+
+    /**
+     * @param  array<string, mixed>  $article
+     * @return array<string, mixed>
+     */
+    private function articleResult(
+        string $text,
+        string $phase,
+        array $article,
+        ?TutorSession $session,
+        string $intent,
+        string $engine,
+    ): array {
+        $hintLevel = (int) ($session?->state['hint_level'] ?? 0);
+
+        return [
+            'engine' => $engine,
+            'article' => $article,
+            'reply' => $this->publicReply([
+                'type' => 'article',
+                'text' => $text,
+                'create_phase' => $phase,
+                'explanation' => $text,
+                'reflection' => 'Revisa la sugerencia, edítala con tu voz y avanza a la siguiente fase C.R.E.A.T.E.',
+            ]),
+            'done' => false,
+            'step' => $this->stepFromPhase($phase),
+            'hint_level' => $hintLevel,
+            'state' => [
+                'version' => 2,
+                'engine' => $engine,
+                'create_phase' => $phase,
+                'step' => $this->stepFromPhase($phase),
+                'hint_level' => $hintLevel,
+                'turns' => (int) ($session?->state['turns'] ?? 0) + 1,
+                'article' => $article,
+                'article_intent' => $intent,
+            ],
+            'meta' => [
+                'scaffold_id' => 'hybrid-create',
+                'criterion' => $session?->criterion,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function directGeminiResult(
+        string $topic,
+        string $phase,
+        string $text,
+        ?TutorSession $session,
+        ?string $intent,
+    ): array {
+        $hintLevel = (int) ($session?->state['hint_level'] ?? 0);
+        if ($intent === 'hint') {
+            $hintLevel = min($hintLevel + 1, 3);
+        }
+
+        return [
+            'engine' => 'gemini',
+            'reply' => $this->publicReply([
+                'type' => 'question',
+                'text' => $text,
+                'create_phase' => $phase,
+                'explanation' => $text,
+                'reflection' => 'Responde con tus palabras; el tutor no debe darte la solución final.',
+            ]),
+            'done' => false,
+            'step' => $this->stepFromPhase($phase),
+            'hint_level' => $hintLevel,
+            'state' => [
+                'version' => 2,
+                'engine' => 'gemini',
+                'create_phase' => $phase,
+                'step' => $this->stepFromPhase($phase),
+                'hint_level' => $hintLevel,
+                'turns' => (int) ($session?->state['turns'] ?? 0) + 1,
+                'topic' => $topic,
+            ],
+            'meta' => [
+                'scaffold_id' => 'hybrid-create',
+                'criterion' => $session?->criterion,
+            ],
+        ];
+    }
+
+    private function socraticSystemInstruction(): string
+    {
+        return 'Eres el tutor socrático SATRE. Guía con la metodología C.R.E.A.T.E. (Conectar, Recordar, Explicar, Aplicar, Transferir, Evaluar). Responde en español, con una pregunta o pista breve. Nunca des la respuesta final ni datos personales.';
+    }
+
+    private function socraticPrompt(string $topic, string $phase, string $userMessage, ?string $intent): string
+    {
+        return implode("\n", [
+            "Tema: {$topic}",
+            "Fase C.R.E.A.T.E.: {$phase}",
+            'Intención: '.($intent ?? 'turno libre'),
+            "Mensaje del estudiante: {$userMessage}",
+        ]);
+    }
+
+    private function articleSystemInstruction(string $intent): string
+    {
+        $task = match ($intent) {
+            'article_proofread' => 'Corrige ortografía, tildes y claridad. Conserva la voz del estudiante. Devuelve solo el texto revisado.',
+            'article_synth' => 'Sintetiza el borrador en un párrafo denso y fiel. Devuelve solo la síntesis.',
+            'article_cite' => 'Propón citas académicas (autor, año, título) alineadas al borrador. No inventes DOI. Devuelve solo la lista.',
+            default => 'Co-escribe el siguiente párrafo según la fase C.R.E.A.T.E. No reescribas todo el artículo. Devuelve solo el párrafo propuesto.',
+        };
+
+        return 'Eres un editor académico SATRE para estudiantes COAR. '.$task.' Responde en español. No pidas datos personales.';
+    }
+
+    /**
+     * @param  array{title: string, body: string, create_phase: ?string, published: bool, published_at: ?string}  $draft
+     */
+    private function articlePrompt(string $intent, string $topic, array $draft): string
+    {
+        return implode("\n", [
+            "Tema: {$topic}",
+            'Fase C.R.E.A.T.E.: '.($draft['create_phase'] ?? 'conectar'),
+            'Acción: '.$intent,
+            'Título: '.($draft['title'] !== '' ? $draft['title'] : $topic),
+            'Borrador:',
+            $draft['body'] !== '' ? $draft['body'] : '(vacío: propone un inicio)',
+        ]);
+    }
+
+    /**
+     * @return array{title: string, body: string, create_phase: ?string, published: bool, published_at: ?string}
+     */
+    private function parseArticleDraft(?string $message): array
+    {
+        $raw = (string) preg_replace('/^\[ARTICLE_[A-Z]+\]\s*/', '', (string) $message);
+        $title = '';
+        $phase = null;
+        if (preg_match('/^Título:\s*(.+)$/mi', $raw, $match) === 1) {
+            $title = trim($match[1]);
+        }
+        if (preg_match('/^Fase:\s*([a-zÁÉÍÓÚáéíóú]+)/mi', $raw, $match) === 1) {
+            $phase = $this->normalizeCreatePhase($match[1]);
+        }
+        $parts = preg_split('/^---\s*$/m', $raw, 2);
+        $body = isset($parts[1]) ? trim($parts[1]) : '';
+
+        return [
+            'title' => $title,
+            'body' => $body,
+            'create_phase' => $phase,
+            'published' => false,
+            'published_at' => null,
+        ];
+    }
+
+    /**
+     * @param  array{title: string, body: string, create_phase: ?string, published: bool, published_at: ?string}  $incoming
+     * @return array{title: string, body: string, create_phase: ?string, published: bool, published_at: ?string}
+     */
+    private function mergeArticleDraft(?TutorSession $session, array $incoming): array
+    {
+        $current = is_array($session?->state['article'] ?? null) ? $session->state['article'] : [];
+
+        return [
+            'title' => $incoming['title'] !== '' ? $incoming['title'] : (string) ($current['title'] ?? ''),
+            'body' => $incoming['body'] !== '' ? $incoming['body'] : (string) ($current['body'] ?? ''),
+            'create_phase' => $incoming['create_phase'] ?? (is_string($current['create_phase'] ?? null) ? $current['create_phase'] : null),
+            'published' => (bool) ($current['published'] ?? false),
+            'published_at' => is_string($current['published_at'] ?? null) ? $current['published_at'] : null,
+        ];
+    }
+
+    private function normalizeCreatePhase(string $phase): ?string
+    {
+        $key = strtolower(trim($phase));
+
+        return in_array($key, ['conectar', 'recordar', 'explicar', 'aplicar', 'transferir', 'evaluar'], true)
+            ? $key
+            : null;
+    }
+
+    private function isArticleIntent(?string $intent): bool
+    {
+        return is_string($intent) && str_starts_with($intent, 'article_');
+    }
+
     private function detectIntent(?string $message, ?string $optionId): ?string
     {
         $raw = strtoupper(trim($message ?? $optionId ?? ''));
@@ -268,6 +671,21 @@ class SocraticTutorService
         if (str_starts_with($raw, '[QUIZ]') || $raw === 'QUIZ') {
             return 'quiz';
         }
+        if (str_starts_with($raw, '[ARTICLE_PUBLISH]')) {
+            return 'article_publish';
+        }
+        if (str_starts_with($raw, '[ARTICLE_PROOFREAD]')) {
+            return 'article_proofread';
+        }
+        if (str_starts_with($raw, '[ARTICLE_SYNTH]')) {
+            return 'article_synth';
+        }
+        if (str_starts_with($raw, '[ARTICLE_CITE]')) {
+            return 'article_cite';
+        }
+        if (str_starts_with($raw, '[ARTICLE_COWRITE]') || str_starts_with($raw, '[ARTICLE]')) {
+            return 'article_cowrite';
+        }
 
         return null;
     }
@@ -280,6 +698,12 @@ class SocraticTutorService
                 str_starts_with(strtoupper($message), '[PISTA]') => 'Pedir pista',
                 str_starts_with(strtoupper($message), '[DIAGRAM') => 'Ver diagrama',
                 str_starts_with(strtoupper($message), '[QUIZ]') => 'Autoevaluación',
+                str_starts_with(strtoupper($message), '[ARTICLE_PUBLISH]') => 'Publicar artículo',
+                str_starts_with(strtoupper($message), '[ARTICLE_PROOFREAD]') => 'Revisar ortografía',
+                str_starts_with(strtoupper($message), '[ARTICLE_SYNTH]') => 'Sintetizar artículo',
+                str_starts_with(strtoupper($message), '[ARTICLE_CITE]') => 'Citar fuentes',
+                str_starts_with(strtoupper($message), '[ARTICLE_COWRITE]') => 'Co-escribir artículo',
+                str_starts_with(strtoupper($message), '[ARTICLE]') => 'Redactar artículo',
                 default => $message,
             };
         }

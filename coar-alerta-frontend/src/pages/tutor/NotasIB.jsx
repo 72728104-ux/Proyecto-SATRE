@@ -1,19 +1,17 @@
 import { useState } from 'react'
 import { fetchCourseRoster, fetchGrades, saveGrade } from '../../api/teacher'
-import AlertBadge from '../../components/AlertBadge'
+import { CriterionHeader, CriterionHelp, CriterionLetter } from '../../components/CriterionHint'
 import DataTable from '../../components/DataTable'
 import EmptyState from '../../components/EmptyState'
 import Field from '../../components/Field'
 import Pagination from '../../components/Pagination'
+import ScoreBadge, { MineduLiteralBadge } from '../../components/ScoreBadge'
+import { CRITERIA, CRITERIA_LEGEND, criterionFilterLabel } from '../../data/ibCriteria'
 import { useApi } from '../../hooks/useApi'
+import { MAX_SCORE, MIN_SCORE, PASSING_SCORE, isValidScore, normalizeScore } from '../../utils/mineduScale'
 import { toId, useEditor, useFormState, usePagedList } from '../admin/shared/hooks'
 import { FilterBar, FormModal, LoadError, PageHeader, linkButton } from '../admin/shared/ui'
 import { localDate, studentName, useTeacherScope } from './shared/hooks'
-
-const CRITERIA = ['A', 'B', 'C', 'D']
-const MIN_SCORE = 1
-const MAX_SCORE = 7
-const PASSING_SCORE = 4
 
 const courseLabel = (course) => `${course.classroom?.name ? `${course.classroom.name} · ` : ''}${course.name}`
 
@@ -23,12 +21,11 @@ function validateGrade(form, isNew) {
   if (isNew && !form.student_id) errors.student_id = 'Selecciona un estudiante.'
   if (!form.evaluation_name.trim()) errors.evaluation_name = 'Indica el nombre de la evaluación.'
   else if (form.evaluation_name.length > 255) errors.evaluation_name = 'Máximo 255 caracteres.'
-  if (!CRITERIA.includes(form.criterion)) errors.criterion = 'Elige un criterio IB (A–D).'
+  if (!CRITERIA.includes(form.criterion)) errors.criterion = 'Elige un criterio (A–D).'
   if (!form.evaluation_date) errors.evaluation_date = 'Indica la fecha de evaluación.'
   else if (form.evaluation_date > localDate()) errors.evaluation_date = 'La fecha no puede ser futura.'
-  const score = Number(form.score)
-  if (form.score === '' || !Number.isInteger(score) || score < MIN_SCORE || score > MAX_SCORE) {
-    errors.score = `La nota debe ser un entero entre ${MIN_SCORE} y ${MAX_SCORE}.`
+  if (!isValidScore(form.score)) {
+    errors.score = `La nota debe ser un número entre ${MIN_SCORE.toFixed(2)} y ${MAX_SCORE.toFixed(2)}.`
   }
   return errors
 }
@@ -60,13 +57,13 @@ function GradeFormModal({ editor, courses, defaultCourseId }) {
       evaluation_name: form.evaluation_name.trim(),
       criterion: form.criterion,
       evaluation_date: form.evaluation_date,
-      score: Number(form.score),
+      score: normalizeScore(form.score),
     }
     editor.submit(isNew ? { ...body, course_id: form.course_id, student_id: form.student_id } : body)
   }
 
   return (
-    <FormModal title={isNew ? 'Registrar nota IB' : 'Editar nota IB'} onClose={editor.close} onSubmit={submit} loading={editor.loading}>
+    <FormModal title={isNew ? 'Registrar nota' : 'Editar nota'} onClose={editor.close} onSubmit={submit} loading={editor.loading}>
       {isNew ? (
         <>
           <Field
@@ -113,24 +110,37 @@ function GradeFormModal({ editor, courses, defaultCourseId }) {
       )}
       <Field label="Evaluación" placeholder="Examen parcial 1" maxLength={255} {...bind('evaluation_name')} error={errors.evaluation_name} required />
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field as="select" label="Criterio" {...bind('criterion')} error={errors.criterion} required>
+        <Field
+          as="select"
+          label="Criterio"
+          labelAddon={<CriterionHelp courseName={courses.find((course) => course.id === form.course_id)?.name ?? row.course_name} />}
+          {...bind('criterion')}
+          error={errors.criterion}
+          required
+        >
           <option value="">—</option>
           {CRITERIA.map((criterion) => (
             <option key={criterion} value={criterion}>
-              Criterio {criterion}
+              {criterionFilterLabel(criterion)}
             </option>
           ))}
         </Field>
         <Field label="Fecha" type="date" max={localDate()} {...bind('evaluation_date')} error={errors.evaluation_date} required />
         <Field
-          label="Nota (1–7)"
+          label="Nota (0–20)"
           type="number"
-          inputMode="numeric"
+          inputMode="decimal"
           min={MIN_SCORE}
           max={MAX_SCORE}
-          step="1"
+          step="0.01"
           {...bind('score')}
           error={errors.score}
+          hint="AD 18–20 · A 15–17 · B 11–14 · C 0–10"
+          suffix={
+            <span data-cy="minedu-literal-preview" data-testid="minedu-literal-preview" aria-live="polite">
+              <MineduLiteralBadge score={form.score} />
+            </span>
+          }
           required
         />
       </div>
@@ -142,12 +152,18 @@ export default function NotasIB() {
   const scope = useTeacherScope()
   const list = usePagedList(fetchGrades, { course_id: null, criterion: '' })
   const editor = useEditor(saveGrade, { created: 'Nota registrada.', updated: 'Nota actualizada.', onSaved: list.reload })
+  const selectedCourseName = scope.courses.find((course) => course.id === list.filters.course_id)?.name
 
   return (
     <div className="space-y-4" data-cy="notas-ib">
       <PageHeader
-        title="Notas IB"
-        description={`Escala 1–7 por criterio A–D. Aprobatorio ≥ ${PASSING_SCORE}. Cada cambio queda auditado.`}
+        title="Calificaciones"
+        description={
+          <>
+            {`Escala vigesimal Minedu 0–20 (AD/A/B/C). Aprobatorio ≥ ${PASSING_SCORE}. Cada cambio queda auditado.`}
+            <span className="mt-1.5 block text-slate-600">{CRITERIA_LEGEND}</span>
+          </>
+        }
         actionLabel={scope.courses.length ? 'Registrar nota' : undefined}
         onAction={() => editor.open()}
       />
@@ -178,7 +194,7 @@ export default function NotasIB() {
           <option value="">Todos</option>
           {CRITERIA.map((criterion) => (
             <option key={criterion} value={criterion}>
-              Criterio {criterion}
+              {criterionFilterLabel(criterion)}
             </option>
           ))}
         </Field>
@@ -200,16 +216,16 @@ export default function NotasIB() {
             { key: 'student_name', header: 'Estudiante', primary: true },
             { key: 'course_name', header: 'Curso' },
             { key: 'evaluation_name', header: 'Evaluación' },
-            { key: 'criterion', header: 'Criterio', render: (row) => row.criterion ?? '—' },
+            {
+              key: 'criterion',
+              header: <CriterionHeader courseName={selectedCourseName} />,
+              render: (row) => <CriterionLetter letter={row.criterion} courseName={row.course_name} />,
+            },
             { key: 'evaluation_date', header: 'Fecha' },
             {
               key: 'score',
               header: 'Nota',
-              render: (row) => (
-                <AlertBadge nivel={row.score >= PASSING_SCORE ? 'normal' : 'critico'}>
-                  {row.score} / {row.max_score ?? MAX_SCORE}
-                </AlertBadge>
-              ),
+              render: (row) => <ScoreBadge value={row.score} literal={row.literal} />,
             },
             {
               key: 'actions',

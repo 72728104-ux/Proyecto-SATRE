@@ -1,11 +1,12 @@
 export default function TutorQuiz({ quiz, disabled, onSelect }) {
-  if (!quiz?.options?.length) return null
+  const options = (quiz?.options ?? []).filter((option) => option?.id != null && String(option?.text ?? '').trim())
+  if (!options.length) return null
 
   return (
     <div className="space-y-2" data-cy="tutor-quiz">
-      {quiz.question ? <p className="text-sm font-medium text-navy-950">{quiz.question}</p> : null}
+      {quiz?.question ? <p className="text-sm font-medium text-navy-950">{quiz.question}</p> : null}
       <div className="grid gap-2 sm:grid-cols-2">
-        {quiz.options.map((option) => (
+        {options.map((option) => (
           <button
             key={option.id}
             type="button"

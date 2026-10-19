@@ -9,10 +9,17 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 _ROOT = Path(__file__).resolve().parent.parent
 _ENV_FILE = _ROOT / ".env"
+
+STABLE_AI_MODEL_NAME = "gemini-1.5-flash"
+STABLE_AI_FALLBACK_MODEL_NAME = "gemini-1.5-flash-8b"
+UNSTABLE_AI_MODELS = frozenset({
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
+})
 
 
 def default_sqlite_url() -> str:
@@ -25,7 +32,38 @@ def load_environment(path: Path | None = None) -> bool:
     return load_dotenv(path or _ENV_FILE, override=False)
 
 
+def ensure_gemini_api_key(path: Path | None = None) -> str | None:
+    """Carga `GEMINI_API_KEY` con python-dotenv antes de instanciar Google.
+
+    Si el proceso tiene la variable ausente o en blanco, fuerza el valor del
+    `.env` del servicio (uvicorn a menudo hereda `GEMINI_API_KEY=` vacío).
+    """
+    env_path = path or _ENV_FILE
+    load_dotenv(env_path, override=False)
+    key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    if key:
+        return key
+    if env_path.is_file():
+        file_key = (dotenv_values(env_path).get("GEMINI_API_KEY") or "").strip()
+        if file_key:
+            os.environ["GEMINI_API_KEY"] = file_key
+            return file_key
+    return None
+
+
+def resolve_ai_model_name(
+    name: str | None,
+    *,
+    fallback: str = STABLE_AI_MODEL_NAME,
+) -> str:
+    raw = (name or "").strip() or fallback
+    if raw in UNSTABLE_AI_MODELS:
+        return fallback
+    return raw
+
+
 load_environment()
+ensure_gemini_api_key()
 
 MODEL_VERSION = "rules-1.0"
 
@@ -41,7 +79,7 @@ WEIGHTS: dict[str, float] = {
 
 FACTOR_LABELS: dict[str, str] = {
     "unexcused_absence": "Inasistencias injustificadas",
-    "grade_level": "Promedio IB",
+    "grade_level": "Promedio Minedu",
     "grade_trend": "Tendencia de notas",
     "incidents": "Incidencias (30 días)",
     "night_presence": "Presencia nocturna",
@@ -50,20 +88,21 @@ FACTOR_LABELS: dict[str, str] = {
 
 # --- Normalización 0–1 ----------------------------------------------------
 UNEXCUSED_RATE_CAP = 0.20          # min(unexcused_rate / 0.20, 1)
-GRADE_REFERENCE = 4.5              # clamp((4.5 − grade_mean) / 3.5, 0, 1)
-GRADE_SPAN = 3.5
-TREND_SLOPE_CAP = 0.5              # clamp(−slope / 0.5, 0, 1)
+GRADE_REFERENCE = 4.5 * 20 / 7     # clamp((12.86 − grade_mean) / 10, 0, 1) sobre 0–20
+GRADE_SPAN = 3.5 * 20 / 7
+TREND_SLOPE_CAP = 0.5 * 20 / 7     # clamp(−slope / 1.43, 0, 1)
 TREND_MIN_POINTS = 4               # n ≥ 4
 TREND_MIN_R2 = 0.3                 # r2 ≥ 0.3
-TREND_SLOPE_UNIT_DAYS = 30         # la pendiente se expresa en puntos IB por 30 días
+TREND_SLOPE_UNIT_DAYS = 30         # la pendiente se expresa en puntos vigesimales por 30 días
 INCIDENT_WEIGHTED_CAP = 6          # min(incident_weighted_30d / 6, 1)
 NIGHT_ABSENCE_CAP = 0.15           # min((1 − night_rate) / 0.15, 1)
 TARDINESS_RATE_CAP = 0.25          # min(tardiness_rate / 0.25, 1)
 
-# --- Escala IB --------------------------------------------------------------
-IB_MAX_SCORE = 7
-IB_PASSING_SCORE = 4
-IB_CRITERIA = ("A", "B", "C", "D")
+# --- Escala Minedu vigesimal 0–20 (TOBE-4) --------------------------------
+MINEDU_MIN_SCORE = 0
+MINEDU_MAX_SCORE = 20
+MINEDU_PASSING_SCORE = 11
+IB_CRITERIA = ("A", "B", "C", "D")  # criterios evaluativos, no la letra Minedu
 
 # --- Dominio ----------------------------------------------------------------
 # 'absent' y 'justified' son estados heredados previos a la migración de §3.1.
@@ -83,8 +122,8 @@ LEVEL_MEDIO_MIN = 35               # BAJO < 35
 LEVEL_ALTO_MIN = 65                # MEDIO 35–64 · ALTO ≥ 65
 
 # --- Suficiencia de datos -------------------------------------------------
-MIN_ATTENDANCE_RECORDS = 5         # insufficient si < 5 asistencias Y < 3 notas
-MIN_GRADES = 3
+MIN_ATTENDANCE_RECORDS = 5         # insufficient si < 5 asistencias Y < 1 nota Minedu
+MIN_GRADES = 1
 
 RECOMMENDATIONS: dict[str, str] = {
     "BAJO": "Seguimiento regular: mantener el acompañamiento habitual del tutor.",
@@ -138,15 +177,17 @@ class Settings:
     sqlite_url: str = ""
     db_connection: str = "mysql"
     gemini_api_key: str | None = None
-    ai_model_name: str = "gemini-3.8-flash"
-    ai_timeout_seconds: float = 20.0
+    ai_model_name: str = STABLE_AI_MODEL_NAME
+    ai_fallback_model_name: str = STABLE_AI_FALLBACK_MODEL_NAME
+    ai_timeout_seconds: float = 30.0
 
 
 @lru_cache
 def get_settings() -> Settings:
+    ensure_gemini_api_key()
     key = _internal_key()
     database_url = (os.environ.get("DATABASE_URL") or "").strip() or None
-    timeout_raw = (os.environ.get("AI_TIMEOUT_SECONDS") or "20").strip() or "20"
+    timeout_raw = (os.environ.get("AI_TIMEOUT_SECONDS") or "30").strip() or "30"
     return Settings(
         internal_key=key,
         db_host=os.environ.get("DB_HOST", "127.0.0.1"),
@@ -159,6 +200,10 @@ def get_settings() -> Settings:
         sqlite_url=(os.environ.get("SQLITE_URL") or "").strip() or default_sqlite_url(),
         db_connection=(os.environ.get("DB_CONNECTION") or "mysql").strip().lower() or "mysql",
         gemini_api_key=_optional_env("GEMINI_API_KEY"),
-        ai_model_name=_optional_env("AI_MODEL_NAME") or "gemini-3.8-flash",
+        ai_model_name=resolve_ai_model_name(_optional_env("AI_MODEL_NAME")),
+        ai_fallback_model_name=resolve_ai_model_name(
+            _optional_env("AI_FALLBACK_MODEL_NAME"),
+            fallback=STABLE_AI_FALLBACK_MODEL_NAME,
+        ),
         ai_timeout_seconds=float(timeout_raw),
     )

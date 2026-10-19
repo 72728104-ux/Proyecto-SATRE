@@ -22,7 +22,7 @@ class UpdateGradeRequest extends FormRequest
             'evaluation_name' => ['sometimes', 'required', 'string', 'max:255'],
             'criterion' => ['sometimes', 'nullable', 'string', Rule::in(Grade::CRITERIA)],
             'evaluation_date' => ['sometimes', 'required', 'date'],
-            'score' => ['sometimes', 'required', 'integer', 'between:'.Grade::MIN_SCORE.','.Grade::MAX_SCORE],
+            'score' => ['sometimes', 'required', 'numeric', 'between:'.Grade::MIN_SCORE.','.Grade::MAX_SCORE],
         ];
     }
 }

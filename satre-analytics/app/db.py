@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, time, timedelta
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -147,9 +146,46 @@ def build_engine(settings: config.Settings) -> Engine:
     return engine
 
 
-@lru_cache
+_engine_cache: Engine | None = None
+_engine_is_mysql_fallback = False
+
+
+def _clear_engine_cache() -> None:
+    global _engine_cache, _engine_is_mysql_fallback
+    if _engine_cache is not None:
+        _engine_cache.dispose()
+    _engine_cache = None
+    _engine_is_mysql_fallback = False
+
+
 def get_engine() -> Engine:
-    return build_engine(config.get_settings())
+    """Reutiliza el engine. Si MySQL falló al arrancar, reintenta en el siguiente uso."""
+    global _engine_cache, _engine_is_mysql_fallback
+    settings = config.get_settings()
+    explicit_sqlite = _sqlite_target(settings) is not None
+
+    if _engine_cache is not None and not _engine_is_mysql_fallback:
+        return _engine_cache
+
+    if _engine_cache is not None and _engine_is_mysql_fallback and not explicit_sqlite:
+        try:
+            mysql = build_mysql_engine(settings)
+            _probe(mysql)
+            _engine_cache.dispose()
+            _engine_cache = mysql
+            _engine_is_mysql_fallback = False
+            logger.info("MySQL disponible de nuevo; motor de analítica reconectado.")
+            return mysql
+        except SQLAlchemyError:
+            return _engine_cache
+
+    engine = build_engine(settings)
+    _engine_cache = engine
+    _engine_is_mysql_fallback = (not explicit_sqlite) and engine.dialect.name == "sqlite"
+    return engine
+
+
+get_engine.cache_clear = _clear_engine_cache
 
 
 class Repository:

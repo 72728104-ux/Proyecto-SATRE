@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Grade;
 use App\Models\User;
+use App\Observers\GradeObserver;
 use App\Support\Roles;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -15,11 +17,13 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Intentionally empty: the application does not require container bindings here.
     }
 
     public function boot(): void
     {
+        Grade::observe(GradeObserver::class);
+
         Gate::define('viewAdminMetrics', fn (User $user) => $user->hasRole(Roles::ADMIN));
 
         RateLimiter::for('login', function (Request $request) {
@@ -32,6 +36,12 @@ class AppServiceProvider extends ServiceProvider
             $email = strtolower((string) $request->input('email'));
 
             return Limit::perMinute(3)->by($email.'|'.$request->ip());
+        });
+
+        RateLimiter::for('reset-password', function (Request $request) {
+            $email = strtolower((string) $request->input('email'));
+
+            return Limit::perMinute(5)->by($email.'|'.$request->ip());
         });
 
         ResetPassword::createUrlUsing(function (User $user, string $token) {

@@ -13,9 +13,12 @@ class TeacherFactory extends Factory
 {
     public function definition(): array
     {
+        $dni = fake()->unique()->numerify('########');
+
         return [
-            'user_id' => User::factory(),
+            'user_id' => User::factory()->state(['dni' => $dni]),
             'employee_code' => strtoupper(fake()->unique()->bothify('DOC-####')),
+            'dni' => $dni,
             'specialty' => 'Tutoría IB',
         ];
     }

@@ -28,7 +28,6 @@ export default function ConfirmModal({
           type="button"
           onClick={onConfirm}
           disabled={loading}
-          autoFocus
           data-cy="confirm-accept"
           className={`h-10 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-60 ${
             danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-navy-900 hover:bg-navy-800'

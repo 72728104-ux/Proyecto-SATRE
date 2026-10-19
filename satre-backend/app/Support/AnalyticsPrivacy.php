@@ -20,6 +20,14 @@ final class AnalyticsPrivacy
         'criterion',
     ];
 
+    public const TEACHER_ASSISTANT_KEYS = [
+        'classroom_id',
+        'student_id',
+        'user_message',
+        'history',
+        'criterion',
+    ];
+
     private const FORBIDDEN_KEYS = [
         'name',
         'first_name',
@@ -63,6 +71,23 @@ final class AnalyticsPrivacy
         $allowed = [];
 
         foreach (self::HYBRID_TUTOR_KEYS as $key) {
+            if (array_key_exists($key, $payload)) {
+                $allowed[$key] = $payload[$key];
+            }
+        }
+
+        return self::stripForbidden($allowed);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public static function forTeacherAssistant(array $payload): array
+    {
+        $allowed = [];
+
+        foreach (self::TEACHER_ASSISTANT_KEYS as $key) {
             if (array_key_exists($key, $payload)) {
                 $allowed[$key] = $payload[$key];
             }

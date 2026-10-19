@@ -8,11 +8,22 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.config import (
+    STABLE_AI_FALLBACK_MODEL_NAME,
+    STABLE_AI_MODEL_NAME,
+    ensure_gemini_api_key,
+    resolve_ai_model_name,
+)
+
 _ROOT = Path(__file__).resolve().parent.parent.parent
 _ENV_FILE = _ROOT / ".env"
+
+load_dotenv(_ENV_FILE, override=False)
+ensure_gemini_api_key(_ENV_FILE)
 
 
 class Settings(BaseSettings):
@@ -39,8 +50,9 @@ class Settings(BaseSettings):
     )
 
     gemini_api_key: str | None = None
-    ai_model_name: str = "gemini-3.8-flash"
-    ai_timeout_seconds: float = Field(default=20.0, gt=0)
+    ai_model_name: str = STABLE_AI_MODEL_NAME
+    ai_fallback_model_name: str = STABLE_AI_FALLBACK_MODEL_NAME
+    ai_timeout_seconds: float = Field(default=30.0, gt=0)
 
     @model_validator(mode="before")
     @classmethod
@@ -64,10 +76,15 @@ class Settings(BaseSettings):
 
     @field_validator("ai_model_name", mode="before")
     @classmethod
-    def _default_model_name(cls, value: object) -> object:
-        if isinstance(value, str) and not value.strip():
-            return "gemini-3.8-flash"
-        return value
+    def _primary_model_name(cls, value: object) -> object:
+        raw = value.strip() if isinstance(value, str) else None
+        return resolve_ai_model_name(raw, fallback=STABLE_AI_MODEL_NAME)
+
+    @field_validator("ai_fallback_model_name", mode="before")
+    @classmethod
+    def _fallback_model_name(cls, value: object) -> object:
+        raw = value.strip() if isinstance(value, str) else None
+        return resolve_ai_model_name(raw, fallback=STABLE_AI_FALLBACK_MODEL_NAME)
 
     @property
     def internal_key(self) -> str:
@@ -76,4 +93,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    load_dotenv(_ENV_FILE, override=False)
+    ensure_gemini_api_key(_ENV_FILE)
     return Settings()

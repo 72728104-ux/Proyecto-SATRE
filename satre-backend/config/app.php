@@ -58,6 +58,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | College Residence (Internado)
+    |--------------------------------------------------------------------------
+    |
+    | When false, boarding modules (residence, overnight presence, allergies
+    | and exit permissions) are hidden for this school.
+    |
+    */
+
+    'college_has_residence' => filter_var(env('COLLEGE_HAS_RESIDENCE', true), FILTER_VALIDATE_BOOLEAN),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

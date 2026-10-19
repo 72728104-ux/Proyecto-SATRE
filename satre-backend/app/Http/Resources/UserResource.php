@@ -17,8 +17,10 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'dni' => $this->dni,
             'is_active' => $this->is_active,
             'must_change_password' => $this->must_change_password,
+            'college_has_residence' => (bool) config('app.college_has_residence'),
             'role' => [
                 'id' => $this->role?->id,
                 'slug' => $this->role?->slug,

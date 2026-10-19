@@ -82,12 +82,13 @@ class AuthTokenTest extends TestCase
         $this->withToken($token)
             ->postJson('/api/auth/register')
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'email', 'role']);
+            ->assertJsonValidationErrors(['name', 'email', 'dni', 'role']);
 
         $this->withToken($token)
             ->postJson('/api/auth/register', [
                 'name' => 'Otra Admin',
                 'email' => 'otra.admin@coar.edu.pe',
+                'dni' => '10000099',
                 'role' => Roles::ADMIN,
             ])
             ->assertCreated()

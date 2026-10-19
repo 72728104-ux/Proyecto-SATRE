@@ -1,11 +1,7 @@
 import { apiRequest } from './client.js'
+import { withQuery } from './query.js'
 
 export { createFollowUp, createIntervention, fetchAlerts, updateAlert } from './teacher.js'
-
-const withQuery = (path, params = {}) => {
-  const entries = Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
-  return entries.length ? `${path}?${new URLSearchParams(entries)}` : path
-}
 
 /** Internos activos: `{ id, student_code, name, classroom, presence? }`; `presence` solo si se envía `presence_date`. */
 export const fetchResidents = (params, options) => apiRequest(withQuery('/residents', params), options)

@@ -16,11 +16,13 @@ use App\Models\PermissionRequest;
 use App\Models\ReadingMaterial;
 use App\Models\ResidentialPresence;
 use App\Models\Student;
+use App\Models\TutorSession;
 use App\Models\User;
+use App\Support\InstitutionalIdentity;
 use App\Support\Roles;
 use Database\Seeders\AcademicPo01Seeder;
-use Database\Seeders\DemoFiveRolesRecordsSeeder;
-use Database\Seeders\DemoUserSeeder;
+use Database\Seeders\FiveRolesRecordsSeeder;
+use Database\Seeders\InstitutionalUserSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -39,12 +41,12 @@ class RoleEndpointMatrixTest extends TestCase
 
     private const ALLOWED_STATUSES = [200, 201, 422];
 
-    private const DEMO_EMAILS = [
-        Roles::ADMIN => 'admin@coar.edu.pe',
-        Roles::TEACHER => 'tutor@coar.edu.pe',
-        Roles::MONITOR => 'residencia@coar.edu.pe',
-        Roles::STUDENT => 'estudiante@coar.edu.pe',
-        Roles::GUARDIAN => 'apoderado@coar.edu.pe',
+    private const ROLE_EMAILS = [
+        Roles::ADMIN => InstitutionalIdentity::ADMIN_EMAIL,
+        Roles::TEACHER => 'd'.InstitutionalIdentity::TEACHER_DNI.'@'.InstitutionalIdentity::DOMAIN,
+        Roles::MONITOR => InstitutionalIdentity::MONITOR_EMAIL,
+        Roles::STUDENT => InstitutionalIdentity::STUDENT_DNI.'@'.InstitutionalIdentity::DOMAIN,
+        Roles::GUARDIAN => InstitutionalIdentity::GUARDIAN_EMAIL,
     ];
 
     /**
@@ -177,9 +179,14 @@ class RoleEndpointMatrixTest extends TestCase
 
             // §4.6 IA
             ['GET', '/api/ai-analytics/teacher/insights/{classroom}', [Roles::ADMIN, Roles::TEACHER]],
+            ['POST', '/api/v1/analytics/teacher-assistant', [Roles::ADMIN, Roles::TEACHER], [
+                'classroom_id' => '{classroom}',
+                'message' => '¿Qué actividades remediales sugieres para la competencia D en este grupo?',
+            ]],
             ['GET', '/api/ai-analytics/students/{student}/risk', $all],
             ['POST', '/api/ai-analytics/student/socratic-tutor', [Roles::STUDENT]],
             ['GET', '/api/ai-analytics/student/socratic-tutor/sessions', [Roles::STUDENT]],
+            ['DELETE', '/api/v1/socratic/sessions/{session}', [Roles::STUDENT]],
         ];
     }
 
@@ -218,15 +225,15 @@ class RoleEndpointMatrixTest extends TestCase
 
         $this->seed([
             RoleSeeder::class,
-            DemoUserSeeder::class,
+            InstitutionalUserSeeder::class,
             AcademicPo01Seeder::class,
-            DemoFiveRolesRecordsSeeder::class,
+            FiveRolesRecordsSeeder::class,
         ]);
         User::query()->update(['must_change_password' => false]);
 
         [$uri, $payload] = $this->resolvePlaceholders($uri, $payload);
 
-        $user = User::query()->where('email', self::DEMO_EMAILS[$role])->firstOrFail();
+        $user = User::query()->where('email', self::ROLE_EMAILS[$role])->firstOrFail();
         $this->withToken($user->createToken('matrix')->plainTextToken);
 
         $response = $this->json($method, $uri, $payload);
@@ -264,7 +271,7 @@ class RoleEndpointMatrixTest extends TestCase
     {
         $student = Student::query()->where('student_code', 'EST-0003')->firstOrFail();
         $course = Course::query()->where('code', 'MAT-AA')->firstOrFail();
-        $teacher = User::query()->where('email', self::DEMO_EMAILS[Roles::TEACHER])->firstOrFail();
+        $teacher = User::query()->where('email', self::ROLE_EMAILS[Roles::TEACHER])->firstOrFail();
 
         $alert = Alert::query()->first() ?? Alert::query()->create([
             'student_id' => $student->id,
@@ -318,6 +325,13 @@ class RoleEndpointMatrixTest extends TestCase
             '{intervention}' => (string) $intervention->id,
             '{reading}' => (string) $reading->id,
             '{question}' => (string) $question->id,
+            '{session}' => (string) (TutorSession::query()->where('student_id', $student->id)->value('id')
+                ?? TutorSession::query()->create([
+                    'student_id' => $student->id,
+                    'course_id' => $course->id,
+                    'topic' => 'Funciones cuadráticas',
+                    'status' => TutorSession::STATUS_ACTIVE,
+                ])->id),
         ];
 
         array_walk_recursive($payload, function (&$value) use ($ids): void {

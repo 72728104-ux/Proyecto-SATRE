@@ -25,3 +25,22 @@ body {
 .font-display {
   font-family: var(--font-display);
 }
+
+@keyframes landing-kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+.landing-hero-media {
+  animation: landing-kenburns 18s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-media {
+    animation: none;
+  }
+}

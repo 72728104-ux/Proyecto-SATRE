@@ -1,50 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { changePasswordRequest, loginRequest, logoutRequest, meRequest, refreshRequest, revokeTokenRequest } from '../api/auth'
-import { STORAGE_PREFIX, clearStoredSession, getToken, setToken, subscribeApiEvents } from '../api/client'
+import { changePasswordRequest, loginRequest, logoutRequest, mapApiUser, meRequest, readSession, refreshRequest, revokeTokenRequest, writeSession } from '../api/auth'
+import { clearStoredSession, getToken, setToken, subscribeApiEvents } from '../api/client'
 import { useToast } from '../components/Toast'
-import { API_ROLE_TO_UI, CHANGE_PASSWORD_PATH, ROLE_HOME, ROLE_LABELS, ROLES } from '../data/roles'
+import { CHANGE_PASSWORD_PATH, ROLE_HOME, ROLE_LABELS, ROLES } from '../data/roles'
 import { touchActivity, useIdleTimeout } from '../hooks/useIdleTimeout'
 
-const STORAGE_KEY = `${STORAGE_PREFIX}session`
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000
 const MAX_TIMEOUT_MS = 2 ** 31 - 1
 
 const AuthContext = createContext(null)
-
-const mapApiUser = (apiUser, mustChangePassword = apiUser.must_change_password) => {
-  const role = API_ROLE_TO_UI[apiUser.role?.slug] ?? apiUser.role?.slug
-  return {
-    id: apiUser.id,
-    name: apiUser.name,
-    email: apiUser.email,
-    role,
-    cargo: apiUser.role?.name,
-    mustChangePassword: Boolean(mustChangePassword),
-    students: Array.isArray(apiUser.students) ? apiUser.students : [],
-  }
-}
-
-const isExpired = (expiresAt) => Boolean(expiresAt) && new Date(expiresAt).getTime() <= Date.now()
-
-const readSession = () => {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
-    const session = raw ? JSON.parse(raw) : null
-    if (!session?.user || !getToken() || isExpired(session.expiresAt)) {
-      clearStoredSession()
-      return null
-    }
-    return session
-  } catch {
-    clearStoredSession()
-    return null
-  }
-}
-
-const writeSession = (session) => {
-  if (session) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-  else sessionStorage.removeItem(STORAGE_KEY)
-}
 
 export function AuthProvider({ children }) {
   const toast = useToast()
@@ -169,6 +133,7 @@ export function AuthProvider({ children }) {
       roleLabel: user ? (ROLE_LABELS[role] ?? user.cargo) : null,
       homePath: !user ? '/login' : user.mustChangePassword ? CHANGE_PASSWORD_PATH : (ROLE_HOME[role] ?? '/403'),
       mustChangePassword: Boolean(user?.mustChangePassword),
+      collegeHasResidence: user?.collegeHasResidence !== false,
       logoutReason,
       login,
       logout,

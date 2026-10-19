@@ -26,7 +26,7 @@ class SocraticTutorTurnRequest extends FormRequest
             'course_id' => ['required_without:session_id', 'nullable', 'integer', 'exists:courses,id'],
             'topic' => ['required_without:session_id', 'nullable', 'string', 'max:150'],
             'criterion' => ['nullable', 'string', Rule::in(ReadingMaterial::CRITERIA)],
-            'message' => ['nullable', 'string', 'max:1000'],
+            'message' => ['nullable', 'string', 'max:4000'],
             'option_id' => ['nullable', 'string', 'max:10'],
         ];
     }

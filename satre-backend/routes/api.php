@@ -30,7 +30,7 @@ Route::get('/health', function () {
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:forgot-password');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:reset-password');
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
@@ -40,17 +40,17 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
+    $attendanceSessionPath = '/attendances/session';
+
     Route::get('/courses', [CourseController::class, 'index']);
     Route::get('/courses/{course}/attendance-session', [CourseController::class, 'attendanceSession']);
-});
 
-Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
-    $academic = function (): void {
+    $academic = function () use ($attendanceSessionPath): void {
         Route::get('/attendances', [AttendanceController::class, 'index'])->middleware('role:admin,teacher,student');
-        Route::get('/attendances/session', [AttendanceController::class, 'showSession'])->middleware('role:admin,teacher');
-        Route::post('/attendances/session', [AttendanceController::class, 'storeSession'])->middleware('role:admin,teacher');
-        Route::put('/attendances/session', [AttendanceController::class, 'storeSession'])->middleware('role:admin,teacher');
+        Route::get($attendanceSessionPath, [AttendanceController::class, 'showSession'])->middleware('role:admin,teacher');
+        Route::post($attendanceSessionPath, [AttendanceController::class, 'storeSession'])->middleware('role:admin,teacher');
+        Route::put($attendanceSessionPath, [AttendanceController::class, 'storeSession'])->middleware('role:admin,teacher');
         Route::post('/attendances', [AttendanceController::class, 'store'])->middleware('role:admin,teacher');
         Route::put('/attendances/{attendance}', [AttendanceController::class, 'update'])->middleware('role:admin,teacher');
 
@@ -58,19 +58,21 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/grades', [GradeController::class, 'store'])->middleware('role:teacher');
         Route::put('/grades/{grade}', [GradeController::class, 'update'])->middleware('role:teacher');
 
-        Route::get('/presences', [ResidentialPresenceController::class, 'index'])->middleware('role:admin,monitor,student');
-        Route::post('/presences', [ResidentialPresenceController::class, 'store'])->middleware('role:monitor');
-        Route::post('/presences/bulk', [ResidentialPresenceController::class, 'storeBulk'])->middleware('role:monitor');
-        Route::put('/presences/{presence}', [ResidentialPresenceController::class, 'update'])->middleware('role:monitor');
+        Route::middleware('college.residence')->group(function (): void {
+            Route::get('/presences', [ResidentialPresenceController::class, 'index'])->middleware('role:admin,monitor,student');
+            Route::post('/presences', [ResidentialPresenceController::class, 'store'])->middleware('role:monitor');
+            Route::post('/presences/bulk', [ResidentialPresenceController::class, 'storeBulk'])->middleware('role:monitor');
+            Route::put('/presences/{presence}', [ResidentialPresenceController::class, 'update'])->middleware('role:monitor');
+
+            Route::get('/permissions', [PermissionRequestController::class, 'index'])->middleware('role:admin,monitor,student,guardian');
+            Route::post('/permissions', [PermissionRequestController::class, 'store'])->middleware('role:student');
+            Route::patch('/permissions/{permission}/guardian', [PermissionRequestController::class, 'respondAsGuardian'])->middleware('role:guardian');
+            Route::patch('/permissions/{permission}/resolve', [PermissionRequestController::class, 'resolve'])->middleware('role:admin,monitor');
+        });
 
         Route::get('/incidents', [IncidentController::class, 'index'])->middleware('role:admin,monitor,teacher,guardian');
         Route::post('/incidents', [IncidentController::class, 'store'])->middleware('role:monitor');
         Route::put('/incidents/{incident}', [IncidentController::class, 'update'])->middleware('role:monitor');
-
-        Route::get('/permissions', [PermissionRequestController::class, 'index'])->middleware('role:admin,monitor,student,guardian');
-        Route::post('/permissions', [PermissionRequestController::class, 'store'])->middleware('role:student');
-        Route::patch('/permissions/{permission}/guardian', [PermissionRequestController::class, 'respondAsGuardian'])->middleware('role:guardian');
-        Route::patch('/permissions/{permission}/resolve', [PermissionRequestController::class, 'resolve'])->middleware('role:admin,monitor');
 
         Route::get('/me/summary', [MeSummaryController::class, 'show'])->middleware('role:student,guardian');
 
@@ -88,7 +90,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     Route::prefix('academic')->group($academic);
     $academic();
 
-    Route::get('/residents', [ResidentController::class, 'index'])->middleware('role:admin,monitor');
+    Route::get('/residents', [ResidentController::class, 'index'])->middleware(['college.residence', 'role:admin,monitor']);
 
     Route::get('/alerts', [AlertController::class, 'index'])->middleware('role:admin,teacher,monitor,student,guardian');
     Route::patch('/alerts/{alert}', [AlertController::class, 'update'])->middleware('role:admin,teacher,monitor');
@@ -109,8 +111,10 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     });
 
     Route::prefix('v1')->group(function () {
+        Route::post('/analytics/teacher-assistant', [AnalyticsController::class, 'teacherAssistant'])->middleware(['role:admin,teacher', 'throttle:60,1']);
         Route::post('/tutor/chat', [SocraticTutorController::class, 'store'])->middleware(['role:student', 'throttle:60,1']);
         Route::get('/tutor/sessions', [SocraticTutorController::class, 'index'])->middleware('role:student');
+        Route::delete('/socratic/sessions/{session}', [SocraticTutorController::class, 'destroy'])->middleware('role:student');
     });
 });
 

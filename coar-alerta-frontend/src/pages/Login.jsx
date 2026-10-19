@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { GraduationCap } from 'lucide-react'
+import CoarLogo from '../components/CoarLogo'
 import Field from '../components/Field'
 import { CHANGE_PASSWORD_PATH, FORGOT_PASSWORD_PATH, ROLE_HOME } from '../data/roles'
 import { useAuth } from '../context/AuthContext'
@@ -24,7 +24,7 @@ export default function Login() {
     setError('')
     setFieldErrors({})
     setLoading(true)
-    const result = await login(email, password)
+    const result = await login(email.trim(), password)
     setLoading(false)
     if (!result.ok) {
       setError(result.message)
@@ -41,7 +41,10 @@ export default function Login() {
       <section className="relative hidden overflow-hidden bg-navy-950 text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(45,212,191,0.18),transparent_40%),radial-gradient(circle_at_80%_80%,rgba(251,191,36,0.12),transparent_35%)]" />
         <div className="relative">
-          <p className="text-sm uppercase tracking-[0.22em] text-teal-300">COAR Junín</p>
+          <div className="flex items-center gap-3">
+            <CoarLogo size={48} />
+            <p className="text-sm uppercase tracking-[0.22em] text-teal-300">COAR Junín</p>
+          </div>
           <h1 className="font-display mt-6 max-w-md text-4xl leading-tight">
             Sistema web de alerta temprana para retención estudiantil
           </h1>
@@ -55,8 +58,8 @@ export default function Login() {
 
       <section className="flex items-center justify-center bg-slate-50 p-6">
         <div className="w-full max-w-md">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <GraduationCap className="text-navy-900" />
+          <div className="mb-8 flex items-center gap-3">
+            <CoarLogo size={40} />
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-teal-700">SATRE</p>
               <p className="font-semibold text-navy-950">COAR Junín</p>
@@ -70,7 +73,7 @@ export default function Login() {
             className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
           >
             <h2 className="font-display text-2xl text-navy-950">Iniciar sesión</h2>
-            <p className="mt-1 text-sm text-slate-500">Usa tu cuenta institucional.</p>
+            <p className="mt-1 text-sm text-slate-500">Usa tu correo institucional o tu DNI de 8 dígitos.</p>
 
             {LOGOUT_MESSAGES[logoutReason] ? (
               <p data-cy="logout-reason" className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -80,13 +83,15 @@ export default function Login() {
 
             <div className="mt-6 space-y-4">
               <Field
-                label="Correo institucional"
+                label="Correo institucional o DNI"
                 name="email"
-                type="email"
+                type="text"
+                inputMode="text"
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 error={fieldErrors.email}
+                hint="Ejemplo: 78901234 o 78901234@coar.edu.pe"
                 data-cy="email"
                 required
               />
@@ -121,6 +126,11 @@ export default function Login() {
             <p className="mt-4 text-center text-sm">
               <Link to={FORGOT_PASSWORD_PATH} className="text-slate-500 hover:text-navy-900">
                 Olvidé mi contraseña
+              </Link>
+            </p>
+            <p className="mt-2 text-center text-sm">
+              <Link to="/" data-cy="volver-portal" className="text-slate-500 hover:text-navy-900">
+                Volver al portal institucional
               </Link>
             </p>
           </form>

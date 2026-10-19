@@ -21,7 +21,7 @@ class UserService
     ) {}
 
     /**
-     * @param  array{name: string, email: string, role: string, password?: string|null, profile?: array<string, mixed>}  $data
+     * @param  array{name: string, email: string, dni: string, role: string, password?: string|null, profile?: array<string, mixed>}  $data
      * @return array{user: User, temporary_password: ?string}
      */
     public function create(User $admin, array $data): array
@@ -35,6 +35,7 @@ class UserService
                 'role_id' => $role->id,
                 'name' => $data['name'],
                 'email' => $data['email'],
+                'dni' => $data['dni'],
                 'password' => $data['password'] ?? $temporaryPassword,
                 'is_active' => true,
                 'must_change_password' => true,
@@ -43,7 +44,7 @@ class UserService
             $this->createProfile($user, $role->slug, $data['profile'] ?? []);
 
             $this->auditLogger->record($admin, 'user.created', $user, [], $user->only([
-                'id', 'name', 'email', 'role_id', 'is_active',
+                'id', 'name', 'email', 'dni', 'role_id', 'is_active',
             ]) + ['role' => $role->slug]);
 
             return $user;
@@ -56,12 +57,18 @@ class UserService
     }
 
     /**
-     * @param  array{name?: string, email?: string}  $data
+     * @param  array{name?: string, email?: string, dni?: string}  $data
      */
     public function update(User $admin, User $user, array $data): User
     {
         $old = $user->only(array_keys($data));
         $user->update($data);
+
+        if (array_key_exists('dni', $data)) {
+            $user->loadMissing(['teacher', 'student']);
+            $user->teacher?->update(['dni' => $data['dni']]);
+            $user->student?->update(['dni' => $data['dni']]);
+        }
 
         $this->auditLogger->record($admin, 'user.updated', $user, $old, $user->only(array_keys($data)));
 
@@ -135,6 +142,7 @@ class UserService
             Roles::TEACHER => Teacher::query()->create([
                 'user_id' => $user->id,
                 'employee_code' => $profile['employee_code'],
+                'dni' => $user->dni,
                 'specialty' => $profile['specialty'] ?? null,
             ]),
             Roles::MONITOR => Monitor::query()->create([
@@ -145,6 +153,7 @@ class UserService
                 'user_id' => $user->id,
                 'student_code' => $profile['student_code'],
                 'document_number' => $profile['document_number'],
+                'dni' => $user->dni,
                 'first_name' => $profile['first_name'],
                 'last_name' => $profile['last_name'],
                 'classroom_id' => $profile['classroom_id'] ?? null,

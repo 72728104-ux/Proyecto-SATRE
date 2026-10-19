@@ -1,13 +1,9 @@
 import { apiRequest } from './client.js'
-
-const withQuery = (path, params = {}) => {
-  const entries = Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
-  return entries.length ? `${path}?${new URLSearchParams(entries)}` : path
-}
+import { withQuery } from './query.js'
 
 /**
- * `{ data: { student, academic_period, courses: [{ id, code, name }], grades: { average, scale, failing_courses,
- * by_course: [{ course_id, course_name, average, passing, count, criteria: { A..D } }] }, attendance: { total,
+ * `{ data: { student, academic_period, courses: [{ id, code, name }], grades: { average, literal, scale, failing_courses,
+ * by_course: [{ course_id, course_name, average, literal, passing, count, criteria: { A..D } }] }, attendance: { total,
  * by_status, rate }, alerts: { open, items } } }`.
  */
 export const fetchMySummary = (options) => apiRequest('/me/summary', options)
@@ -50,6 +46,9 @@ export const submitReadingQuiz = (readingId, body) =>
 export const sendTutorTurn = (body) => apiRequest('/ai-analytics/student/socratic-tutor', { method: 'POST', body })
 export const fetchTutorSessions = (params, options) =>
   apiRequest(withQuery('/ai-analytics/student/socratic-tutor/sessions', params), options)
+/** TOBE-5: el estudiante borra su sesión de chat o borrador de artículo. */
+export const deleteTutorSession = (sessionId) =>
+  apiRequest(`/v1/socratic/sessions/${sessionId}`, { method: 'DELETE' })
 
 /** Body de `POST /ai-analytics/student/socratic-tutor` (§12.2 paso 5, §12.3). */
 export function buildTutorStartBody({ course_id, topic, criterion }) {

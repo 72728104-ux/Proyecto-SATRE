@@ -1,4 +1,6 @@
 from app.services.ai.create_protocol import (
+    CREATE_SYSTEM_INSTRUCTION,
+    _clean_mermaid,
     detect_intent,
     next_create_phase,
     normalize_socratic_payload,
@@ -58,6 +60,18 @@ descripcion: Observa cómo sube al avanzar.
     assert "[QUIZ]" not in parsed["explanation"]
 
 
+def test_clean_mermaid_quotes_node_labels_with_parentheses():
+    cleaned = _clean_mermaid("flowchart TD\n    A[Inicio (x1, y1)] --> B[Fin]")
+    assert cleaned == 'flowchart TD\n    A["Inicio (x1, y1)"] --> B[Fin]'
+    already = 'flowchart TD\n    A["Inicio (x1, y1)"] --> B[Fin]'
+    assert _clean_mermaid(already) == already
+    assert _clean_mermaid("flowchart TD\n    A[Δy] --> M[pendiente]") == (
+        "flowchart TD\n    A[Δy] --> M[pendiente]"
+    )
+    assert "comillas dobles" in CREATE_SYSTEM_INSTRUCTION
+    assert 'A["Inicio (x1, y1)"]' in CREATE_SYSTEM_INSTRUCTION
+
+
 def test_normalize_keeps_guidance_and_strips_quiz_keys():
     payload = normalize_socratic_payload({
         "available": True,
@@ -73,6 +87,20 @@ def test_normalize_keeps_guidance_and_strips_quiz_keys():
     reply = reply_from_create(payload)
     assert reply["options"][0] == {"id": "a", "text": "x"}
     assert reply["create_phase"] == "aplicar"
+
+
+def test_normalize_unavailable_keeps_provider_error_fields():
+    payload = normalize_socratic_payload({
+        "available": False,
+        "reason": "api_unavailable",
+        "message": "La API de IA no está disponible temporalmente.",
+        "http_status": 503,
+        "provider_status": "UNAVAILABLE",
+        "provider_error": "overloaded",
+    })
+    assert payload["available"] is False
+    assert payload["http_status"] == 503
+    assert payload["provider_error"] == "overloaded"
 
 
 def test_deterministic_turn_exposes_create_phase_and_quiz():

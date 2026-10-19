@@ -123,6 +123,26 @@ class ResidenceModuleTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_residence_endpoints_are_not_delivered_when_college_has_no_residence(): void
+    {
+        config(['app.college_has_residence' => false]);
+        $monitor = $this->userWithRole(Roles::MONITOR);
+        $student = $this->userWithRole(Roles::STUDENT);
+        $admin = $this->userWithRole(Roles::ADMIN);
+
+        $this->actingAs($monitor, 'sanctum')->getJson('/api/residents')->assertNotFound();
+        $this->actingAs($monitor, 'sanctum')->getJson('/api/presences')->assertNotFound();
+        $this->actingAs($monitor, 'sanctum')->postJson('/api/presences/bulk', [
+            'presence_date' => '2026-04-15',
+            'check_type' => 'night',
+            'records' => [['student_id' => 1, 'status' => 'present']],
+        ])->assertNotFound();
+        $this->actingAs($student, 'sanctum')->getJson('/api/permissions')->assertNotFound();
+        $this->actingAs($student, 'sanctum')->getJson('/api/academic/presences')->assertNotFound();
+        $this->actingAs($student, 'sanctum')->getJson('/api/academic/permissions')->assertNotFound();
+        $this->actingAs($admin, 'sanctum')->getJson('/api/attendances')->assertOk();
+    }
+
     private function userWithRole(string $slug): User
     {
         $role = Role::query()->firstOrCreate(['slug' => $slug], ['name' => $slug, 'description' => $slug]);

@@ -67,9 +67,9 @@ function DevAccountSwitcher() {
         >
           <p className="text-xs text-slate-500">Solo desarrollo · inicia sesión con otra cuenta real del backend.</p>
           <Field
-            label="Correo"
+            label="Correo o DNI"
             name="email"
-            type="email"
+            type="text"
             value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             required

@@ -13,7 +13,7 @@ const buttonClass =
  * `meta` es el bloque de paginación de Laravel: current_page, last_page, total, from, to.
  */
 export default function Pagination({ meta, onPageChange, disabled = false }) {
-  if (!meta || !meta.last_page || meta.last_page <= 1) return null
+  if (!meta?.last_page || meta.last_page <= 1) return null
   const { current_page: page, last_page: last, total, from, to } = meta
   const go = (target) => {
     if (target !== page && target >= 1 && target <= last) onPageChange(target)

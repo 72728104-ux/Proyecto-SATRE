@@ -2,7 +2,8 @@ import { BedDouble, BookOpen, ClipboardCheck, Users } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import Skeleton from '../../components/Skeleton'
 import StatCard from '../../components/StatCard'
-import AlertBadge from '../../components/AlertBadge'
+import ScoreBadge from '../../components/ScoreBadge'
+import { useAuth } from '../../context/AuthContext'
 import { LoadError } from '../admin/shared/ui'
 import {
   ATTENDANCE_STATUS,
@@ -10,7 +11,7 @@ import {
   RESIDENCE_STATUS,
   StudentPicker,
   formatRate,
-  formatScore,
+  formatScoreWithLiteral,
   useChildSummary,
   useLinkedStudent,
 } from './shared'
@@ -41,6 +42,7 @@ function StatusGrid({ map, byStatus }) {
 }
 
 export default function DashboardApoderado() {
+  const { collegeHasResidence } = useAuth()
   const { students, studentId, student, setStudentId } = useLinkedStudent()
   const { summary, loading, error, reload } = useChildSummary(studentId)
 
@@ -53,7 +55,9 @@ export default function DashboardApoderado() {
             ? [summary.student?.name, summary.student?.classroom, summary.academic_period?.name].filter(Boolean).join(' · ')
             : student
               ? [student.name, student.classroom].filter(Boolean).join(' · ')
-              : 'Promedio IB, rendimiento y asistencia en aula y residencia.'}
+              : collegeHasResidence
+                ? 'Promedio Minedu, rendimiento y asistencia en aula y residencia.'
+                : 'Promedio Minedu, rendimiento y asistencia en aula.'}
         </p>
       </div>
       <StudentPicker students={students} studentId={studentId} onChange={setStudentId} className="sm:w-72" />
@@ -118,12 +122,12 @@ export default function DashboardApoderado() {
       <div className="grid gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3">
         <StatCard
           icon={BookOpen}
-          label="Promedio IB"
-          value={formatScore(grades.average)}
+          label="Promedio"
+          value={formatScoreWithLiteral(grades.average, grades.literal)}
           hint={
             grades.average === null
               ? 'Aún no hay notas registradas'
-              : `Escala 1–7 · ${failing} curso(s) por debajo de ${PASSING_SCORE}`
+              : `Escala 0–20 · ${failing} curso(s) por debajo de ${PASSING_SCORE}`
           }
           tone={grades.average !== null && grades.average < PASSING_SCORE ? 'rose' : 'navy'}
         />
@@ -134,19 +138,21 @@ export default function DashboardApoderado() {
           hint={attendance.total ? `${attendance.total} registros de clase` : 'Sin registros de asistencia'}
           tone="teal"
         />
-        <StatCard
-          icon={BedDouble}
-          label="Presencia en residencia"
-          value={residence ? formatRate(residence.rate) : '—'}
-          hint={
-            residence
-              ? residence.total
-                ? `${residence.total} registros nocturnos`
-                : 'Sin registros de residencia'
-              : 'No es interno en este periodo'
-          }
-          tone="amber"
-        />
+        {collegeHasResidence ? (
+          <StatCard
+            icon={BedDouble}
+            label="Presencia en residencia"
+            value={residence ? formatRate(residence.rate) : '—'}
+            hint={
+              residence
+                ? residence.total
+                  ? `${residence.total} registros nocturnos`
+                  : 'Sin registros de residencia'
+                : 'No es interno en este periodo'
+            }
+            tone="amber"
+          />
+        ) : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -159,7 +165,7 @@ export default function DashboardApoderado() {
                     <p className="truncate font-medium text-navy-950">{course.course_name}</p>
                     <p className="text-xs text-slate-500">{course.count} evaluación(es)</p>
                   </div>
-                  <AlertBadge nivel={course.passing ? 'normal' : 'critico'}>{formatScore(course.average)}</AlertBadge>
+                  <ScoreBadge value={course.average} literal={course.literal} />
                 </li>
               ))}
             </ul>
@@ -173,7 +179,7 @@ export default function DashboardApoderado() {
         </Panel>
       </div>
 
-      {residence ? (
+      {collegeHasResidence && residence ? (
         <Panel title="Asistencias e inasistencias en residencia">
           <StatusGrid map={RESIDENCE_STATUS} byStatus={residence.by_status} />
         </Panel>

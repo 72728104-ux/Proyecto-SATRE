@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureCollegeHasResidence;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\SecurityHeaders;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             'password.changed' => EnsurePasswordChanged::class,
+            'college.residence' => EnsureCollegeHasResidence::class,
         ]);
         $middleware->trustProxies(at: '*');
         $middleware->api(append: [

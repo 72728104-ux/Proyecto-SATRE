@@ -23,7 +23,7 @@ class ReportsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_teacher_gets_classroom_analytics_with_ib_summary(): void
+    public function test_teacher_gets_classroom_analytics_with_minedu_summary(): void
     {
         $context = $this->reportContext();
 
@@ -32,7 +32,7 @@ class ReportsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.insufficient_data', false)
             ->assertJsonPath('data.summary.students', 2)
-            ->assertJsonPath('data.summary.grade_mean', 4)
+            ->assertJsonPath('data.summary.grade_mean', 11.5)
             ->assertJsonPath('data.summary.pass_rate', 0.5)
             ->assertJsonPath('data.summary.attendance_rate', 0.5)
             ->assertJsonPath('data.summary.open_alerts', 1)
@@ -40,7 +40,7 @@ class ReportsTest extends TestCase
             ->assertJsonPath('data.risk_distribution.MEDIO', 0)
             ->assertJsonPath('data.risk_distribution.BAJO', 0)
             ->assertJsonPath('data.courses.0.course_name', 'Matemáticas AA')
-            ->assertJsonPath('data.courses.0.grade_mean', 4)
+            ->assertJsonPath('data.courses.0.grade_mean', 11.5)
             ->assertJsonPath('data.courses.0.pass_rate', 0.5);
     }
 
@@ -151,7 +151,7 @@ class ReportsTest extends TestCase
             ->getJson("/api/reports/students/{$context['passing']->id}/performance")
             ->assertOk()
             ->assertJsonPath('data.student.student_code', 'EST-PASS')
-            ->assertJsonPath('data.grades.average', 5);
+            ->assertJsonPath('data.grades.average', 15);
 
         $this->actingAs($guardianUser, 'sanctum')
             ->getJson("/api/reports/students/{$context['passing']->id}/performance")
@@ -217,9 +217,9 @@ class ReportsTest extends TestCase
             ]);
         }
 
-        $this->addGrade($passing, $course, $period, $teacherUser, 5);
-        $this->addGrade($passing, $course, $period, $teacherUser, 5);
-        $this->addGrade($failing, $course, $period, $teacherUser, 3);
+        $this->addGrade($passing, $course, $period, $teacherUser, 15);
+        $this->addGrade($passing, $course, $period, $teacherUser, 15);
+        $this->addGrade($failing, $course, $period, $teacherUser, 8);
 
         Attendance::factory()->create([
             'student_id' => $passing->id,
@@ -254,7 +254,7 @@ class ReportsTest extends TestCase
         return compact('teacherUser', 'classroom', 'course', 'period', 'passing', 'failing');
     }
 
-    private function addGrade(Student $student, Course $course, AcademicPeriod $period, User $teacher, int $score): void
+    private function addGrade(Student $student, Course $course, AcademicPeriod $period, User $teacher, float $score): void
     {
         Grade::factory()->create([
             'student_id' => $student->id,

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -12,6 +12,7 @@ from app import config
 from app.api.dependencies import get_hybrid_socratic_service, verify_internal_key
 from app.db import Repository, get_repository
 from app.services.ai.socratic_hybrid import HybridSocraticService
+from app.services.privacy.guardrails import PrivacyGuardService
 
 logger = logging.getLogger("satre.analytics")
 
@@ -50,15 +51,15 @@ def _history_payload(history: list[SocraticHistoryItem | str] | None) -> list | 
 @router.post("/socratic-tutor")
 async def socratic_tutor(
     payload: SocraticTutorRequest,
-    repo: Repository = Depends(get_repository),
-    service: HybridSocraticService = Depends(get_hybrid_socratic_service),
+    repo: Annotated[Repository, Depends(get_repository)],
+    service: Annotated[HybridSocraticService, Depends(get_hybrid_socratic_service)],
 ) -> dict:
     logger.info(
         "socratic-tutor request received student_hash=%s topic=%s phase=%s intent=%s message_chars=%s history=%s",
         hash(payload.student_id) % 10000,
-        payload.topic,
-        payload.create_phase,
-        payload.intent,
+        PrivacyGuardService.sanitize_student_input(payload.topic),
+        PrivacyGuardService.sanitize_student_input(payload.create_phase),
+        PrivacyGuardService.sanitize_student_input(payload.intent),
         len(payload.user_message),
         len(payload.history or []),
     )

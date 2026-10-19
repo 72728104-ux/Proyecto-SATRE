@@ -9,6 +9,7 @@ use App\Models\Course;
 use App\Models\Grade;
 use App\Models\ResidentialPresence;
 use App\Models\Student;
+use App\Support\MineduScale;
 
 class StudentSummaryService
 {
@@ -74,6 +75,7 @@ class StudentSummaryService
                 'course_id' => $courseGrades->first()->course_id,
                 'course_name' => $courseGrades->first()->course?->name,
                 'average' => $average,
+                'literal' => MineduScale::toLiteral($average),
                 'passing' => $average >= Grade::PASSING_SCORE,
                 'count' => $courseGrades->count(),
                 'criteria' => collect(Grade::CRITERIA)->mapWithKeys(function (string $criterion) use ($courseGrades) {
@@ -86,6 +88,7 @@ class StudentSummaryService
 
         return [
             'average' => $grades->isEmpty() ? null : round((float) $grades->avg('score'), 2),
+            'literal' => $grades->isEmpty() ? null : MineduScale::toLiteral($grades->avg('score')),
             'scale' => ['min' => Grade::MIN_SCORE, 'max' => Grade::MAX_SCORE, 'passing' => Grade::PASSING_SCORE],
             'failing_courses' => $byCourse->where('passing', false)->count(),
             'by_course' => $byCourse,
@@ -122,7 +125,7 @@ class StudentSummaryService
      */
     private function residence(Student $student, ?AcademicPeriod $period): ?array
     {
-        if (! $student->is_boarder) {
+        if (! config('app.college_has_residence') || ! $student->is_boarder) {
             return null;
         }
 

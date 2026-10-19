@@ -79,7 +79,10 @@ CREATE_SYSTEM_INSTRUCTION = (
     "quiz: solo si la fase es Aplicar o el estudiante pidió autoevaluación; "
     "opciones con id a/b/c/d; NUNCA indiques cuál es correcta.\n"
     "diagram_mermaid: sintaxis Mermaid válida (flowchart/graph) sin fences markdown, "
-    "solo si aporta claridad o el estudiante pidió diagrama.\n"
+    "solo si aporta claridad o el estudiante pidió diagrama. "
+    "Si el texto de un nodo contiene paréntesis, comas u otros caracteres especiales, "
+    "encíerralo SIEMPRE entre comillas dobles. "
+    'Correcto: A["Inicio (x1, y1)"]. Incorrecto: A[Inicio (x1, y1)].\n'
     "visual_resource: recurso visual breve (título + descripción), opcional.\n"
     "reflection: siempre una petición concreta de verificación o reflexión del estudiante.\n"
     "Si pide pista, permanece en Explicar. Si pide diagrama, incluye diagram_mermaid. "
@@ -201,6 +204,26 @@ def _public_visual(resource: Any) -> dict | None:
     }
 
 
+_NODE_LABEL = re.compile(r"([A-Za-z_][\w-]*)(\s*)\[([^\]]+)\]")
+_SPECIAL_IN_NODE = re.compile(r"""[()[\]{}<>#&;:,/"'\\]""")
+
+
+def _quote_mermaid_node_labels(text: str) -> str:
+    """Mermaid 12 trata `A[Inicio (x1, y1)]` como error; exige `A["Inicio (x1, y1)"]`."""
+
+    def replacer(match: re.Match[str]) -> str:
+        label = match.group(3).strip()
+        already_quoted = (label.startswith('"') and label.endswith('"')) or (
+            label.startswith("'") and label.endswith("'")
+        )
+        if already_quoted or not _SPECIAL_IN_NODE.search(label):
+            return match.group(0)
+        escaped = label.replace('"', "#quot;")
+        return f'{match.group(1)}{match.group(2)}["{escaped}"]'
+
+    return _NODE_LABEL.sub(replacer, text)
+
+
 def _clean_mermaid(source: str | None) -> str | None:
     if not source:
         return None
@@ -210,7 +233,7 @@ def _clean_mermaid(source: str | None) -> str | None:
     text = text.strip()
     if not text or len(text) > 4000:
         return None
-    return text
+    return _quote_mermaid_node_labels(text)
 
 
 def parse_create_markdown(text: str) -> dict[str, Any]:
@@ -324,6 +347,9 @@ def normalize_socratic_payload(
             "reason": data.get("reason"),
             "message": data.get("message"),
             "guidance": guidance,
+            "http_status": data.get("http_status"),
+            "provider_status": data.get("provider_status"),
+            "provider_error": data.get("provider_error"),
             "create_phase": fallback_phase if fallback_phase in CREATE_PHASES else "conectar",
             "explanation": guidance,
             "reflection": "",

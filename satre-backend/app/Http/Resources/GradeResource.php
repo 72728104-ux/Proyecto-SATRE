@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\MineduScale;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,8 +23,9 @@ class GradeResource extends JsonResource
             'evaluation_name' => $this->evaluation_name,
             'criterion' => $this->criterion,
             'evaluation_date' => $this->evaluation_date?->toDateString(),
-            'score' => $this->score,
-            'max_score' => $this->max_score,
+            'score' => $this->score === null ? null : round((float) $this->score, 2),
+            'literal' => MineduScale::toLiteral($this->score),
+            'max_score' => $this->max_score === null ? null : round((float) $this->max_score, 2),
             'recorded_by' => $this->recorded_by,
         ];
     }

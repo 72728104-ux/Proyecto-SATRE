@@ -139,7 +139,7 @@ class AuthPasswordTest extends TestCase
         $this->createUser(['email' => 'tutor@coar.edu.pe']);
 
         $this->postJson('/api/auth/reset-password', [
-            'token' => 'token-falso',
+            'token' => str_repeat('a', 64),
             'email' => 'tutor@coar.edu.pe',
             'password' => 'NuevaClave2026',
             'password_confirmation' => 'NuevaClave2026',
@@ -167,12 +167,45 @@ class AuthPasswordTest extends TestCase
     public function test_reset_password_rejects_short_password(): void
     {
         $this->postJson('/api/auth/reset-password', [
-            'token' => 'x',
+            'token' => str_repeat('a', 64),
             'email' => 'tutor@coar.edu.pe',
             'password' => 'corta',
             'password_confirmation' => 'corta',
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['password']);
+    }
+
+    public function test_reset_password_rejects_short_or_oversized_token(): void
+    {
+        $payload = [
+            'email' => 'tutor@coar.edu.pe',
+            'password' => 'NuevaClave2026',
+            'password_confirmation' => 'NuevaClave2026',
+        ];
+
+        $this->postJson('/api/auth/reset-password', ['token' => 'token-corto', ...$payload])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['token']);
+
+        $this->postJson('/api/auth/reset-password', ['token' => str_repeat('a', 129), ...$payload])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['token']);
+    }
+
+    public function test_reset_password_is_throttled(): void
+    {
+        $payload = [
+            'token' => str_repeat('a', 64),
+            'email' => 'auth-reset-throttle@coar.edu.pe',
+            'password' => 'NuevaClave2026',
+            'password_confirmation' => 'NuevaClave2026',
+        ];
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/auth/reset-password', $payload)->assertStatus(422);
+        }
+
+        $this->postJson('/api/auth/reset-password', $payload)->assertStatus(429);
     }
 
     private function login(string $email): string

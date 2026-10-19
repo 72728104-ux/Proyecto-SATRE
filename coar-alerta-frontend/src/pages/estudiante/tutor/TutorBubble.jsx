@@ -5,10 +5,11 @@ import TutorQuiz from './TutorQuiz'
 import VisualResourceCard from './VisualResourceCard'
 
 export default function TutorBubble({ message, interactive, disabled, onSelect }) {
-  const isTutor = message.role === 'tutor'
+  const isTutor = message?.role === 'tutor'
   const quiz = isTutor ? quizFromMessage(message) : null
-  const prose = stripMermaidFences(message.explanation || message.content)
+  const prose = stripMermaidFences(message?.explanation || message?.content)
   const showProse = prose && prose !== quiz?.question
+  const diagram = message?.diagram_mermaid ?? message?.diagrama
 
   return (
     <li className={`flex gap-2 ${isTutor ? '' : 'justify-end'}`}>
@@ -23,9 +24,9 @@ export default function TutorBubble({ message, interactive, disabled, onSelect }
         }`}
       >
         {showProse ? <p className="whitespace-pre-line">{prose}</p> : null}
-        {isTutor ? <MermaidDiagram chart={message.diagram_mermaid} /> : null}
-        {isTutor ? <VisualResourceCard resource={message.visual_resource} /> : null}
-        {isTutor && message.reflection ? (
+        {isTutor ? <MermaidDiagram chart={diagram} /> : null}
+        {isTutor ? <VisualResourceCard resource={message?.visual_resource} /> : null}
+        {isTutor && message?.reflection ? (
           <p className="rounded-lg bg-white/70 px-3 py-2 text-xs text-slate-600">
             <span className="font-semibold text-teal-800">Verifica: </span>
             {message.reflection}

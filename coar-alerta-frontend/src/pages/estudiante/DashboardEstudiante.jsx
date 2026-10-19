@@ -9,8 +9,8 @@ import { usePagedList } from '../admin/shared/hooks'
 import { LoadError, linkButton } from '../admin/shared/ui'
 import { StatusBadge, formatDateTime } from '../residencia/shared'
 import { RiskBadge } from '../tutor/shared/ui'
-import ScoreBadge from './ScoreBadge'
-import { ALERT_STATUS, ATTENDANCE_STATUS, alertText, formatRate, formatScore, useMyRisk, useMySummary } from './shared'
+import ScoreBadge from '../../components/ScoreBadge'
+import { ALERT_STATUS, ATTENDANCE_STATUS, PASSING_SCORE, alertText, formatRate, formatScoreWithLiteral, useMyRisk, useMySummary } from './shared'
 
 function Panel({ title, to, children }) {
   return (
@@ -79,14 +79,14 @@ export default function DashboardEstudiante() {
       <div className="grid gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3">
         <StatCard
           icon={BookOpen}
-          label="Promedio general IB"
-          value={formatScore(grades?.average)}
+          label="Promedio general"
+          value={formatScoreWithLiteral(grades?.average, grades?.literal)}
           hint={
             grades?.average === null || grades?.average === undefined
               ? 'Aún no tienes notas registradas'
-              : `Escala 1–7 · ${grades.failing_courses} curso(s) por debajo de 4`
+              : `Escala 0–20 · ${grades.failing_courses} curso(s) por debajo de ${PASSING_SCORE}`
           }
-          tone={grades?.average != null && grades.average < 4 ? 'rose' : 'navy'}
+          tone={grades?.average != null && grades.average < PASSING_SCORE ? 'rose' : 'navy'}
         />
         <StatCard
           icon={ClipboardCheck}
@@ -132,7 +132,7 @@ export default function DashboardEstudiante() {
                     <p className="truncate font-medium text-navy-950">{course.course_name}</p>
                     <p className="text-xs text-slate-500">{course.count} evaluación(es)</p>
                   </div>
-                  <ScoreBadge value={course.average} />
+                  <ScoreBadge value={course.average} literal={course.literal} />
                 </li>
               ))}
             </ul>

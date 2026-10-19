@@ -45,7 +45,7 @@ class RunRiskBatchJob implements ShouldBeUnique, ShouldQueue
             foreach ($batch['results'] ?? [] as $result) {
                 $analytics->storeRisk($result, $period->id);
             }
-        } elseif (in_array($batch['status'], [404, 405], true)) {
+        } elseif (in_array($batch['status'] ?? null, [404, 405], true)) {
             $this->evaluateOneByOne($period);
         } else {
             Log::warning('RunRiskBatchJob omitido: satre-analytics no disponible', ['period_id' => $period->id]);

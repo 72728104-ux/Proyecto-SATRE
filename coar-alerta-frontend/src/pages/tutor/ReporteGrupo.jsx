@@ -8,8 +8,9 @@ import { useToast } from '../../components/Toast'
 import { useApi, useMutation } from '../../hooks/useApi'
 import { notifyError, useLoadErrorToast } from '../admin/shared/hooks'
 import { FilterBar, LoadError, secondaryButton } from '../admin/shared/ui'
-import { downloadBlob, formatNumber, formatPct, isMissingEndpoint, useTeacherScope } from './shared/hooks'
+import { downloadBlob, formatPct, isMissingEndpoint, useTeacherScope } from './shared/hooks'
 import { ClassroomPicker, RiskBadge } from './shared/ui'
+import { PASSING_SCORE, formatScoreWithLiteral } from '../../utils/mineduScale'
 
 function ExportButton({ classroomId, format, label }) {
   const toast = useToast()
@@ -71,9 +72,9 @@ export default function ReporteGrupo() {
           <StatCard icon={Users} label="Estudiantes" value={summary.students ?? '—'} tone="slate" />
           <StatCard
             icon={GraduationCap}
-            label="Promedio IB"
-            value={formatNumber(summary.grade_mean)}
-            hint={`${formatPct(summary.pass_rate)} con nota ≥ 4`}
+            label="Promedio"
+            value={formatScoreWithLiteral(summary.grade_mean)}
+            hint={`${formatPct(summary.pass_rate)} con nota ≥ ${PASSING_SCORE}`}
             tone="navy"
           />
           <StatCard icon={ClipboardCheck} label="Asistencia" value={formatPct(summary.attendance_rate)} tone="teal" />
@@ -102,8 +103,8 @@ export default function ReporteGrupo() {
             empty="Sin cursos con datos."
             columns={[
               { key: 'course_name', header: 'Curso', primary: true },
-              { key: 'grade_mean', header: 'Promedio IB', render: (row) => formatNumber(row.grade_mean) },
-              { key: 'pass_rate', header: 'Aprobados (≥ 4)', render: (row) => formatPct(row.pass_rate) },
+              { key: 'grade_mean', header: 'Promedio', render: (row) => formatScoreWithLiteral(row.grade_mean) },
+              { key: 'pass_rate', header: `Aprobados (≥ ${PASSING_SCORE})`, render: (row) => formatPct(row.pass_rate) },
               { key: 'attendance_rate', header: 'Asistencia', render: (row) => formatPct(row.attendance_rate) },
             ]}
           />

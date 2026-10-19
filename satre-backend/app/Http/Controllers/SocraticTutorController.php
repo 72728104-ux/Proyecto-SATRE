@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SocraticTutorTurnRequest;
+use App\Models\TutorSession;
 use App\Services\SocraticTutorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,5 +22,18 @@ class SocraticTutorController extends AnalyticsController
     public function store(SocraticTutorTurnRequest $request, SocraticTutorService $tutor): JsonResponse
     {
         return $this->socraticTurn($request, $tutor);
+    }
+
+    public function destroy(TutorSession $session, SocraticTutorService $tutor): JsonResponse
+    {
+        $this->authorize('delete', $session);
+
+        $id = $session->id;
+        $tutor->delete($session);
+
+        return response()->json([
+            'message' => 'Sesión eliminada.',
+            'data' => ['id' => $id],
+        ]);
     }
 }

@@ -61,9 +61,9 @@ class StudentSelfServiceTest extends TestCase
 
     public function test_student_lists_only_own_grades_paginated_with_course_name(): void
     {
-        $this->grade($this->student, 'A', 5);
-        $this->grade($this->student, 'B', 3);
-        $this->grade($this->classmate, 'A', 7);
+        $this->grade($this->student, 'A', 15);
+        $this->grade($this->student, 'B', 8);
+        $this->grade($this->classmate, 'A', 19);
 
         $this->actingAs($this->studentUser, 'sanctum')
             ->getJson('/api/grades')
@@ -82,7 +82,8 @@ class StudentSelfServiceTest extends TestCase
             ->getJson('/api/grades?criterion=B')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.score', 3);
+            ->assertJsonPath('data.0.score', 8)
+            ->assertJsonPath('data.0.literal', 'C');
     }
 
     public function test_student_cannot_write_grades(): void
@@ -132,7 +133,7 @@ class StudentSelfServiceTest extends TestCase
     public function test_student_without_profile_gets_empty_lists(): void
     {
         $orphan = $this->userWithRole(Roles::STUDENT);
-        $this->grade($this->student, 'A', 5);
+        $this->grade($this->student, 'A', 15);
 
         $this->actingAs($orphan, 'sanctum')->getJson('/api/grades')->assertOk()->assertJsonCount(0, 'data');
         $this->actingAs($orphan, 'sanctum')->getJson('/api/attendances')->assertOk()->assertJsonCount(0, 'data');
@@ -141,21 +142,21 @@ class StudentSelfServiceTest extends TestCase
 
     public function test_summary_includes_enrolled_courses_and_criteria_breakdown(): void
     {
-        $this->grade($this->student, 'A', 5);
-        $this->grade($this->student, 'A', 6);
-        $this->grade($this->student, 'C', 3);
+        $this->grade($this->student, 'A', 15);
+        $this->grade($this->student, 'A', 17);
+        $this->grade($this->student, 'C', 8);
 
         $this->actingAs($this->studentUser, 'sanctum')
             ->getJson('/api/me/summary')
             ->assertOk()
             ->assertJsonPath('data.courses.0.id', $this->course->id)
             ->assertJsonPath('data.courses.0.name', $this->course->name)
-            ->assertJsonPath('data.grades.by_course.0.criteria.A', 5.5)
+            ->assertJsonPath('data.grades.by_course.0.criteria.A', 16)
             ->assertJsonPath('data.grades.by_course.0.criteria.B', null)
-            ->assertJsonPath('data.grades.by_course.0.criteria.C', 3);
+            ->assertJsonPath('data.grades.by_course.0.criteria.C', 8);
     }
 
-    private function grade(Student $student, string $criterion, int $score): Grade
+    private function grade(Student $student, string $criterion, float $score): Grade
     {
         return Grade::query()->create([
             'student_id' => $student->id,

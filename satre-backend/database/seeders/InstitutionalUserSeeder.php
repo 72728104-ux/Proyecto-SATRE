@@ -8,49 +8,68 @@ use App\Models\Role;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Support\InstitutionalIdentity;
 use App\Support\Roles;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
-class DemoUserSeeder extends Seeder
+class InstitutionalUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $password = 'coar2026';
-        $demoAuth = [
-            'password' => $password,
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
+
+        $secret = (string) config('satre.seed_secret');
+        if ($secret === '') {
+            throw new RuntimeException('SATRE_SEED_SECRET must be set to seed local users.');
+        }
+        $seedAuth = [
+            'password' => $secret,
             'must_change_password' => false,
             'password_changed_at' => now(),
             'is_active' => true,
         ];
 
-        User::query()->updateOrCreate(
-            ['email' => 'admin@coar.edu.pe'],
+        $this->upsertUser(
+            InstitutionalIdentity::ADMIN_DNI,
+            InstitutionalIdentity::ADMIN_EMAIL,
+            ['admin@coar.edu.pe'],
             [
                 'name' => 'Rosa Huamán Quispe',
                 'role_id' => Role::query()->where('slug', Roles::ADMIN)->value('id'),
-                ...$demoAuth,
+                ...$seedAuth,
             ]
         );
 
-        $teacherUser = User::query()->updateOrCreate(
-            ['email' => 'tutor@coar.edu.pe'],
+        $teacherUser = $this->upsertUser(
+            InstitutionalIdentity::TEACHER_DNI,
+            InstitutionalIdentity::seededTeacherEmail(),
+            ['tutor@coar.edu.pe'],
             [
                 'name' => 'Luis Mendoza Aliaga',
                 'role_id' => Role::query()->where('slug', Roles::TEACHER)->value('id'),
-                ...$demoAuth,
+                ...$seedAuth,
             ]
         );
         Teacher::query()->updateOrCreate(
             ['user_id' => $teacherUser->id],
-            ['employee_code' => 'DOC-0001', 'specialty' => 'Tutoría IB']
+            [
+                'employee_code' => 'DOC-0001',
+                'dni' => InstitutionalIdentity::TEACHER_DNI,
+                'specialty' => 'Tutoría IB',
+            ]
         );
 
-        $monitorUser = User::query()->updateOrCreate(
-            ['email' => 'residencia@coar.edu.pe'],
+        $monitorUser = $this->upsertUser(
+            InstitutionalIdentity::MONITOR_DNI,
+            InstitutionalIdentity::MONITOR_EMAIL,
+            ['residencia@coar.edu.pe'],
             [
                 'name' => 'Carla Palomino Rojas',
                 'role_id' => Role::query()->where('slug', Roles::MONITOR)->value('id'),
-                ...$demoAuth,
+                ...$seedAuth,
             ]
         );
         Monitor::query()->updateOrCreate(
@@ -58,19 +77,22 @@ class DemoUserSeeder extends Seeder
             ['employee_code' => 'MON-0001']
         );
 
-        $studentUser = User::query()->updateOrCreate(
-            ['email' => 'estudiante@coar.edu.pe'],
+        $studentUser = $this->upsertUser(
+            InstitutionalIdentity::STUDENT_DNI,
+            InstitutionalIdentity::seededStudentEmail(),
+            ['estudiante@coar.edu.pe'],
             [
                 'name' => 'Valeria Chávez Poma',
                 'role_id' => Role::query()->where('slug', Roles::STUDENT)->value('id'),
-                ...$demoAuth,
+                ...$seedAuth,
             ]
         );
         Student::query()->updateOrCreate(
             ['user_id' => $studentUser->id],
             [
                 'student_code' => 'EST-0003',
-                'document_number' => '78901234',
+                'document_number' => InstitutionalIdentity::STUDENT_DNI,
+                'dni' => InstitutionalIdentity::STUDENT_DNI,
                 'first_name' => 'Valeria',
                 'last_name' => 'Chávez Poma',
                 'status' => 'active',
@@ -78,22 +100,24 @@ class DemoUserSeeder extends Seeder
             ]
         );
 
-        $guardianUser = User::query()->updateOrCreate(
-            ['email' => 'apoderado@coar.edu.pe'],
+        $guardianUser = $this->upsertUser(
+            InstitutionalIdentity::GUARDIAN_DNI,
+            InstitutionalIdentity::GUARDIAN_EMAIL,
+            ['apoderado@coar.edu.pe'],
             [
                 'name' => 'Héctor Chávez Ramos',
                 'role_id' => Role::query()->where('slug', Roles::GUARDIAN)->value('id'),
-                ...$demoAuth,
+                ...$seedAuth,
             ]
         );
         $guardian = Guardian::query()->updateOrCreate(
             ['user_id' => $guardianUser->id],
             [
-                'document_number' => '10101010',
+                'document_number' => InstitutionalIdentity::GUARDIAN_DNI,
                 'first_name' => 'Héctor',
                 'last_name' => 'Chávez Ramos',
                 'phone' => '964000000',
-                'email' => 'apoderado@coar.edu.pe',
+                'email' => InstitutionalIdentity::GUARDIAN_EMAIL,
             ]
         );
 
@@ -104,5 +128,28 @@ class DemoUserSeeder extends Seeder
                 'is_primary' => true,
             ]);
         }
+    }
+
+    /**
+     * @param  list<string>  $legacyEmails
+     * @param  array<string, mixed>  $attributes
+     */
+    private function upsertUser(string $dni, string $email, array $legacyEmails, array $attributes): User
+    {
+        $user = User::query()
+            ->where('dni', $dni)
+            ->orWhere('email', $email)
+            ->orWhereIn('email', $legacyEmails)
+            ->first();
+
+        $payload = ['dni' => $dni, 'email' => $email, ...$attributes];
+
+        if ($user) {
+            $user->fill($payload)->save();
+
+            return $user;
+        }
+
+        return User::query()->create($payload);
     }
 }

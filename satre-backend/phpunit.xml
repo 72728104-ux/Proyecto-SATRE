@@ -33,8 +33,10 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="FRONTEND_URL" value="http://localhost:5173"/>
+        <env name="COLLEGE_HAS_RESIDENCE" value="true"/>
         <env name="SANCTUM_EXPIRATION" value="480"/>
         <env name="PYTHON_ANALYTICS_URL" value=""/>
         <env name="PYTHON_ANALYTICS_KEY" value=""/>
+        <env name="SATRE_SEED_SECRET" value="coar2026"/>
     </php>
 </phpunit>

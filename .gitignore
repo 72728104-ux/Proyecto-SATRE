@@ -1,38 +1,22 @@
-# Dependencias
+# Archivos comprimidos o instaladores en la raíz (ej. python-manager-26.3)
+*.zip
+*.tar.gz
+*.7z
+python-manager-26.3/
+
+# Dependencias pesadas dentro de los proyectos
 node_modules/
-vendor/
-venv/
-.venv/
-
-# Python / Cache / Entornos
-__pycache__/
-*.pyc
-.pytest_cache/
-
-# Compilados y Builds
 dist/
 build/
-storage/
+.venv/
+venv/
+__pycache__/
 
-# Variables de entorno (Ignora .env en la raíz y en subcarpetas)
-.env
-*.env
-**/.env
-**/.env.*
-!.env.example
-
-# Archivos pesados y ejecutables
-python-manager-26.3.msix
-*.msix
-*.exe
-
-# Respaldos y certificados locales (SSL/TLS)
-/backups/
-deploy/nginx/certs/*.pem
-deploy/nginx/certs/*.key
-deploy/nginx/certs/*.crt
-
-# IDEs y Editores de código
-.vscode/
+# Archivos de configuración local del editor de código
 .cursor/
+.vscode/
 .idea/
+
+# Documentos pesados locales no relacionados con código
+*.pdf
+*.docx

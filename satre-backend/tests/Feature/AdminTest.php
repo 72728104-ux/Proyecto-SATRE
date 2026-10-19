@@ -56,6 +56,7 @@ class AdminTest extends TestCase
         $this->actingAs($admin, 'sanctum')->postJson('/api/admin/users', [
             'name' => 'Ana Rojas',
             'email' => 'ana@coar.edu.pe',
+            'dni' => '87654321',
             'role' => Roles::TEACHER,
             'profile' => ['employee_code' => 'DOC-0101'],
         ])->assertCreated();
@@ -79,6 +80,7 @@ class AdminTest extends TestCase
             ->postJson('/api/admin/users', [
                 'name' => 'Ana Rojas',
                 'email' => 'ana@coar.edu.pe',
+                'dni' => '87654322',
                 'role' => Roles::TEACHER,
                 'profile' => ['employee_code' => 'DOC-0100', 'specialty' => 'Física'],
             ])
@@ -88,7 +90,8 @@ class AdminTest extends TestCase
 
         $user = User::query()->where('email', 'ana@coar.edu.pe')->firstOrFail();
         $this->assertTrue(Hash::check($response->json('temporary_password'), $user->password));
-        $this->assertDatabaseHas('teachers', ['user_id' => $user->id, 'employee_code' => 'DOC-0100']);
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'dni' => '87654322']);
+        $this->assertDatabaseHas('teachers', ['user_id' => $user->id, 'employee_code' => 'DOC-0100', 'dni' => '87654322']);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user.created', 'auditable_id' => $user->id, 'user_id' => $admin->id]);
     }
 
@@ -98,6 +101,7 @@ class AdminTest extends TestCase
             ->postJson('/api/admin/users', [
                 'name' => 'Sin Perfil',
                 'email' => 'sin.perfil@coar.edu.pe',
+                'dni' => '12345678',
                 'role' => Roles::STUDENT,
             ])
             ->assertStatus(422)
@@ -537,7 +541,7 @@ class AdminTest extends TestCase
         $admin = $this->admin();
         $other = $this->userWithRole(Roles::TEACHER);
 
-        foreach (range(1, 16) as $i) {
+        for ($recordCount = 0; $recordCount < 16; ++$recordCount) {
             AuditLog::query()->create(['user_id' => $admin->id, 'action' => 'user.updated', 'created_at' => '2026-05-10 10:00:00']);
         }
         AuditLog::query()->create(['user_id' => $other->id, 'action' => 'attendance.recorded', 'created_at' => '2026-06-01 08:00:00']);

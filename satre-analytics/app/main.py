@@ -19,6 +19,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app import config
 from app.api.dependencies import unauthorized_internal_key
 from app.api.v1.student_tutor import router as socratic_tutor_router
+from app.api.v1.teacher_assistant import router as teacher_assistant_router
 from app.api.v1.teacher_report import router as teacher_report_router
 from app.clustering import assign_profiles
 from app.db import Repository, get_repository
@@ -47,6 +48,7 @@ app = FastAPI(
     debug=False,
 )
 app.include_router(socratic_tutor_router)
+app.include_router(teacher_assistant_router)
 app.include_router(teacher_report_router)
 
 
@@ -202,7 +204,7 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/v1/students/{student_id}/risk")
+@app.get("/v1/students/{student_id}/risk", responses={404: {"description": "Estudiante o periodo no encontrado."}})
 def student_risk(
     student_id: int = Path(gt=0),
     period_id: int | None = Query(default=None, gt=0),
@@ -216,7 +218,7 @@ def student_risk(
         return _empty_risk(student_id, None)
 
     cohort = repo.period_students(period["id"])
-    if cohort.empty or student_id not in set(int(s) for s in cohort["student_id"]):
+    if cohort.empty or student_id not in {int(student) for student in cohort["student_id"]}:
         extra = pd.DataFrame([{"student_id": student_id, "classroom_id": student.get("classroom_id"),
                                "is_boarder": student.get("is_boarder")}])
         cohort = pd.concat([cohort, extra], ignore_index=True) if not cohort.empty else extra
@@ -229,7 +231,7 @@ def student_risk(
     return _risk_payload(rows[0], period["id"], profiles.get(student_id))
 
 
-@app.post("/v1/batch/risk")
+@app.post("/v1/batch/risk", responses={404: {"description": "Periodo no encontrado."}})
 def batch_risk(payload: BatchRiskRequest, repo: Repository = Depends(get_repository)) -> dict:
     period = _resolve_period(repo, payload.period_id)
     cohort = repo.period_students(period["id"])
@@ -251,25 +253,27 @@ def batch_risk(payload: BatchRiskRequest, repo: Repository = Depends(get_reposit
     }
 
 
-@app.get("/v1/classrooms/{classroom_id}/insights")
+@app.get("/v1/classrooms/{classroom_id}/insights", responses={404: {"description": "Aula o periodo no encontrado."}})
 def classroom_insights(
     classroom_id: int = Path(gt=0),
     period_id: int | None = Query(default=None, gt=0),
     repo: Repository = Depends(get_repository),
 ) -> dict:
+    resolved_period_id = period_id
     try:
         classroom = repo.get_classroom(classroom_id)
         if classroom is None:
             raise HTTPException(status_code=404, detail="Aula no encontrada.")
         period = _resolve_period(repo, period_id or classroom.get("academic_period_id"))
-        base = {"classroom_id": classroom_id, "period_id": period["id"] if period else None,
+        resolved_period_id = period["id"] if period else None
+        base = {"classroom_id": classroom_id, "period_id": resolved_period_id,
                 "model_version": config.MODEL_VERSION, "generated_at": _now()}
         if period is None:
             return {**base, "insufficient_data": True, "courses": [], "top_gaps": [], "error_matrix": []}
         return {**base, **build_insights(repo.classroom_grades(classroom_id, period["id"]))}
-    except SQLAlchemyError as exc:
-        logger.error("database error: %s", type(exc).__name__)
-        return _insights_fallback(classroom_id, period_id)
+    except SQLAlchemyError:
+        logger.exception("database error while building classroom insights")
+        return _insights_fallback(classroom_id, resolved_period_id)
 
 
 @app.post("/v1/socratic/next")

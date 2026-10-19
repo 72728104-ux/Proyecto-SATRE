@@ -13,7 +13,7 @@ from app import config
 
 @dataclass(frozen=True)
 class TrendResult:
-    slope: float | None   # puntos IB por TREND_SLOPE_UNIT_DAYS días
+    slope: float | None   # puntos vigesimales Minedu por TREND_SLOPE_UNIT_DAYS días
     r2: float | None
     n: int
 

@@ -13,10 +13,11 @@ const summary = {
     academic_period: { id: 1, name: '2026-I' },
     courses: [{ id: 5, code: 'MAT-AA', name: 'Matemáticas AA' }],
     grades: {
-      average: 5.2,
-      scale: { min: 1, max: 7, passing: 4 },
+      average: 16.5,
+      literal: 'A',
+      scale: { min: 0, max: 20, passing: 11 },
       failing_courses: 0,
-      by_course: [{ course_id: 5, course_name: 'Matemáticas AA', average: 5.2, passing: true, count: 2, criteria: { A: 6, B: 4, C: null, D: null } }],
+      by_course: [{ course_id: 5, course_name: 'Matemáticas AA', average: 16.5, literal: 'A', passing: true, count: 2, criteria: { A: 18, B: 14, C: null, D: null } }],
     },
     attendance: { total: 10, by_status: { present: 8, late: 1, absent_unjustified: 1 }, rate: 0.9 },
     residence: { total: 4, by_status: { present: 3, absent: 1 }, rate: 0.75 },
@@ -33,19 +34,19 @@ function loginAsGuardian() {
   cy.intercept('GET', '**/api/me/summary*', summary).as('summary')
   cy.visit('/login')
   cy.get('[data-cy="email"]').clear().type(user.email)
-  cy.get('[data-cy="password"]').clear().type('secreto-demo')
+  cy.get('[data-cy="password"]').clear().type('coar2026')
   cy.get('[data-cy="submit-login"]').click()
   cy.wait('@summary')
 }
 
 describe('Rol Apoderado', () => {
-  it('muestra el resumen con promedio IB y asistencia de aula y residencia', () => {
+  it('muestra el resumen con promedio Minedu y asistencia de aula y residencia', () => {
     cy.viewport('iphone-se2')
     loginAsGuardian()
     cy.url().should('match', /\/apoderado$/)
     cy.get('[data-cy="dashboard-apoderado"]').should('be.visible')
     cy.contains('Valeria Chávez').should('be.visible')
-    cy.contains('5.2').should('be.visible')
+    cy.contains('16.5 (A)').should('be.visible')
     cy.contains('90%').should('be.visible')
     cy.contains('75%').should('be.visible')
     cy.contains('Asistencias e inasistencias en aula').should('be.visible')

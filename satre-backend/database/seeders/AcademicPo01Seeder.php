@@ -9,6 +9,7 @@ use App\Models\Enrollment;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Support\InstitutionalIdentity;
 use Illuminate\Database\Seeder;
 
 class AcademicPo01Seeder extends Seeder
@@ -24,7 +25,11 @@ class AcademicPo01Seeder extends Seeder
             ]
         );
 
-        $teacherUser = User::query()->where('email', 'tutor@coar.edu.pe')->first();
+        $teacherUser = User::query()
+            ->where('dni', InstitutionalIdentity::TEACHER_DNI)
+            ->orWhere('email', InstitutionalIdentity::seededTeacherEmail())
+            ->orWhere('email', 'tutor@coar.edu.pe')
+            ->first();
         $teacher = Teacher::query()->where('user_id', $teacherUser?->id)->first();
 
         if ($teacher === null) {
@@ -55,17 +60,18 @@ class AcademicPo01Seeder extends Seeder
         }
 
         $students = [
-            ['student_code' => 'EST-0001', 'document_number' => '70111001', 'first_name' => 'Diego', 'last_name' => 'Quispe Huamán'],
-            ['student_code' => 'EST-0002', 'document_number' => '70111002', 'first_name' => 'Camila', 'last_name' => 'Torres Lázaro'],
-            ['student_code' => 'EST-0003', 'document_number' => '78901234', 'first_name' => 'Valeria', 'last_name' => 'Chávez Poma'],
-            ['student_code' => 'EST-0004', 'document_number' => '70111004', 'first_name' => 'Bruno', 'last_name' => 'Paredes Soto'],
+            ['student_code' => 'EST-0001', 'dni' => '70111001', 'first_name' => 'Diego', 'last_name' => 'Quispe Huamán'],
+            ['student_code' => 'EST-0002', 'dni' => '70111002', 'first_name' => 'Camila', 'last_name' => 'Torres Lázaro'],
+            ['student_code' => 'EST-0003', 'dni' => InstitutionalIdentity::STUDENT_DNI, 'first_name' => 'Valeria', 'last_name' => 'Chávez Poma'],
+            ['student_code' => 'EST-0004', 'dni' => '70111004', 'first_name' => 'Bruno', 'last_name' => 'Paredes Soto'],
         ];
 
         foreach ($students as $data) {
             $student = Student::query()->updateOrCreate(
                 ['student_code' => $data['student_code']],
                 [
-                    'document_number' => $data['document_number'],
+                    'document_number' => $data['dni'],
+                    'dni' => $data['dni'],
                     'first_name' => $data['first_name'],
                     'last_name' => $data['last_name'],
                     'status' => 'active',

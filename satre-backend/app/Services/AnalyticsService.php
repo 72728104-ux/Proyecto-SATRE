@@ -72,12 +72,16 @@ class AnalyticsService
     }
 
     /**
-     * §4.7 bajo demanda: staff refresca el aula (o al estudiante) si no hay predicción o tiene >24 h.
+     * Staff puede refrescar si no hay predicción, está vencida (>24 h) o se fuerza (`refresh=1`).
      * Student/guardian solo leen lo guardado. Si Python cae se devuelve el cache o available:false.
      */
-    public function predictionFor(Student $student, bool $refreshIfStale = false): ?RiskPrediction
+    public function predictionFor(Student $student, bool $refreshIfStale = false, bool $force = false): ?RiskPrediction
     {
         $prediction = $this->latestPrediction($student);
+
+        if ($force) {
+            return $this->refreshStudentRisk($student) ?? $prediction;
+        }
 
         if (! $refreshIfStale || $this->isFresh($prediction)) {
             return $prediction;
@@ -96,11 +100,25 @@ class AnalyticsService
             return $this->latestPrediction($student) ?? $prediction;
         }
 
+        return $this->refreshStudentRisk($student, (int) $periodId) ?? $prediction;
+    }
+
+    public function refreshStudentRisk(Student $student, ?int $periodId = null): ?RiskPrediction
+    {
+        $student->loadMissing('classroom');
+
+        $periodId ??= $student->classroom?->academic_period_id
+            ?? AcademicPeriod::query()->where('is_current', true)->value('id');
+
+        if ($periodId === null) {
+            return $this->latestPrediction($student);
+        }
+
         $result = $this->client->studentRisk($student->id, (int) $periodId);
 
         return $result['available']
-            ? ($this->storeRisk($result, (int) $periodId) ?? $prediction)
-            : $prediction;
+            ? $this->storeRisk($result, (int) $periodId)
+            : $this->latestPrediction($student);
     }
 
     /**
@@ -156,24 +174,28 @@ class AnalyticsService
             return;
         }
 
-        $freshExists = RiskPrediction::query()
-            ->where('academic_period_id', $periodId)
-            ->where('predicted_at', '>', now()->subHours(self::RISK_TTL_HOURS))
-            ->whereHas('student', fn ($query) => $query->where('classroom_id', $classroomId))
-            ->exists();
+        try {
+            $freshExists = RiskPrediction::query()
+                ->where('academic_period_id', $periodId)
+                ->where('predicted_at', '>', now()->subHours(self::RISK_TTL_HOURS))
+                ->whereHas('student', fn ($query) => $query->where('classroom_id', $classroomId))
+                ->exists();
 
-        if ($freshExists) {
-            return;
-        }
+            if ($freshExists) {
+                return;
+            }
 
-        $batch = $this->client->batchRisk($periodId, $classroomId);
+            $batch = $this->client->batchRisk($periodId, $classroomId);
 
-        if (! $batch['available']) {
-            return;
-        }
+            if (! $batch['available']) {
+                return;
+            }
 
-        foreach ($batch['results'] ?? [] as $result) {
-            $this->storeRisk($result, $periodId);
+            foreach ($batch['results'] ?? [] as $result) {
+                $this->storeRisk($result, $periodId);
+            }
+        } finally {
+            Cache::forget($lockKey);
         }
     }
 

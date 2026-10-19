@@ -1,4 +1,4 @@
-"""Insights docente (§5.5): brechas por criterio IB A–D por aula y curso + metodologías."""
+"""Insights docente (§5.5): brechas por criterio A–D (escala Minedu 0–20) por aula y curso + metodologías."""
 from __future__ import annotations
 
 import json
@@ -9,7 +9,7 @@ from typing import Any
 import pandas as pd
 
 from app import config
-from app.features import to_ib_scale
+from app.features import to_minedu_scale
 
 CATALOG_PATH = Path(__file__).parent / "catalog" / "methodologies.json"
 
@@ -42,17 +42,17 @@ def build_insights(grades: pd.DataFrame) -> dict[str, Any]:
     df = grades.copy()
     df["criterion"] = df["criterion"].fillna("").astype(str).str.upper().str.strip()
     df = df[df["criterion"].isin(config.IB_CRITERIA)]
-    df["ib"] = to_ib_scale(df["score"], df["max_score"])
-    df = df.dropna(subset=["ib", "student_id", "course_id"])
+    df["vigesimal"] = to_minedu_scale(df["score"], df["max_score"])
+    df = df.dropna(subset=["vigesimal", "student_id", "course_id"])
     if len(df) < config.INSIGHTS_MIN_GRADES:
         return empty
 
     per_student = (
-        df.groupby(["course_id", "course_code", "course_name", "criterion", "student_id"], dropna=False)["ib"]
+        df.groupby(["course_id", "course_code", "course_name", "criterion", "student_id"], dropna=False)["vigesimal"]
         .mean()
         .reset_index(name="student_mean")
     )
-    per_student["below"] = per_student["student_mean"] < config.IB_PASSING_SCORE
+    per_student["below"] = per_student["student_mean"] < config.MINEDU_PASSING_SCORE
 
     summary = (
         per_student.groupby(["course_id", "course_code", "course_name", "criterion"], dropna=False)

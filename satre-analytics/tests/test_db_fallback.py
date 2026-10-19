@@ -30,7 +30,38 @@ def test_load_environment_reads_sqlite_url(tmp_path, monkeypatch):
         _clear_caches()
 
 
-def test_build_engine_uses_sqlite_when_mysql_probe_fails(monkeypatch):
+def test_get_engine_retries_mysql_after_sqlite_fallback(monkeypatch):
+    monkeypatch.setenv("DB_CONNECTION", "mysql")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("SQLITE_URL", "sqlite:///:memory:")
+    _clear_caches()
+
+    class Broken:
+        def connect(self):
+            raise OperationalError("SELECT 1", {}, Exception("down"))
+
+        def dispose(self):
+            return None
+
+    recovered = db.build_sqlite_engine("sqlite:///:memory:")
+    calls = {"mysql": 0}
+
+    def _mysql(_settings):
+        calls["mysql"] += 1
+        if calls["mysql"] == 1:
+            return Broken()
+        return recovered
+
+    monkeypatch.setattr(db, "build_mysql_engine", _mysql)
+    try:
+        first = db.get_engine()
+        assert first.dialect.name == "sqlite"
+        second = db.get_engine()
+        assert second is recovered
+        assert calls["mysql"] == 2
+    finally:
+        recovered.dispose()
+        _clear_caches()
     monkeypatch.setenv("DB_CONNECTION", "mysql")
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("SQLITE_URL", "sqlite:///:memory:")

@@ -1,7 +1,7 @@
 const user = {
   id: 2,
   name: 'Luis Mendoza Aliaga',
-  email: 'tutor@coar.edu.pe',
+  email: 'd45678901@coar.edu.pe',
   role: { slug: 'teacher', name: 'Docente' },
   must_change_password: false,
 }
@@ -96,6 +96,8 @@ describe('Rol Docente', () => {
     cy.get('[data-cy="risk-card"]').should('contain', 'Chávez Poma, Valeria')
     cy.contains('Inasistencias injustificadas').should('be.visible')
     cy.contains('Requiere revisión humana prioritaria.').should('be.visible')
+    cy.get('[data-cy="recalculate-risk"]').should('be.visible').click()
+    cy.wait('@risk').its('request.url').should('include', 'refresh=1')
     cy.get('[data-cy="download-report"]').should('be.visible').click()
     cy.wait('@exportReport')
   })
@@ -120,7 +122,7 @@ describe('Rol Docente', () => {
     cy.get('[data-cy="toast-success"]').should('be.visible')
   })
 
-  it('lista notas IB 1–7 y valida el criterio A–D al registrar', () => {
+  it('lista calificaciones vigesimales y previsualiza la letra Minedu al registrar', () => {
     teacherApi()
     cy.intercept('GET', '**/api/grades*', page([
       {
@@ -132,8 +134,9 @@ describe('Rol Docente', () => {
         evaluation_name: 'Prueba 1',
         criterion: 'A',
         evaluation_date: '2026-04-10',
-        score: 3,
-        max_score: 7,
+        score: 16.5,
+        literal: 'A',
+        max_score: 20,
       },
     ])).as('grades')
     loginAsTeacher()
@@ -141,11 +144,13 @@ describe('Rol Docente', () => {
     cy.wait('@grades')
     cy.get('[data-cy="notas-ib"]').should('be.visible')
     cy.contains('Prueba 1').should('be.visible')
-    cy.contains('3 / 7').should('be.visible')
+    cy.contains('16.5 (A)').should('be.visible')
     cy.contains('button', 'Registrar nota').click()
+    cy.get('input[name="score"]').clear().type('16.5')
+    cy.get('[data-cy="minedu-literal-preview"]').should('contain', 'A')
     cy.contains('button', 'Guardar').click()
     cy.contains('Selecciona un estudiante.').should('be.visible')
-    cy.contains('Elige un criterio IB (A–D).').should('be.visible')
+    cy.contains('Elige un criterio (A–D).').should('be.visible')
   })
 
   it('atiende una alerta abierta y registra intervención', () => {

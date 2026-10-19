@@ -23,7 +23,10 @@ class UserController extends Controller
             ->when($request->string('role')->toString(), fn ($query, $role) => $query->whereRelation('role', 'slug', $role))
             ->when($request->has('is_active'), fn ($query) => $query->where('is_active', $request->boolean('is_active')))
             ->when($request->string('search')->trim()->toString(), fn ($query, $search) => $query->where(
-                fn ($query) => $query->where('name', 'like', "%$search%")->orWhere('email', 'like', "%$search%")
+                fn ($query) => $query
+                    ->where('name', 'like', "%$search%")
+                    ->orWhere('email', 'like', "%$search%")
+                    ->orWhere('dni', 'like', "%$search%")
             ))
             ->orderBy('name')
             ->paginate(15)

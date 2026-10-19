@@ -1,9 +1,5 @@
 import { apiRequest } from './client.js'
-
-const withQuery = (path, params = {}) => {
-  const entries = Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
-  return entries.length ? `${path}?${new URLSearchParams(entries)}` : path
-}
+import { withQuery } from './query.js'
 
 /** Requiere `student_id` del hijo vinculado. */
 export const fetchChildSummary = (studentId, options) =>

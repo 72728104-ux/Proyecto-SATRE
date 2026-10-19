@@ -95,7 +95,7 @@ class PrivacyGuardService:
         sanitized = cls.PHONE_PATTERN.sub(cls.PHONE_LABEL, sanitized)
         sanitized = cls.DNI_PATTERN.sub(cls.DNI_LABEL, sanitized)
         sanitized = cls.FULL_NAME_PATTERN.sub(cls._mask_name, sanitized)
-        return sanitized
+        return sanitized.replace("\r", " ").replace("\n", " ")
 
     @classmethod
     def _mask_name(cls, match: re.Match[str]) -> str:
