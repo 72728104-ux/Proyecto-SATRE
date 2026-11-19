@@ -1,0 +1,140 @@
+# syntax=docker/dockerfile:1
+#
+# Imagen autocontenida para desplegar satre-backend (Laravel 12) como
+# Web Service en Render.com, plan gratuito.
+#
+# CONTEXTO DE BUILD: la raíz del repositorio, que es el comportamiento por
+# defecto de Render cuando el Dockerfile no está en la raíz. Por eso todas
+# las rutas llevan el prefijo `satre-backend/`.
+#
+# Configuración del servicio en Render:
+#   Language ............ Docker
+#   Dockerfile Path ..... satre-backend/Dockerfile.render
+#   Root Directory ...... (vacío)
+#   Health Check Path ... /up
+#
+# Esta imagen NO ejecuta migraciones ni seeders: la BD remota (FreeDB) ya
+# está poblada.
+#
+# Variables de entorno que Render debe inyectar (mínimo):
+#   APP_ENV=production, APP_DEBUG=false, APP_KEY=base64:...
+#   APP_URL=https://<servicio>.onrender.com
+#   LOG_CHANNEL=stderr
+#   DB_CONNECTION=mysql, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+#   FRONTEND_URL=https://<sitio>.netlify.app
+#   SESSION_DRIVER=database, CACHE_STORE=database
+#   COLLEGE_HAS_RESIDENCE=true, GEMINI_API_KEY, PYTHON_ANALYTICS_URL, ...
+
+FROM php:8.2-cli-bookworm
+
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    COMPOSER_NO_INTERACTION=1
+
+# ---------------------------------------------------------------------------
+# Extensiones PHP: pdo_mysql, mbstring, bcmath, zip, gd (+ opcache)
+# ---------------------------------------------------------------------------
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        unzip \
+        libzip-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype-dev \
+        libonig-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-freetype \
+    && docker-php-ext-install -j"$(nproc)" \
+        pdo_mysql \
+        mbstring \
+        bcmath \
+        zip \
+        gd \
+        opcache \
+    && rm -rf /var/lib/apt/lists/* /tmp/pear
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# ---------------------------------------------------------------------------
+# php.ini de producción
+# ---------------------------------------------------------------------------
+RUN { \
+        echo 'expose_php=Off'; \
+        echo 'display_errors=Off'; \
+        echo 'log_errors=On'; \
+        echo 'error_log=/dev/stderr'; \
+        echo 'memory_limit=256M'; \
+        echo 'max_execution_time=60'; \
+        echo 'upload_max_filesize=10M'; \
+        echo 'post_max_size=10M'; \
+        echo 'date.timezone=America/Lima'; \
+        echo 'opcache.enable=1'; \
+        echo 'opcache.enable_cli=1'; \
+        echo 'opcache.memory_consumption=128'; \
+        echo 'opcache.interned_strings_buffer=16'; \
+        echo 'opcache.max_accelerated_files=10000'; \
+    } > /usr/local/etc/php/conf.d/satre.ini
+
+WORKDIR /var/www/html
+
+# ---------------------------------------------------------------------------
+# Dependencias: capa cacheable mientras no cambien composer.json/lock
+# --no-scripts evita invocar artisan antes de que exista el código.
+# ---------------------------------------------------------------------------
+COPY satre-backend/composer.json satre-backend/composer.lock ./
+
+RUN composer install \
+        --no-dev \
+        --prefer-dist \
+        --optimize-autoloader \
+        --no-interaction \
+        --no-scripts \
+    && composer clear-cache
+
+# ---------------------------------------------------------------------------
+# Código de la aplicación
+# ---------------------------------------------------------------------------
+COPY satre-backend/ ./
+
+RUN composer dump-autoload --no-dev --optimize --no-interaction \
+    && mkdir -p \
+        storage/app/public \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R ug+rwX storage bootstrap/cache
+
+# ---------------------------------------------------------------------------
+# Arranque: caches de Laravel + servidor HTTP en el puerto que asigna Render
+# ---------------------------------------------------------------------------
+RUN cat > /usr/local/bin/render-entrypoint <<'ENTRYPOINT'
+#!/bin/sh
+set -e
+
+cd /var/www/html
+
+# `optimize:clear` incluye `cache:clear`, que con CACHE_STORE=database
+# contacta FreeDB. Si la BD aún no responde, el contenedor debe arrancar
+# igualmente en vez de entrar en crash-loop.
+if ! php artisan optimize:clear; then
+    echo "[render-entrypoint] AVISO: 'optimize:clear' falló (¿FreeDB inaccesible?). Continuo." >&2
+fi
+
+# Regenera config/rutas/vistas/eventos con las variables que inyecta Render.
+# Si fallara, la app puede servir sin cache: no abortamos el arranque.
+if ! php artisan optimize; then
+    echo "[render-entrypoint] AVISO: 'optimize' falló; arranco sin cachés." >&2
+fi
+
+exec php artisan serve --host=0.0.0.0 --port="${PORT:-8000}"
+ENTRYPOINT
+
+RUN chmod +x /usr/local/bin/render-entrypoint
+
+USER www-data
+
+EXPOSE 8000
+
+ENTRYPOINT ["render-entrypoint"]
