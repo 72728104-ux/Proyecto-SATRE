@@ -41,9 +41,9 @@ class SocraticTutorService
         $criterion = $session?->criterion ?? ($data['criterion'] ?? null);
         $message = filled($data['message'] ?? null) ? trim($data['message']) : null;
         $optionId = $data['option_id'] ?? null;
-        $intent = $this->detectIntent($message, $optionId);
+        $intent = SocraticTutorContent::detectIntent($message, $optionId);
 
-        $result = $this->isArticleIntent($intent)
+        $result = SocraticTutorContent::isArticleIntent($intent)
             ? $this->tryArticle($student, $session, $topic, $criterion, $message, $intent)
             : $this->tryHybrid($student, $session, $topic, $criterion, $message, $optionId, $intent);
 
@@ -67,7 +67,7 @@ class SocraticTutorService
 
             $session->messages()->create([
                 'role' => TutorMessage::ROLE_STUDENT,
-                'content' => $this->studentContent($session, $message, $optionId, $topic),
+                'content' => SocraticTutorContent::studentContent($session, $message, $optionId, $topic),
                 'meta' => array_filter([
                     'option_id' => $optionId,
                     'intent' => $intent,
@@ -149,8 +149,8 @@ class SocraticTutorService
         ?string $optionId,
         ?string $intent,
     ): array {
-        $userMessage = $message ?? $this->optionText($session, $optionId) ?? $topic;
-        $phaseHint = $session?->state['create_phase'] ?? $this->phaseFromStep($session?->state['step'] ?? null);
+        $userMessage = $message ?? SocraticTutorContent::optionText($session, $optionId) ?? $topic;
+        $phaseHint = $session?->state['create_phase'] ?? SocraticTutorContent::phaseFromStep($session?->state['step'] ?? null);
 
         try {
             $hybrid = $this->client->socraticHybrid([
@@ -192,21 +192,19 @@ class SocraticTutorService
         if (! ($hybrid['available'] ?? false) || ! is_array($response) || ! ($response['available'] ?? false)) {
             $this->logProviderFailure($hybrid, is_array($response) ? $response : null, $reason, $errorMessage, $httpStatus);
 
-            if ($this->shouldUseCourtesyFallback($reason, $httpStatus)) {
-                return $this->geminiOrCourtesy(
+            return $this->shouldUseCourtesyFallback($reason, $httpStatus)
+                ? $this->geminiOrCourtesy(
                     $topic,
                     $hybrid['create_phase'] ?? $phaseHint,
                     $userMessage,
                     $reason ?? 'gemini_unavailable',
                     $session,
                     $intent,
-                );
-            }
-
-            return [
-                'reason' => $reason ?? 'gemini_unavailable',
-                'message' => $errorMessage ?? 'El tutor de IA no pudo completar este turno.',
-            ];
+                )
+                : [
+                    'reason' => $reason ?? 'gemini_unavailable',
+                    'message' => $errorMessage ?? 'El tutor de IA no pudo completar este turno.',
+                ];
         }
 
         $phase = $hybrid['create_phase'] ?? $response['create_phase'] ?? 'conectar';
@@ -233,13 +231,13 @@ class SocraticTutorService
                 'visual_resource' => $reply['visual_resource'] ?? $response['visual_resource'] ?? null,
             ]),
             'done' => $done,
-            'step' => $this->stepFromPhase($phase),
+            'step' => SocraticTutorContent::stepFromPhase($phase),
             'hint_level' => $hintLevel,
             'state' => [
                 'version' => 2,
                 'engine' => 'hybrid',
                 'create_phase' => $phase,
-                'step' => $this->stepFromPhase($phase),
+                'step' => SocraticTutorContent::stepFromPhase($phase),
                 'hint_level' => $hintLevel,
                 'turns' => (int) ($session?->state['turns'] ?? 0) + 1,
             ],
@@ -309,13 +307,13 @@ class SocraticTutorService
             'engine' => 'fallback',
             'reply' => $this->courtesyReply($topic, $createPhase),
             'done' => false,
-            'step' => $this->stepFromPhase($createPhase),
+            'step' => SocraticTutorContent::stepFromPhase($createPhase),
             'hint_level' => $hintLevel,
             'state' => [
                 'version' => 2,
                 'engine' => 'fallback',
                 'create_phase' => $createPhase,
-                'step' => $this->stepFromPhase($createPhase),
+                'step' => SocraticTutorContent::stepFromPhase($createPhase),
                 'hint_level' => $hintLevel,
                 'turns' => (int) ($session?->state['turns'] ?? 0) + 1,
                 'fallback_reason' => $reason,
@@ -351,7 +349,7 @@ class SocraticTutorService
      */
     private function publicReply(array $reply): array
     {
-        $quiz = $this->publicQuiz($reply['quiz'] ?? null);
+        $quiz = SocraticTutorContent::publicQuiz($reply['quiz'] ?? null);
         $options = $reply['options'] ?? ($quiz['options'] ?? []);
         $text = (string) ($reply['text'] ?? '');
 
@@ -367,7 +365,7 @@ class SocraticTutorService
             'diagram_mermaid' => MermaidSyntax::sanitize(
                 is_string($reply['diagram_mermaid'] ?? null) ? $reply['diagram_mermaid'] : null,
             ),
-            'visual_resource' => $this->publicVisual($reply['visual_resource'] ?? null),
+            'visual_resource' => SocraticTutorContent::publicVisual($reply['visual_resource'] ?? null),
         ];
         if ($options) {
             $public['options'] = collect($options)
@@ -435,7 +433,7 @@ class SocraticTutorService
         ?string $message,
         string $intent,
     ): array {
-        $draft = $this->mergeArticleDraft($session, $this->parseArticleDraft($message));
+        $draft = SocraticTutorContent::mergeArticleDraft($session, SocraticTutorContent::parseArticleDraft($message));
         $phase = $draft['create_phase'] ?? $session?->state['create_phase'] ?? 'conectar';
 
         if ($intent === 'article_publish') {
@@ -446,28 +444,32 @@ class SocraticTutorService
             $title = $article['title'] !== '' ? $article['title'] : $topic;
             $text = "Artículo «{$title}» publicado. Puedes seguir editándolo en el panel o usarlo como evidencia C.R.E.A.T.E.";
 
-            return $this->articleResult($text, $phase, $article, $session, $intent, 'publish');
+            $result = $this->articleResult($text, $phase, $article, $session, $intent, 'publish');
+        } else {
+            $direct = $this->gemini->generate(
+                $this->articlePrompt($intent, $topic, $draft),
+                $this->articleSystemInstruction($intent),
+            );
+
+            if ($direct['available'] ?? false) {
+                $result = $this->articleResult((string) $direct['text'], $phase, $draft, $session, $intent, 'gemini');
+            } else {
+                $hybrid = $this->tryHybrid($student, $session, $topic, $criterion, $message, null, $intent);
+
+                if (is_string($hybrid['reply']['text'] ?? null)) {
+                    $hybrid['article'] = $draft;
+                    $hybrid['reply']['type'] = 'article';
+
+                    $result = $hybrid;
+                } else {
+                    $text = 'No pude consultar a la IA ahora. Sigue el paso C.R.E.A.T.E. indicado y escribe un párrafo con tus palabras; luego reintenta la asistencia.';
+
+                    $result = $this->articleResult($text, $phase, $draft, $session, $intent, 'fallback');
+                }
+            }
         }
 
-        $direct = $this->gemini->generate(
-            $this->articlePrompt($intent, $topic, $draft),
-            $this->articleSystemInstruction($intent),
-        );
-        if ($direct['available'] ?? false) {
-            return $this->articleResult((string) $direct['text'], $phase, $draft, $session, $intent, 'gemini');
-        }
-
-        $hybrid = $this->tryHybrid($student, $session, $topic, $criterion, $message, null, $intent);
-        if (is_string($hybrid['reply']['text'] ?? null)) {
-            $hybrid['article'] = $draft;
-            $hybrid['reply']['type'] = 'article';
-
-            return $hybrid;
-        }
-
-        $text = 'No pude consultar a la IA ahora. Sigue el paso C.R.E.A.T.E. indicado y escribe un párrafo con tus palabras; luego reintenta la asistencia.';
-
-        return $this->articleResult($text, $phase, $draft, $session, $intent, 'fallback');
+        return $result;
     }
 
     /**
@@ -495,13 +497,13 @@ class SocraticTutorService
                 'reflection' => 'Revisa la sugerencia, edítala con tu voz y avanza a la siguiente fase C.R.E.A.T.E.',
             ]),
             'done' => false,
-            'step' => $this->stepFromPhase($phase),
+            'step' => SocraticTutorContent::stepFromPhase($phase),
             'hint_level' => $hintLevel,
             'state' => [
                 'version' => 2,
                 'engine' => $engine,
                 'create_phase' => $phase,
-                'step' => $this->stepFromPhase($phase),
+                'step' => SocraticTutorContent::stepFromPhase($phase),
                 'hint_level' => $hintLevel,
                 'turns' => (int) ($session?->state['turns'] ?? 0) + 1,
                 'article' => $article,
@@ -539,13 +541,13 @@ class SocraticTutorService
                 'reflection' => 'Responde con tus palabras; el tutor no debe darte la solución final.',
             ]),
             'done' => false,
-            'step' => $this->stepFromPhase($phase),
+            'step' => SocraticTutorContent::stepFromPhase($phase),
             'hint_level' => $hintLevel,
             'state' => [
                 'version' => 2,
                 'engine' => 'gemini',
                 'create_phase' => $phase,
-                'step' => $this->stepFromPhase($phase),
+                'step' => SocraticTutorContent::stepFromPhase($phase),
                 'hint_level' => $hintLevel,
                 'turns' => (int) ($session?->state['turns'] ?? 0) + 1,
                 'topic' => $topic,
@@ -601,188 +603,11 @@ class SocraticTutorService
 
     /**
      * @return array{title: string, body: string, create_phase: ?string, published: bool, published_at: ?string}
-     */
-    private function parseArticleDraft(?string $message): array
-    {
-        $raw = (string) preg_replace('/^\[ARTICLE_[A-Z]+\]\s*/', '', (string) $message);
-        $title = '';
-        $phase = null;
-        if (preg_match('/^Título:\s*(.+)$/mi', $raw, $match) === 1) {
-            $title = trim($match[1]);
-        }
-        if (preg_match('/^Fase:\s*([a-zÁÉÍÓÚáéíóú]+)/mi', $raw, $match) === 1) {
-            $phase = $this->normalizeCreatePhase($match[1]);
-        }
-        $parts = preg_split('/^---\s*$/m', $raw, 2);
-        $body = isset($parts[1]) ? trim($parts[1]) : '';
-
-        return [
-            'title' => $title,
-            'body' => $body,
-            'create_phase' => $phase,
-            'published' => false,
-            'published_at' => null,
-        ];
-    }
-
-    /**
+     */    /**
      * @param  array{title: string, body: string, create_phase: ?string, published: bool, published_at: ?string}  $incoming
      * @return array{title: string, body: string, create_phase: ?string, published: bool, published_at: ?string}
-     */
-    private function mergeArticleDraft(?TutorSession $session, array $incoming): array
-    {
-        $current = is_array($session?->state['article'] ?? null) ? $session->state['article'] : [];
-
-        return [
-            'title' => $incoming['title'] !== '' ? $incoming['title'] : (string) ($current['title'] ?? ''),
-            'body' => $incoming['body'] !== '' ? $incoming['body'] : (string) ($current['body'] ?? ''),
-            'create_phase' => $incoming['create_phase'] ?? (is_string($current['create_phase'] ?? null) ? $current['create_phase'] : null),
-            'published' => (bool) ($current['published'] ?? false),
-            'published_at' => is_string($current['published_at'] ?? null) ? $current['published_at'] : null,
-        ];
-    }
-
-    private function normalizeCreatePhase(string $phase): ?string
-    {
-        $key = strtolower(trim($phase));
-
-        return in_array($key, ['conectar', 'recordar', 'explicar', 'aplicar', 'transferir', 'evaluar'], true)
-            ? $key
-            : null;
-    }
-
-    private function isArticleIntent(?string $intent): bool
-    {
-        return is_string($intent) && str_starts_with($intent, 'article_');
-    }
-
-    private function detectIntent(?string $message, ?string $optionId): ?string
-    {
-        $raw = strtoupper(trim($message ?? $optionId ?? ''));
-        if ($raw === '') {
-            return null;
-        }
-        if (str_starts_with($raw, '[HINT]') || str_starts_with($raw, '[PISTA]') || $raw === 'HINT') {
-            return 'hint';
-        }
-        if (str_starts_with($raw, '[DIAGRAM') || $raw === 'DIAGRAM') {
-            return 'diagram';
-        }
-        if (str_starts_with($raw, '[QUIZ]') || $raw === 'QUIZ') {
-            return 'quiz';
-        }
-        if (str_starts_with($raw, '[ARTICLE_PUBLISH]')) {
-            return 'article_publish';
-        }
-        if (str_starts_with($raw, '[ARTICLE_PROOFREAD]')) {
-            return 'article_proofread';
-        }
-        if (str_starts_with($raw, '[ARTICLE_SYNTH]')) {
-            return 'article_synth';
-        }
-        if (str_starts_with($raw, '[ARTICLE_CITE]')) {
-            return 'article_cite';
-        }
-        if (str_starts_with($raw, '[ARTICLE_COWRITE]') || str_starts_with($raw, '[ARTICLE]')) {
-            return 'article_cowrite';
-        }
-
-        return null;
-    }
-
-    private function studentContent(TutorSession $session, ?string $message, ?string $optionId, string $topic): string
-    {
-        if (filled($message)) {
-            return match (true) {
-                str_starts_with(strtoupper($message), '[HINT]') => 'Pedir pista',
-                str_starts_with(strtoupper($message), '[PISTA]') => 'Pedir pista',
-                str_starts_with(strtoupper($message), '[DIAGRAM') => 'Ver diagrama',
-                str_starts_with(strtoupper($message), '[QUIZ]') => 'Autoevaluación',
-                str_starts_with(strtoupper($message), '[ARTICLE_PUBLISH]') => 'Publicar artículo',
-                str_starts_with(strtoupper($message), '[ARTICLE_PROOFREAD]') => 'Revisar ortografía',
-                str_starts_with(strtoupper($message), '[ARTICLE_SYNTH]') => 'Sintetizar artículo',
-                str_starts_with(strtoupper($message), '[ARTICLE_CITE]') => 'Citar fuentes',
-                str_starts_with(strtoupper($message), '[ARTICLE_COWRITE]') => 'Co-escribir artículo',
-                str_starts_with(strtoupper($message), '[ARTICLE]') => 'Redactar artículo',
-                default => $message,
-            };
-        }
-
-        return $this->optionText($session, $optionId) ?? $topic;
-    }
-
-    private function phaseFromStep(?string $step): ?string
-    {
-        return match ($step) {
-            'diagnostico' => 'conectar',
-            'pregunta_guia' => 'recordar',
-            'pista' => 'explicar',
-            'verificacion' => 'aplicar',
-            'reflexion' => 'transferir',
-            'finalizado' => 'evaluar',
-            default => null,
-        };
-    }
-
-    private function stepFromPhase(?string $phase): string
-    {
-        return match ($phase) {
-            'conectar' => 'diagnostico',
-            'recordar' => 'pregunta_guia',
-            'explicar' => 'pista',
-            'aplicar' => 'verificacion',
-            'transferir' => 'reflexion',
-            'evaluar' => 'finalizado',
-            default => 'diagnostico',
-        };
-    }
-
-    /**
+     */    /**
      * @return array{question: string, options: list<array{id: string, text: string}>}|null
-     */
-    private function publicQuiz(mixed $quiz): ?array
-    {
-        if (! is_array($quiz) || ! is_string($quiz['question'] ?? null)) {
-            return null;
-        }
-        $options = collect($quiz['options'] ?? [])
-            ->map(fn ($option) => [
-                'id' => (string) ($option['id'] ?? ''),
-                'text' => (string) ($option['text'] ?? ''),
-            ])
-            ->filter(fn ($option) => $option['id'] !== '' && $option['text'] !== '')
-            ->values()
-            ->all();
-
-        return $options === [] ? null : ['question' => $quiz['question'], 'options' => $options];
-    }
-
-    /**
+     */    /**
      * @return array{title: string, description: string}|null
-     */
-    private function publicVisual(mixed $resource): ?array
-    {
-        if (! is_array($resource) || ! is_string($resource['title'] ?? null) || $resource['title'] === '') {
-            return null;
-        }
-
-        return [
-            'title' => $resource['title'],
-            'description' => (string) ($resource['description'] ?? ''),
-        ];
-    }
-
-    private function optionText(?TutorSession $session, ?string $optionId): ?string
-    {
-        if ($optionId === null || $session === null || ! $session->exists) {
-            return null;
-        }
-
-        $last = $session->messages->last(
-            fn (TutorMessage $message) => $message->role === TutorMessage::ROLE_TUTOR
-        ) ?? $session->messages()->where('role', TutorMessage::ROLE_TUTOR)->latest('id')->first();
-        $options = $last?->meta['options'] ?? $last?->meta['quiz']['options'] ?? [];
-
-        return collect($options)->firstWhere('id', $optionId)['text'] ?? $optionId;
-    }
-}
+     */}

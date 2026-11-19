@@ -1,18 +1,59 @@
-.git
-.cursor
-.github
-**/.venv
-**/node_modules
-**/vendor
-**/dist
+# This context is the repository root (used by the PHP and Nginx builds).
+# Compose reads its interpolation .env on the host; it must not enter images.
+.git/
+**/.git/
+.cursor/
+**/.cursor/
+.github/
+**/.github/
+
+# Local secrets and environment overrides; keep only the example templates.
 **/.env
 **/.env.*
 !**/.env.example
-**/__pycache__
-**/.pytest_cache
-**/cypress/videos
-**/cypress/screenshots
-backups
+
+# Installed dependencies and generated build output.
+**/node_modules/
+**/vendor/
+**/.venv/
+**/venv/
+**/env/
+**/dist/
+**/dist-ssr/
+**/build/
+
+# Python, test, coverage, and frontend test caches/artifacts.
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/.coverage.*
+**/coverage/
+**/htmlcov/
+**/.ipynb_checkpoints/
+**/cypress/videos/
+**/cypress/screenshots/
+**/cypress/downloads/
+
+# Local runtime/cache data, logs, and backups.
+**/.scannerwork/
+**/storage/framework/cache/
+**/storage/framework/sessions/
+**/storage/framework/views/
+**/storage/logs/
+**/*.log
+backups/
+**/backups/
+
+# Local-only repository clutter.
+.vscode/
+**/.vscode/
+.idea/
+**/.idea/
+.fleet/
+**/.fleet/
 *.md
-agent-transcripts
-python-manager-26.3.msix
+agent-transcripts/
+python-manager-*.msix

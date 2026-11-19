@@ -5,13 +5,13 @@ const BREAKING_IN_LABEL = /["`<>#&]/g
 export function sanitizeMermaidChart(chart) {
   let source = String(chart || '').trim()
   if (!source) return ''
-  source = source.replace(/^```(?:mermaid)?\s*/i, '').replace(/\s*```$/, '')
+  source = source.replace(/^```mermaid[ \t\r\n]*/i, '').replace(/^```[ \t\r\n]*/i, '').replace(/```$/, '').trimEnd()
   source = [...source].filter((ch) => {
     const code = ch.codePointAt(0)
     return code > 8 && code !== 0x0b && code !== 0x0c && (code < 0x0e || code > 0x1f) && code !== 0x7f && (code < 0x200b || code > 0x200d) && code !== 0xfeff
   }).join('')
-  source = source.replace(/[“”„]/g, '"').replace(/[‘’]/g, "'")
-  return source.replace(/([A-Za-z_][\w-]*)(\s*)\[([^\]]+)\]/g, (full, id, space, label) => {
+  source = source.replace(/\u201c|\u201d|\u201e/g, '"').replace(/\u2018|\u2019/g, "'")
+  return source.replace(/(?<![\w-])([A-Za-z_][\w-]*)(\s*)\[([^\]]+)\]/g, (full, id, space, label) => {
     const trimmed = label.trim()
     const quoted =
       (trimmed.startsWith('"') && trimmed.endsWith('"')) ||

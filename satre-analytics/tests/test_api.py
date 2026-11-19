@@ -4,7 +4,8 @@ from sqlalchemy.exc import OperationalError
 
 from app.db import get_repository
 from app.main import app
-from tests.conftest import FakeRepository, attendance_rows, grade_rows, incident_row
+from tests.conftest import TEST_KEY, FakeRepository, attendance_rows, grade_rows, incident_row
+from app.api.dependencies import internal_key_matches, unauthorized_internal_key, verify_internal_key
 
 CONTRACT_KEYS = [
     "student_id", "period_id", "model_version", "insufficient_data", "data_coverage",
@@ -214,3 +215,70 @@ def test_socratic_endpoint_starts_session(make_client):
     body = make_client(one_student_repo()).post("/v1/socratic/next", json={"topic": "Funciones lineales"}).json()
     assert body["step"] == "diagnostico"
     assert body["state"]["scaffold_id"] == "mat-funciones-lineales"
+
+
+# --- /api/v1/analytics/teacher-report ----------------------------------------------------
+
+def test_teacher_report_success_returns_payload(make_client):
+    response = make_client(one_student_repo()).get("/api/v1/analytics/teacher-report/1")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["insufficient_data"] is True
+
+
+def test_teacher_report_database_error_returns_insufficient(make_client):
+    class Down(FakeRepository):
+        def get_student(self, student_id):
+            raise _db_down()
+
+    response = make_client(Down()).get("/api/v1/analytics/teacher-report/1")
+    assert response.status_code == 200
+    assert response.json()["insufficient_data"] is True
+
+
+def test_teacher_report_unexpected_error_returns_insufficient(make_client):
+    class Boom(FakeRepository):
+        def get_student(self, student_id):
+            raise RuntimeError("boom")
+
+    response = make_client(Boom()).get("/api/v1/analytics/teacher-report/1")
+    assert response.status_code == 200
+    assert response.json()["insufficient_data"] is True
+
+
+def test_teacher_report_invalid_student_id_is_422(make_client):
+    assert make_client(one_student_repo()).get("/api/v1/analytics/teacher-report/0").status_code == 422
+
+
+# --- X-Internal-Key (comparacion en tiempo constante) --------------------------------------
+
+def test_internal_key_matches_accepts_same_key_and_rejects_different():
+    assert internal_key_matches(TEST_KEY, TEST_KEY) is True
+    assert internal_key_matches("otra-clave-distinta-para-pruebas", TEST_KEY) is False
+
+
+def test_unauthorized_internal_key_returns_401_when_missing_or_wrong():
+    assert unauthorized_internal_key(None) == (401, "Falta el header X-Internal-Key.")
+    assert unauthorized_internal_key("wrong-key") == (401, "X-Internal-Key inválida.")
+    assert unauthorized_internal_key(TEST_KEY) is None
+
+
+def test_verify_internal_key_returns_key_when_valid():
+    assert verify_internal_key(TEST_KEY) == TEST_KEY
+
+
+def test_risk_contract_remains_stable_for_guarded_student(make_client):
+    # A03 - P09
+    repo = one_student_repo(
+        attendance=attendance_rows(1, present=10, unexcused=1),
+        grades=grade_rows(1, [12, 11, 10, 14]),
+    )
+    body = make_client(repo).get("/v1/students/1/risk?period_id=3").json()
+
+    assert body["student_id"] == 1
+    assert body["model_version"] == "rules-1.0"
+    assert body["insufficient_data"] is False
+    assert body["risk_level"] in {"BAJO", "MEDIO", "ALTO"}
+    assert 0 <= body["risk_score"] <= 100
+    assert isinstance(body["factors"], list)
+    assert body["profile_cluster"] is None

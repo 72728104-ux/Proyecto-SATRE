@@ -23,6 +23,8 @@ class ReportsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const COURSE_NAME = 'Matemáticas AA';
+
     public function test_teacher_gets_classroom_analytics_with_minedu_summary(): void
     {
         $context = $this->reportContext();
@@ -39,7 +41,7 @@ class ReportsTest extends TestCase
             ->assertJsonPath('data.risk_distribution.ALTO', 1)
             ->assertJsonPath('data.risk_distribution.MEDIO', 0)
             ->assertJsonPath('data.risk_distribution.BAJO', 0)
-            ->assertJsonPath('data.courses.0.course_name', 'Matemáticas AA')
+            ->assertJsonPath('data.courses.0.course_name', self::COURSE_NAME)
             ->assertJsonPath('data.courses.0.grade_mean', 11.5)
             ->assertJsonPath('data.courses.0.pass_rate', 0.5);
     }
@@ -58,7 +60,7 @@ class ReportsTest extends TestCase
         $csv = $response->getContent();
         $this->assertStringContainsString('EST-PASS', $csv);
         $this->assertStringContainsString('EST-FAIL', $csv);
-        $this->assertStringContainsString('Matemáticas AA', $csv);
+        $this->assertStringContainsString(self::COURSE_NAME, $csv);
         $this->assertStringContainsString('ALTO', $csv);
     }
 
@@ -190,7 +192,7 @@ class ReportsTest extends TestCase
             'tutor_id' => $teacher->id,
         ]);
         $course = Course::factory()->create([
-            'name' => 'Matemáticas AA',
+            'name' => self::COURSE_NAME,
             'code' => 'MAT-AA',
             'classroom_id' => $classroom->id,
             'teacher_id' => $teacher->id,

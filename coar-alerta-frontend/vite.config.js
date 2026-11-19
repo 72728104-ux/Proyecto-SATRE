@@ -7,18 +7,17 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.{js,jsx}'],
+    // El entorno jsdom tarda varios segundos en equipos de desarrollo; 30 s
+    // evita falsos negativos por timeout en pruebas de integración de páginas.
+    testTimeout: 30000,
+    hookTimeout: 30000,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'html', 'lcov'],
       all: true,
       skipFull: false,
-      include: [
-        'src/api/client.js',
-        'src/api/auth.js',
-        'src/api/query.js',
-        'src/context/AuthContext.jsx',
-        'src/routes/ProtectedRoute.jsx',
-      ],
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/**/*.test.{js,jsx}', 'src/main.jsx', 'src/assets/**'],
       thresholds: {
         lines: 80,
         statements: 80,

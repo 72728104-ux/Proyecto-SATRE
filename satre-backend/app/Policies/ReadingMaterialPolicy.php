@@ -25,11 +25,8 @@ class ReadingMaterialPolicy
             return $this->teachesCourse($user, $readingMaterial->course);
         }
 
-        if ($user->hasRole(Roles::STUDENT)) {
-            return $this->enrolledInCourse($user, $readingMaterial->course_id);
-        }
-
-        return false;
+        return $user->hasRole(Roles::STUDENT)
+            && $this->enrolledInCourse($user, $readingMaterial->course_id);
     }
 
     public function create(User $user, ?Course $course = null): bool

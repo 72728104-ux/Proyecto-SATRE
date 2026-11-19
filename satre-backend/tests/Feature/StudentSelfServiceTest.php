@@ -24,6 +24,11 @@ class StudentSelfServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const GRADES_ENDPOINT = '/api/grades';
+    private const PRESENCES_ENDPOINT = '/api/presences';
+    private const ATTENDANCE_DATE_EARLY = '2026-04-10';
+    private const ATTENDANCE_DATE_LATE = '2026-04-12';
+
     private AcademicPeriod $period;
 
     private User $teacherUser;
@@ -66,7 +71,7 @@ class StudentSelfServiceTest extends TestCase
         $this->grade($this->classmate, 'A', 19);
 
         $this->actingAs($this->studentUser, 'sanctum')
-            ->getJson('/api/grades')
+            ->getJson(self::GRADES_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('meta.per_page', 15)
@@ -89,44 +94,44 @@ class StudentSelfServiceTest extends TestCase
     public function test_student_cannot_write_grades(): void
     {
         $this->actingAs($this->studentUser, 'sanctum')
-            ->postJson('/api/grades', ['student_id' => $this->student->id, 'course_id' => $this->course->id])
+            ->postJson(self::GRADES_ENDPOINT, ['student_id' => $this->student->id, 'course_id' => $this->course->id])
             ->assertForbidden();
     }
 
     public function test_student_lists_only_own_attendance_newest_first(): void
     {
-        $this->attendance($this->student, '2026-04-10', 'present');
-        $this->attendance($this->student, '2026-04-12', 'absent_unjustified');
-        $this->attendance($this->classmate, '2026-04-12', 'present');
+        $this->attendance($this->student, self::ATTENDANCE_DATE_EARLY, 'present');
+        $this->attendance($this->student, self::ATTENDANCE_DATE_LATE, 'absent_unjustified');
+        $this->attendance($this->classmate, self::ATTENDANCE_DATE_LATE, 'present');
 
         $this->actingAs($this->studentUser, 'sanctum')
             ->getJson('/api/attendances')
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('meta.per_page', 15)
-            ->assertJsonPath('data.0.attendance_date', '2026-04-12')
+            ->assertJsonPath('data.0.attendance_date', self::ATTENDANCE_DATE_LATE)
             ->assertJsonPath('data.0.course_name', $this->course->name);
 
         $this->actingAs($this->studentUser, 'sanctum')
             ->getJson('/api/attendances?status=present')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.attendance_date', '2026-04-10');
+            ->assertJsonPath('data.0.attendance_date', self::ATTENDANCE_DATE_EARLY);
     }
 
     public function test_student_lists_only_own_night_presences(): void
     {
-        $this->presence($this->student, '2026-04-10');
-        $this->presence($this->classmate, '2026-04-10');
+        $this->presence($this->student, self::ATTENDANCE_DATE_EARLY);
+        $this->presence($this->classmate, self::ATTENDANCE_DATE_EARLY);
 
         $this->actingAs($this->studentUser, 'sanctum')
-            ->getJson('/api/presences')
+            ->getJson(self::PRESENCES_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.student_id', $this->student->id);
 
         $this->actingAs($this->studentUser, 'sanctum')
-            ->postJson('/api/presences', ['student_id' => $this->student->id])
+            ->postJson(self::PRESENCES_ENDPOINT, ['student_id' => $this->student->id])
             ->assertForbidden();
     }
 
@@ -135,9 +140,9 @@ class StudentSelfServiceTest extends TestCase
         $orphan = $this->userWithRole(Roles::STUDENT);
         $this->grade($this->student, 'A', 15);
 
-        $this->actingAs($orphan, 'sanctum')->getJson('/api/grades')->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAs($orphan, 'sanctum')->getJson(self::GRADES_ENDPOINT)->assertOk()->assertJsonCount(0, 'data');
         $this->actingAs($orphan, 'sanctum')->getJson('/api/attendances')->assertOk()->assertJsonCount(0, 'data');
-        $this->actingAs($orphan, 'sanctum')->getJson('/api/presences')->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAs($orphan, 'sanctum')->getJson(self::PRESENCES_ENDPOINT)->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_summary_includes_enrolled_courses_and_criteria_breakdown(): void
@@ -164,7 +169,7 @@ class StudentSelfServiceTest extends TestCase
             'academic_period_id' => $this->period->id,
             'evaluation_name' => "Evaluación $criterion",
             'criterion' => $criterion,
-            'evaluation_date' => '2026-04-10',
+            'evaluation_date' => self::ATTENDANCE_DATE_EARLY,
             'score' => $score,
             'recorded_by' => $this->teacherUser->id,
         ]);

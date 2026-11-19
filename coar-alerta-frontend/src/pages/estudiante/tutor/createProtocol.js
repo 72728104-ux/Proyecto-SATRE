@@ -106,11 +106,11 @@ export function displayStudentText(text) {
 
 export function stripMermaidFences(text) {
   return String(text || '')
-    .replace(/```mermaid[\s\S]*?```/gi, '')
-    .replace(/\[DIAGRAM_MERMAID\][\s\S]*?(\[\/DIAGRAM_MERMAID\]|$)/gi, '')
-    .replace(/\[QUIZ\][\s\S]*?(\[\/QUIZ\]|$)/gi, '')
-    .replace(/\[RECURSO_VISUAL\][\s\S]*?(\[\/RECURSO_VISUAL\]|$)/gi, '')
-    .replace(/\[FASE\]\s*:?\s*\S+/gi, '')
+    .replace(/```mermaid(?:[^`]|`(?!``))*```/gi, '')
+    .replace(/\[DIAGRAM_MERMAID\](?:[^[\]]|\[[^\]]*\])*(?:\[\/DIAGRAM_MERMAID\]|$)/gi, '')
+    .replace(/\[QUIZ\](?:[^[\]]|\[[^\]]*\])*(?:\[\/QUIZ\]|$)/gi, '')
+    .replace(/\[RECURSO_VISUAL\](?:[^[\]]|\[[^\]]*\])*(?:\[\/RECURSO_VISUAL\]|$)/gi, '')
+    .replace(/\[FASE\][ \t]*(?::[ \t]*)?\S+/gi, '')
     .trim()
 }
 

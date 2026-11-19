@@ -48,7 +48,7 @@ function parseMap(nodesText, linksText) {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [fromRaw, toRaw] = line.split(/\s*(?:→|->)\s*/)
+      const [fromRaw, toRaw] = line.split(/(?<=\S)[ \t]*(?:\u2192|->)[ \t]*/)
       return { from: byLabel[fromRaw?.toLowerCase()] ?? fromRaw, to: byLabel[toRaw?.toLowerCase()] ?? toRaw }
     })
   return { nodes, connections }

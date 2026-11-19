@@ -1,22 +1,54 @@
-# Archivos comprimidos o instaladores en la raíz (ej. python-manager-26.3)
+# IDEs y herramientas de desarrollo (en cualquier nivel del monorepo)
+**/.cursor/
+**/.vscode/
+**/.idea/
+**/.vs/
+**/.fleet/
+**/.zed/
+**/.history/
+**/.vscode-test/
+
+# Datos locales de SonarQube
+**/.scannerwork/
+
+# Secretos locales de entorno; conserva los ejemplos
+.env
+.env.*
+!.env.example
+
+# Dependencias instaladas (incluye node_modules accidental en la raíz)
+**/node_modules/
+
+# Reportes y salidas locales generados en la raíz
+/ci_issues.txt
+/Cobertura.json
+/clones*.txt
+/incidencias_por_archivo.txt
+/Mejoras*Sonar*.json
+/Mejoras*Sonar*.txt
+/reporte_*.json
+/same_file_clones.txt
+/sonar_tree.json
+/snippets_*.txt
+/tmp_*.txt
+/vitest_*.txt
+/sonar-run*.log
+
+# Archivos comprimidos o instaladores en la raíz
 *.zip
 *.tar.gz
 *.7z
 python-manager-26.3/
+/python-manager-*.msix
 
 # Dependencias pesadas dentro de los proyectos
-node_modules/
 dist/
 build/
 .venv/
 venv/
 __pycache__/
 
-# Archivos de configuración local del editor de código
-.cursor/
-.vscode/
-.idea/
-
 # Documentos pesados locales no relacionados con código
 *.pdf
 *.docx
+/backup_satre.sql

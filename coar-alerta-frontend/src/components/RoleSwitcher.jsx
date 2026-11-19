@@ -42,7 +42,7 @@ function DevAccountSwitcher() {
     }
     setOpen(false)
     setForm({ email: '', password: '' })
-    navigate(result.user.mustChangePassword ? CHANGE_PASSWORD_PATH : (ROLE_HOME[result.user.role] ?? '/403'), {
+    void navigate(result.user.mustChangePassword ? CHANGE_PASSWORD_PATH : (ROLE_HOME[result.user.role] ?? '/403'), {
       replace: true,
     })
   }

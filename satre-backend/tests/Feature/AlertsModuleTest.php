@@ -20,6 +20,8 @@ class AlertsModuleTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ALERTS_ENDPOINT = '/api/alerts';
+
     private Classroom $classroom;
 
     private Student $student;
@@ -85,7 +87,7 @@ class AlertsModuleTest extends TestCase
         $this->openAlert($other);
 
         $this->actingAs($this->teacherUser, 'sanctum')
-            ->getJson('/api/alerts')
+            ->getJson(self::ALERTS_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(0, 'data');
     }
@@ -97,7 +99,7 @@ class AlertsModuleTest extends TestCase
         $this->student->update(['user_id' => $studentUser->id]);
 
         $this->actingAs($studentUser, 'sanctum')
-            ->getJson('/api/alerts')
+            ->getJson(self::ALERTS_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('data.0.id', $alert->id)
             ->assertJsonPath('data.0.severity', 'ALTO')
@@ -122,14 +124,14 @@ class AlertsModuleTest extends TestCase
         ]);
 
         $this->actingAs($guardianUser, 'sanctum')
-            ->getJson('/api/alerts')
+            ->getJson(self::ALERTS_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
         $guardian->students()->attach($this->student->id);
 
         $this->actingAs($guardianUser, 'sanctum')
-            ->getJson('/api/alerts')
+            ->getJson(self::ALERTS_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('data.0.student.name', 'Lucía Quispe');
     }
@@ -145,7 +147,7 @@ class AlertsModuleTest extends TestCase
         $monitorUser = $this->monitorUser();
 
         $this->actingAs($monitorUser, 'sanctum')
-            ->getJson('/api/alerts')
+            ->getJson(self::ALERTS_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $alert->id);

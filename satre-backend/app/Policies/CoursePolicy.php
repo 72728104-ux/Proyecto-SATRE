@@ -29,12 +29,12 @@ class CoursePolicy
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function update(User $user, Course $course): bool
+    public function update(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function delete(User $user, Course $course): bool
+    public function delete(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }

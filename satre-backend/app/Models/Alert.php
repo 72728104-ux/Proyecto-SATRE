@@ -55,18 +55,16 @@ class Alert extends Model
     }
 
     /**
-     * §1: admin todo, teacher su aula/cursos, monitor internado, student propio, guardian hijos.
+     * §1: admin con acceso total, teacher su aula/cursos, monitor internado, student propio, guardian hijos.
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->hasRole(Roles::ADMIN)) {
-            return $query;
-        }
-
-        if ($user->hasRole(Roles::TEACHER)) {
+            // El administrador conserva la consulta sin restricciones.
+        } elseif ($user->hasRole(Roles::TEACHER)) {
             $teacherId = $user->teacher?->id ?? 0;
 
-            return $query->whereHas('student', function (Builder $student) use ($teacherId) {
+            $query->whereHas('student', function (Builder $student) use ($teacherId) {
                 $student->whereHas('classroom', fn (Builder $classroom) => $classroom->where('tutor_id', $teacherId))
                     ->orWhereHas(
                         'enrollments',
@@ -75,23 +73,19 @@ class Alert extends Model
                             ->whereHas('course', fn (Builder $course) => $course->where('teacher_id', $teacherId))
                     );
             });
-        }
-
-        if ($user->hasRole(Roles::MONITOR)) {
-            return $query->whereHas('student', fn (Builder $student) => $student->where('is_boarder', true));
-        }
-
-        if ($user->hasRole(Roles::STUDENT)) {
-            return $query->where('student_id', $user->student?->id ?? 0);
-        }
-
-        if ($user->hasRole(Roles::GUARDIAN)) {
-            return $query->whereHas(
+        } elseif ($user->hasRole(Roles::MONITOR)) {
+            $query->whereHas('student', fn (Builder $student) => $student->where('is_boarder', true));
+        } elseif ($user->hasRole(Roles::STUDENT)) {
+            $query->where('student_id', $user->student?->id ?? 0);
+        } elseif ($user->hasRole(Roles::GUARDIAN)) {
+            $query->whereHas(
                 'student.guardians',
                 fn (Builder $guardian) => $guardian->where('guardians.id', $user->guardian?->id ?? 0)
             );
+        } else {
+            $query->whereRaw('1 = 0');
         }
 
-        return $query->whereRaw('1 = 0');
+        return $query;
     }
 }

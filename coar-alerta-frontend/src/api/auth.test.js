@@ -215,4 +215,19 @@ describe('peticiones de autenticación restantes', () => {
       skipAuthHandling: true,
     })
   })
+
+  it('mantiene la sesión válida y limpia el token cuando expira', () => {
+    // A05 - P12
+    const future = '2099-01-01T00:00:00.000Z'
+    const expired = '2000-01-01T00:00:00.000Z'
+
+    setToken('token-vivo')
+    writeSession({ user: mapApiUser(apiUser), expiresAt: future })
+    expect(readSession()).not.toBeNull()
+
+    setToken('token-vivo')
+    writeSession({ user: mapApiUser(apiUser), expiresAt: expired })
+    expect(readSession()).toBeNull()
+    expect(getToken()).toBeNull()
+  })
 })

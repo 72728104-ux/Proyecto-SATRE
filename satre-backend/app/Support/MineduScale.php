@@ -40,26 +40,23 @@ final class MineduScale
 
     public static function toLiteral(mixed $score): ?string
     {
-        if ($score === null || $score === '') {
-            return null;
+        $literal = null;
+
+        if ($score !== null && $score !== '' && is_numeric($score)) {
+            $value = (float) $score;
+
+            if ($value >= self::AD_MIN) {
+                $literal = self::AD;
+            } elseif ($value >= self::A_MIN) {
+                $literal = self::A;
+            } elseif ($value >= self::B_MIN) {
+                $literal = self::B;
+            } else {
+                $literal = self::C;
+            }
         }
 
-        if (! is_numeric($score)) {
-            return null;
-        }
-
-        $value = (float) $score;
-        if ($value >= self::AD_MIN) {
-            return self::AD;
-        }
-        if ($value >= self::A_MIN) {
-            return self::A;
-        }
-        if ($value >= self::B_MIN) {
-            return self::B;
-        }
-
-        return self::C;
+        return $literal;
     }
 
     public static function toNumeric(mixed $letter): float

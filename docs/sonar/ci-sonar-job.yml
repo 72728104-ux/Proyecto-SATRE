@@ -1,0 +1,160 @@
+# ============================================================================
+# Ejemplo de integración de SonarQube/SonarCloud en GitHub Actions para SATRE
+# ----------------------------------------------------------------------------
+# Este archivo es una plantilla. NO se ejecuta por sí solo: copie/adapte los
+# pasos a .github/workflows/ci.yml.
+#
+# Decisiones:
+#   - Un solo proyecto Sonar para el monorepo (misma clave que el análisis
+#     local): uc-group4612142_satre.
+#   - Los jobs de prueba generan y suben la cobertura como artefactos.
+#   - El job "sonar" descarga los artefactos y ejecuta el scanner una vez.
+#   - SonarCloud es la opción recomendada para runners hospedados por GitHub;
+#     un SonarQube local no es accesible desde Internet sin un túnel.
+#
+# Secretos/variables:
+#   SONAR_TOKEN       (secret)  Token de análisis.
+#   SONAR_HOST_URL    (variable) https://sonarcloud.io o URL pública del server.
+#   SONAR_ORGANIZATION(variable) uc-group4612142 (solo SonarCloud).
+# ============================================================================
+
+name: CI + Sonar
+
+on:
+  push:
+    branches: [main, master, staging]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  backend:
+    name: pint + php artisan test + coverage
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: satre-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, zip
+          coverage: pcov
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: vendor/bin/pint --test
+      - name: Tests + Clover
+        env:
+          XDEBUG_MODE: coverage
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+          php artisan test --coverage-clover=coverage.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend
+          path: satre-backend/coverage.xml
+          if-no-files-found: error
+
+  analytics:
+    name: pytest + coverage
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: satre-analytics
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: satre-analytics/requirements-dev.txt
+      - run: pip install --only-binary=:all: -r requirements-dev.txt
+      - name: Pytest + XML
+        run: pytest --cov=app --cov-report=xml:coverage.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-analytics
+          path: satre-analytics/coverage.xml
+          if-no-files-found: error
+
+  frontend:
+    name: lint + build + coverage
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: coar-alerta-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: coar-alerta-frontend/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - name: Tests + LCOV
+        run: npm run test -- --coverage
+      - name: Build
+        env:
+          VITE_API_URL: https://localhost/api
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-frontend
+          path: coar-alerta-frontend/coverage/lcov.info
+          if-no-files-found: error
+
+  sonar:
+    name: SonarQube / SonarCloud
+    needs: [backend, analytics, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-backend
+          path: satre-backend
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-analytics
+          path: satre-analytics
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-frontend
+          path: coar-alerta-frontend/coverage
+
+      # El lcov de Vitest usa rutas relativas al frontend; el proyecto Sonar
+      # está en la raíz, así que se prefija la carpeta del componente.
+      - name: Normalizar rutas del LCOV
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("coar-alerta-frontend/coverage/lcov.info")
+          out = []
+          for line in p.read_text(encoding="utf-8").splitlines():
+              if line.startswith("SF:"):
+                  path = line[3:].replace("\\", "/")
+                  if not path.startswith("coar-alerta-frontend/"):
+                      path = "coar-alerta-frontend/" + path
+                  out.append("SF:" + path)
+              else:
+                  out.append(line)
+          p.write_text("\n".join(out) + "\n", encoding="utf-8")
+          PY
+
+      - name: Sonar scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.projectVersion=1.0.${{ github.run_number }}
+            -Dsonar.qualitygate.wait=true

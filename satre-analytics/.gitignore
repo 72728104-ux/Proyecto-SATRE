@@ -1,7 +1,54 @@
+# Environments and secrets
 .env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+ENV/
+
+# Python bytecode and packaging/build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.manifest
+*.spec
+
+# Test, lint, type-check and coverage caches/reports
+.pytest_cache/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+*.ipynb~
+
+# Local data and databases
 *.db
 data/
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
+
+# Logs and temporary package-manager files
+*.log
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Common local/editor artifacts
+.idea/
+.vscode/
+.DS_Store

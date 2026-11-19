@@ -44,7 +44,7 @@ class ResidentialPresenceService
     }
 
     /**
-     * Checklist de un control: crea o actualiza la presencia de cada interno, todo o nada.
+     * Checklist de un control: crea o actualiza la presencia de cada interno de forma atómica.
      *
      * @return EloquentCollection<int, ResidentialPresence>
      */

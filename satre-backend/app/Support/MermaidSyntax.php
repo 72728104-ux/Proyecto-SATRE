@@ -28,31 +28,35 @@ final class MermaidSyntax
 
         $quoted = preg_replace_callback(
             '/([A-Za-z_][\w-]*)(\s*)\[([^\]]+)\]/',
-            static function (array $matches): string {
-                $label = trim($matches[3]);
-                $alreadyQuoted = (str_starts_with($label, '"') && str_ends_with($label, '"'))
-                    || (str_starts_with($label, "'") && str_ends_with($label, "'"));
-
-                if ($alreadyQuoted) {
-                    $quote = $label[0];
-                    $inner = self::stripBreakingChars(substr($label, 1, -1));
-                    if ($inner === substr($label, 1, -1)) {
-                        return $matches[0];
-                    }
-
-                    return $matches[1].$matches[2].$quote.$inner.$quote;
-                }
-
-                if (! preg_match('/[()[\]{}<>#&;:,\/\\\\"\']/', $label)) {
-                    return $matches[0];
-                }
-
-                return $matches[1].$matches[2].'["'.self::stripBreakingChars($label).'"]';
-            },
+            static fn (array $matches): string => self::formatLabel($matches),
             $text,
         );
 
         return is_string($quoted) ? $quoted : $text;
+    }
+
+    /**
+     * @param  array<int, string>  $matches
+     */
+    private static function formatLabel(array $matches): string
+    {
+        $label = trim($matches[3]);
+        $alreadyQuoted = (str_starts_with($label, '"') && str_ends_with($label, '"'))
+            || (str_starts_with($label, "'") && str_ends_with($label, "'"));
+        $rawInner = $alreadyQuoted ? substr($label, 1, -1) : $label;
+        $inner = self::stripBreakingChars($rawInner);
+        $needsQuotes = preg_match('/[()[\]{}<>#&;:,\/\\\\"\']/', $label) === 1;
+
+        $formatted = $matches[0];
+
+        if ($alreadyQuoted && $inner !== $rawInner) {
+            $quote = $label[0];
+            $formatted = $matches[1].$matches[2].$quote.$inner.$quote;
+        } elseif (! $alreadyQuoted && $needsQuotes) {
+            $formatted = $matches[1].$matches[2].'["'.$inner.'"]';
+        }
+
+        return $formatted;
     }
 
     private static function stripBreakingChars(string $label): string

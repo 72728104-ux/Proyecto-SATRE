@@ -37,11 +37,8 @@ class AttendancePolicy
             return $this->teachesCourse($user, $attendance->course);
         }
 
-        if ($user->hasRole(Roles::STUDENT)) {
-            return $user->student?->id === $attendance->student_id;
-        }
-
-        return false;
+        return $user->hasRole(Roles::STUDENT)
+            && $user->student?->id === $attendance->student_id;
     }
 
     public function update(User $user, Attendance $attendance): bool

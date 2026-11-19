@@ -14,35 +14,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from app import config
 from app.insights import build_insights
 from app.services.ai.external_client import ExternalAIService
+from app.services.ai.hybrid_shared import sanitize_history, with_minedu_grade
 from app.services.deterministic.grading_scaler import PeruvianGradingScaler
 from app.services.deterministic.risk_engine import _empty_analytics, calculate_student_risk
 from app.services.privacy.guardrails import PrivacyGuardService
 
 logger = logging.getLogger("satre.analytics")
-
-
-def _with_minedu_grade(analytics: dict) -> dict:
-    data = dict(analytics)
-    vigesimal = data.get("vigesimal_score")
-    if vigesimal is not None:
-        data["qualitative_grade"] = PeruvianGradingScaler.to_qualitative(vigesimal)
-    return data
-
-
-def _sanitize_history(history: list | None) -> list:
-    sanitized: list = []
-    for item in history or []:
-        if isinstance(item, str):
-            sanitized.append(PrivacyGuardService.sanitize_student_input(item))
-            continue
-        if not isinstance(item, dict):
-            continue
-        text = item.get("content") or item.get("text") or ""
-        sanitized.append({
-            "role": str(item.get("role") or "user"),
-            "content": PrivacyGuardService.sanitize_student_input(str(text) if text else ""),
-        })
-    return sanitized
 
 
 def _literal(score: Any) -> str | None:
@@ -129,7 +106,7 @@ class HybridTeacherReportService:
         if analytics.get("insufficient_data"):
             return {"insufficient_data": True}
 
-        payload = _with_minedu_grade(analytics)
+        payload = with_minedu_grade(analytics)
         safe_context = PrivacyGuardService.build_safe_context(student_id, payload)
 
         pedagogical_plan = await self.ai_client.generate_teacher_recommendation(
@@ -183,7 +160,7 @@ class HybridTeacherReportService:
             safe_context["scope"] = "student"
 
         safe_message = PrivacyGuardService.sanitize_student_input(user_message)
-        safe_history = _sanitize_history(history)
+        safe_history = sanitize_history(history)
 
         logger.info(
             "teacher-assistant invoking gemini classroom_hash=%s student=%s insufficient_data=%s criterion=%s",
@@ -269,8 +246,8 @@ class HybridTeacherReportService:
             analytics = _empty_analytics(student_id)
             return PrivacyGuardService.build_safe_context(
                 student_id,
-                _with_minedu_grade(analytics),
+                with_minedu_grade(analytics),
             ), "database_error"
 
-        safe = PrivacyGuardService.build_safe_context(student_id, _with_minedu_grade(analytics))
+        safe = PrivacyGuardService.build_safe_context(student_id, with_minedu_grade(analytics))
         return safe, None

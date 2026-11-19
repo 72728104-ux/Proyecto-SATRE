@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Models\ResidentialPresence;
 use App\Models\User;
 use App\Support\Roles;
 
@@ -18,7 +17,7 @@ class ResidentialPresencePolicy
         return $user->hasRole(Roles::MONITOR);
     }
 
-    public function update(User $user, ResidentialPresence $presence): bool
+    public function update(User $user): bool
     {
         return $user->hasRole(Roles::MONITOR);
     }

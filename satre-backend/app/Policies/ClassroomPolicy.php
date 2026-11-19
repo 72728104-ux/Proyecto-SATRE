@@ -13,7 +13,7 @@ class ClassroomPolicy
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function view(User $user, Classroom $classroom): bool
+    public function view(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
@@ -42,12 +42,12 @@ class ClassroomPolicy
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function update(User $user, Classroom $classroom): bool
+    public function update(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function delete(User $user, Classroom $classroom): bool
+    public function delete(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }

@@ -12,7 +12,7 @@ class UserPolicy
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function view(User $user, User $model): bool
+    public function view(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
@@ -22,22 +22,22 @@ class UserPolicy
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function update(User $user, User $model): bool
+    public function update(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function delete(User $user, User $model): bool
+    public function delete(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function toggleActive(User $user, User $model): bool
+    public function toggleActive(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function resetPassword(User $user, User $model): bool
+    public function resetPassword(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }

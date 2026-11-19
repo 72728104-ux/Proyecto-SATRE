@@ -25,43 +25,58 @@ class GeminiClient
     public function generate(string $prompt, ?string $systemInstruction = null): array
     {
         $key = config('services.gemini.key');
+        $result = null;
+
         if (blank($key)) {
-            return $this->unavailable('not_configured', 'GEMINI_API_KEY no está configurada.');
-        }
-
-        $model = (string) (config('services.gemini.model') ?: self::MODEL);
-        $payload = array_filter([
-            'system_instruction' => filled($systemInstruction)
-                ? ['parts' => [['text' => $systemInstruction]]]
-                : null,
-            'contents' => [
-                ['role' => 'user', 'parts' => [['text' => $prompt]]],
-            ],
-            'generationConfig' => [
-                'temperature' => 0.4,
-            ],
-        ]);
-
-        try {
-            $response = Http::withHeaders([
-                'x-goog-api-key' => (string) $key,
-            ])
-                ->acceptJson()
-                ->timeout((int) config('services.gemini.timeout', 30))
-                ->retry(self::ATTEMPTS, self::RETRY_SLEEP_MS)
-                ->post($this->endpoint($model), $payload);
-        } catch (Throwable $e) {
-            Log::warning('gemini: excepción HTTP', [
-                'exception' => $e::class,
-                'message' => $this->redact((string) $e->getMessage()),
+            $result = $this->unavailable('not_configured', 'GEMINI_API_KEY no está configurada.');
+        } else {
+            $model = (string) (config('services.gemini.model') ?: self::MODEL);
+            $payload = array_filter([
+                'system_instruction' => filled($systemInstruction)
+                    ? ['parts' => [['text' => $systemInstruction]]]
+                    : null,
+                'contents' => [
+                    ['role' => 'user', 'parts' => [['text' => $prompt]]],
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.4,
+                ],
             ]);
 
-            return $this->unavailable(
-                class_basename($e) === 'ConnectionException' ? 'timeout' : 'gemini_unavailable',
-                'No se pudo completar la solicitud a Gemini.',
-            );
+            try {
+                $response = Http::withHeaders([
+                    'x-goog-api-key' => (string) $key,
+                ])
+                    ->acceptJson()
+                    ->timeout((int) config('services.gemini.timeout', 30))
+                    ->retry(self::ATTEMPTS, self::RETRY_SLEEP_MS)
+                    ->post($this->endpoint($model), $payload);
+            } catch (Throwable $e) {
+                Log::warning('gemini: excepción HTTP', [
+                    'exception' => $e::class,
+                    'message' => $this->redact((string) $e->getMessage()),
+                ]);
+
+                $response = null;
+                $result = $this->unavailable(
+                    class_basename($e) === 'ConnectionException' ? 'timeout' : 'gemini_unavailable',
+                    'No se pudo completar la solicitud a Gemini.',
+                );
+            }
+
+            if ($response !== null) {
+                $result = $this->responseResult($response);
+            }
         }
 
+        return $result;
+    }
+
+    /**
+     * @return array{available: bool, text?: string, reason?: string, message?: string, status?: int}
+     */
+    private function responseResult(Response $response): array
+    {
         if ($response->failed()) {
             return $this->unavailable(
                 $this->reasonFromStatus($response->status()),
@@ -71,11 +86,10 @@ class GeminiClient
         }
 
         $text = $this->extractText($response);
-        if ($text === null || $text === '') {
-            return $this->unavailable('invalid_response', 'Gemini no devolvió texto utilizable.', $response->status());
-        }
 
-        return ['available' => true, 'text' => $text];
+        return $text !== null && $text !== ''
+            ? ['available' => true, 'text' => $text]
+            : $this->unavailable('invalid_response', 'Gemini no devolvió texto utilizable.', $response->status());
     }
 
     private function endpoint(string $model): string

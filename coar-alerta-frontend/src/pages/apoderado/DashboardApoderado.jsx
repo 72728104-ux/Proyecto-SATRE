@@ -1,10 +1,9 @@
 import { BedDouble, BookOpen, ClipboardCheck, Users } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
-import Skeleton from '../../components/Skeleton'
 import StatCard from '../../components/StatCard'
-import ScoreBadge from '../../components/ScoreBadge'
 import { useAuth } from '../../context/AuthContext'
 import { LoadError } from '../admin/shared/ui'
+import { CourseAverageList, DashboardSkeleton, Panel } from '../shared/DashboardBlocks'
 import {
   ATTENDANCE_STATUS,
   PASSING_SCORE,
@@ -15,15 +14,6 @@ import {
   useChildSummary,
   useLinkedStudent,
 } from './shared'
-
-function Panel({ title, children }) {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="font-semibold text-navy-950">{title}</h2>
-      <div className="mt-4">{children}</div>
-    </section>
-  )
-}
 
 function StatusGrid({ map, byStatus }) {
   const rows = Object.entries(byStatus ?? {}).filter(([, total]) => total > 0)
@@ -81,15 +71,7 @@ export default function DashboardApoderado() {
     return (
       <div className="space-y-6">
         {header}
-        <div className="grid gap-4 min-[480px]:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-32 rounded-2xl" />
-          ))}
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-56 rounded-2xl" />
-          <Skeleton className="h-56 rounded-2xl" />
-        </div>
+        <DashboardSkeleton />
       </div>
     )
   }
@@ -157,21 +139,7 @@ export default function DashboardApoderado() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Rendimiento por curso">
-          {grades.by_course.length ? (
-            <ul className="divide-y divide-slate-100">
-              {grades.by_course.map((course) => (
-                <li key={course.course_id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-navy-950">{course.course_name}</p>
-                    <p className="text-xs text-slate-500">{course.count} evaluación(es)</p>
-                  </div>
-                  <ScoreBadge value={course.average} literal={course.literal} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState icon={BookOpen} title="Aún no hay notas en este periodo." />
-          )}
+          <CourseAverageList courses={grades.by_course} />
         </Panel>
 
         <Panel title="Asistencias e inasistencias en aula">

@@ -25,9 +25,12 @@ class AttendanceManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ATTENDANCES_ENDPOINT = '/api/attendances';
+    private const ATTENDANCE_DATE = '2026-03-16';
+
     public function test_guest_cannot_record_attendance(): void
     {
-        $this->postJson('/api/attendances', [])->assertUnauthorized();
+        $this->postJson(self::ATTENDANCES_ENDPOINT, [])->assertUnauthorized();
     }
 
     public function test_student_cannot_record_attendance(): void
@@ -36,10 +39,10 @@ class AttendanceManagementTest extends TestCase
         $studentUser = $this->userWithRole(Roles::STUDENT);
 
         $this->actingAs($studentUser, 'sanctum')
-            ->postJson('/api/attendances', [
+            ->postJson(self::ATTENDANCES_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-03-16',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'status' => 'present',
             ])
             ->assertForbidden();
@@ -52,10 +55,10 @@ class AttendanceManagementTest extends TestCase
         $context = $this->academicContext();
 
         $response = $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/attendances', [
+            ->postJson(self::ATTENDANCES_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-03-16',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'status' => 'late',
                 'notes' => 'Llegó 10 minutos tarde',
             ]);
@@ -81,19 +84,19 @@ class AttendanceManagementTest extends TestCase
         ]);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/attendances', [
+            ->postJson(self::ATTENDANCES_ENDPOINT, [
                 'student_id' => $otherStudent->id,
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-03-16',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'status' => 'present',
             ])
             ->assertStatus(422);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/attendances', [
+            ->postJson(self::ATTENDANCES_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-03-16',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'status' => 'inventado',
             ])
             ->assertStatus(422)
@@ -108,16 +111,16 @@ class AttendanceManagementTest extends TestCase
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
             'academic_period_id' => $context['period']->id,
-            'attendance_date' => '2026-03-16',
+            'attendance_date' => self::ATTENDANCE_DATE,
             'status' => 'present',
             'recorded_by' => $context['teacherUser']->id,
         ]);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/attendances', [
+            ->postJson(self::ATTENDANCES_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-03-16',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'status' => 'absent_unjustified',
             ])
             ->assertStatus(422);
@@ -133,10 +136,10 @@ class AttendanceManagementTest extends TestCase
         });
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/attendances', [
+            ->postJson(self::ATTENDANCES_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-03-16',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'status' => 'present',
             ])
             ->assertCreated();
@@ -159,7 +162,7 @@ class AttendanceManagementTest extends TestCase
         $this->actingAs($context['teacherUser'], 'sanctum')
             ->postJson('/api/attendances/session', [
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-03-16',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'records' => [
                     ['student_id' => $context['student']->id, 'status' => 'present'],
                 ],
@@ -180,7 +183,7 @@ class AttendanceManagementTest extends TestCase
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
             'academic_period_id' => $context['period']->id,
-            'attendance_date' => '2026-03-16',
+            'attendance_date' => self::ATTENDANCE_DATE,
             'recorded_by' => $context['teacherUser']->id,
         ]);
 

@@ -4,13 +4,15 @@ if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
 
 const DEFAULT_API_URL = 'http://127.0.0.1:8000/api'
 
+const stripTrailingSlashes = (value) => value.replace(/(?<!\/)\/+$/, '')
+
 export function normalizeApiBase(raw) {
   const fallback = DEFAULT_API_URL
-  const value = String(raw ?? fallback).trim().replace(/\/+$/, '')
+  const value = stripTrailingSlashes(String(raw ?? fallback).trim())
   try {
     const url = new URL(value)
     if (url.pathname === '' || url.pathname === '/') url.pathname = '/api'
-    return url.toString().replace(/\/+$/, '')
+    return stripTrailingSlashes(url.toString())
   } catch {
     return fallback
   }
@@ -107,6 +109,93 @@ export function refreshAccessToken() {
  * Opciones: `silent` evita los toasts globales (403/429/red); `skipAuthHandling` evita el logout automático en 401.
  * `responseType: 'blob'` devuelve `{ blob, filename }` para descargas (los errores siguen llegando como JSON).
  */
+function buildRequestHeaders(body, isFormData, authToken) {
+  const headers = { Accept: 'application/json' }
+  if (body && !isFormData) headers['Content-Type'] = 'application/json'
+  if (authToken) headers.Authorization = `Bearer ${authToken}`
+  return headers
+}
+
+function requestBody(body, isFormData) {
+  if (!body) return undefined
+  return isFormData ? body : JSON.stringify(body)
+}
+
+function buildNetworkError(signal, timedOut) {
+  if (signal?.aborted && !timedOut) return new ApiError('Solicitud cancelada.', { kind: 'aborted' })
+  if (timedOut) return new ApiError('El servidor tardó demasiado en responder. Inténtalo nuevamente.', { kind: 'timeout' })
+  return new ApiError('No hay conexión con el servidor. Verifica tu red e inténtalo nuevamente.', { kind: 'network' })
+}
+
+async function sendRequest(path, { method, headers, body, signal, timeout, silent }) {
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeout)
+  const forwardAbort = () => controller.abort()
+  signal?.addEventListener('abort', forwardAbort, { once: true })
+
+  try {
+    return await fetch(buildApiUrl(path), {
+      method,
+      headers,
+      body,
+      signal: controller.signal,
+    })
+  } catch {
+    const error = buildNetworkError(signal, timedOut)
+    if (!silent) emit({ type: error.kind, error })
+    throw error
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', forwardAbort)
+  }
+}
+
+function emitResponseError({ status, payload, error, silent, skipAuthHandling }) {
+  if (status === 401 && !skipAuthHandling) emit({ type: 'unauthorized', error })
+  else if (status === 403 && payload?.must_change_password) emit({ type: 'password_change_required', error })
+  else if (!silent && status === 403) emit({ type: 'forbidden', error })
+  else if (!silent && status === 429) emit({ type: 'rate_limited', error })
+}
+
+async function handleErrorResponse(path, response, payload, options) {
+  const { status } = response
+  const retryAfter = status === 429 ? Number(response.headers.get('Retry-After')) || null : null
+  const error = new ApiError(extractErrorMessage(payload, status, retryAfter), {
+    status,
+    kind: kindFromStatus(status),
+    payload,
+    fieldErrors: extractFieldErrors(payload),
+    retryAfter,
+  })
+
+  const canRetry = status === 401 && !options.skipAuthHandling && !options._retried && getToken() && path !== REFRESH_PATH
+  if (canRetry) {
+    try {
+      await refreshAccessToken()
+      return apiRequest(path, {
+        method: options.method,
+        body: options.body,
+        signal: options.signal,
+        timeout: options.timeout,
+        silent: options.silent,
+        skipAuthHandling: options.skipAuthHandling,
+        responseType: options.responseType,
+        _retried: true,
+      })
+    } catch {
+      emit({ type: 'unauthorized', error })
+      throw error
+    }
+  }
+
+  emitResponseError({ status, payload, error, silent: options.silent, skipAuthHandling: options.skipAuthHandling })
+  throw error
+}
+
 export async function apiRequest(
   path,
   {
@@ -122,42 +211,17 @@ export async function apiRequest(
   } = {},
 ) {
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
-  const headers = {
-    Accept: 'application/json',
-  }
-  if (body && !isFormData) headers['Content-Type'] = 'application/json'
-
   const authToken = token ?? getToken()
-  if (authToken) headers.Authorization = `Bearer ${authToken}`
+  const headers = buildRequestHeaders(body, isFormData, authToken)
 
-  const controller = new AbortController()
-  let timedOut = false
-  const timer = setTimeout(() => {
-    timedOut = true
-    controller.abort()
-  }, timeout)
-  const forwardAbort = () => controller.abort()
-  signal?.addEventListener('abort', forwardAbort, { once: true })
-
-  let response
-  try {
-    response = await fetch(buildApiUrl(path), {
-      method,
-      headers,
-      body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
-      signal: controller.signal,
-    })
-  } catch {
-    if (signal?.aborted && !timedOut) throw new ApiError('Solicitud cancelada.', { kind: 'aborted' })
-    const error = timedOut
-      ? new ApiError('El servidor tardó demasiado en responder. Inténtalo nuevamente.', { kind: 'timeout' })
-      : new ApiError('No hay conexión con el servidor. Verifica tu red e inténtalo nuevamente.', { kind: 'network' })
-    if (!silent) emit({ type: error.kind, error })
-    throw error
-  } finally {
-    clearTimeout(timer)
-    signal?.removeEventListener('abort', forwardAbort)
-  }
+  const response = await sendRequest(path, {
+    method,
+    headers,
+    body: requestBody(body, isFormData),
+    signal,
+    timeout,
+    silent,
+  })
 
   if (response.ok && responseType === 'blob') {
     return { blob: await response.blob(), filename: filenameFromDisposition(response.headers.get('Content-Disposition')) }
@@ -166,37 +230,24 @@ export async function apiRequest(
   const payload = await response.json().catch(() => ({}))
   if (response.ok) return payload
 
-  const { status } = response
-  const retryAfter = status === 429 ? Number(response.headers.get('Retry-After')) || null : null
-  const error = new ApiError(extractErrorMessage(payload, status, retryAfter), {
-    status,
-    kind: kindFromStatus(status),
-    payload,
-    fieldErrors: extractFieldErrors(payload),
-    retryAfter,
+  return handleErrorResponse(path, response, payload, {
+    method,
+    body,
+    signal,
+    timeout,
+    silent,
+    skipAuthHandling,
+    responseType,
+    _retried,
   })
-
-  if (status === 401 && !skipAuthHandling && !_retried && getToken() && path !== REFRESH_PATH) {
-    try {
-      await refreshAccessToken()
-      return apiRequest(path, { method, body, signal, timeout, silent, skipAuthHandling, responseType, _retried: true })
-    } catch {
-      emit({ type: 'unauthorized', error })
-      throw error
-    }
-  }
-
-  if (status === 401 && !skipAuthHandling) emit({ type: 'unauthorized', error })
-  else if (status === 403 && payload?.must_change_password) emit({ type: 'password_change_required', error })
-  else if (!silent && status === 403) emit({ type: 'forbidden', error })
-  else if (!silent && status === 429) emit({ type: 'rate_limited', error })
-
-  throw error
 }
 
 function filenameFromDisposition(header) {
-  const match = header?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
-  return match ? decodeURIComponent(match[1]) : null
+  if (!header) return null
+  const utf8Match = header.match(/filename\*=UTF-8''([^;\s]+)/i)
+  if (utf8Match) return decodeURIComponent(utf8Match[1])
+  const plainMatch = header.match(/filename="([^"]+)"|filename=([^;\s]+)/i)
+  return plainMatch ? decodeURIComponent(plainMatch[1] ?? plainMatch[2]) : null
 }
 
 export function extractFieldErrors(payload) {

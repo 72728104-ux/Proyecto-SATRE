@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\AnalyticsPrivacy;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -106,20 +107,34 @@ class PythonAnalyticsClient
             return $this->unavailable($path, $status, class_basename($e), $e->getMessage());
         }
 
+        return $this->responseResult($response, $path);
+    }
+
+    private function responseResult(Response $response, string $path): array
+    {
         $json = $response->json();
 
-        if ($response->failed() || ! is_array($json)) {
-            $reason = is_array($json) && is_string($json['reason'] ?? null)
-                ? $json['reason']
-                : 'http_error';
-            $message = is_array($json) && is_string($json['message'] ?? null)
-                ? $json['message']
-                : ($response->body() ?: sprintf('HTTP %s desde satre-analytics.', $response->status()));
-
-            return $this->unavailable($path, $response->status(), $reason, $message);
+        if (! $response->failed() && is_array($json)) {
+            return $json + ['available' => true];
         }
 
-        return $json + ['available' => true];
+        $reason = is_array($json) && is_string($json['reason'] ?? null)
+            ? $json['reason']
+            : 'http_error';
+
+        return $this->unavailable(
+            $path,
+            $response->status(),
+            $reason,
+            $this->failureMessage($json, $response),
+        );
+    }
+
+    private function failureMessage(mixed $json, Response $response): string
+    {
+        $jsonMessage = is_array($json) && is_string($json['message'] ?? null) ? $json['message'] : null;
+
+        return $jsonMessage ?? ($response->body() ?: sprintf('HTTP %s desde satre-analytics.', $response->status()));
     }
 
     private function unavailable(string $path, ?int $status, string $reason, ?string $message = null): array

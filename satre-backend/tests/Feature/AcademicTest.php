@@ -32,12 +32,16 @@ class AcademicTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ACADEMIC_GRADES_ENDPOINT = '/api/academic/grades';
+    private const ACADEMIC_INCIDENTS_ENDPOINT = '/api/academic/incidents';
+    private const PERIOD_DATE = '2026-04-15';
+
     public function test_teacher_records_minedu_grade_and_update_audits_old_and_new_values(): void
     {
         $context = $this->academicContext();
 
         $gradeId = $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/academic/grades', $this->gradePayload($context))
+            ->postJson(self::ACADEMIC_GRADES_ENDPOINT, $this->gradePayload($context))
             ->assertCreated()
             ->assertJsonPath('data.score', 16.5)
             ->assertJsonPath('data.literal', 'A')
@@ -51,7 +55,7 @@ class AcademicTest extends TestCase
         $this->assertSame('B', $created->new_values['criterion']);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->putJson("/api/academic/grades/$gradeId", ['score' => 19, 'criterion' => 'C'])
+            ->putJson(self::ACADEMIC_GRADES_ENDPOINT."/$gradeId", ['score' => 19, 'criterion' => 'C'])
             ->assertOk()
             ->assertJsonPath('data.score', 19)
             ->assertJsonPath('data.literal', 'AD')
@@ -72,25 +76,25 @@ class AcademicTest extends TestCase
 
         foreach ([-0.01, 20.01, 21] as $score) {
             $this->actingAs($context['teacherUser'], 'sanctum')
-                ->postJson('/api/academic/grades', ['score' => $score] + $this->gradePayload($context))
+                ->postJson(self::ACADEMIC_GRADES_ENDPOINT, ['score' => $score] + $this->gradePayload($context))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['score']);
         }
 
         foreach (['E', 'a', '1'] as $criterion) {
             $this->actingAs($context['teacherUser'], 'sanctum')
-                ->postJson('/api/academic/grades', ['criterion' => $criterion] + $this->gradePayload($context))
+                ->postJson(self::ACADEMIC_GRADES_ENDPOINT, ['criterion' => $criterion] + $this->gradePayload($context))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['criterion']);
         }
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/academic/grades', ['evaluation_name' => ''] + $this->gradePayload($context))
+            ->postJson(self::ACADEMIC_GRADES_ENDPOINT, ['evaluation_name' => ''] + $this->gradePayload($context))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['evaluation_name']);
 
         $this->actingAs($this->userWithRole(Roles::ADMIN), 'sanctum')
-            ->postJson('/api/academic/grades', $this->gradePayload($context))
+            ->postJson(self::ACADEMIC_GRADES_ENDPOINT, $this->gradePayload($context))
             ->assertForbidden();
     }
 
@@ -104,7 +108,7 @@ class AcademicTest extends TestCase
         });
 
         $gradeId = $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/academic/grades', $this->gradePayload($context))
+            ->postJson(self::ACADEMIC_GRADES_ENDPOINT, $this->gradePayload($context))
             ->assertCreated()
             ->json('data.id');
 
@@ -118,7 +122,7 @@ class AcademicTest extends TestCase
         Queue::fake();
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->putJson("/api/academic/grades/$gradeId", ['score' => 8])
+            ->putJson(self::ACADEMIC_GRADES_ENDPOINT."/$gradeId", ['score' => 8])
             ->assertOk();
 
         Queue::assertPushed(EvaluateStudentRiskJob::class, fn (EvaluateStudentRiskJob $job) => $job->studentId === $context['student']->id
@@ -149,7 +153,7 @@ class AcademicTest extends TestCase
         ]);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/academic/grades', $this->gradePayload($context))
+            ->postJson(self::ACADEMIC_GRADES_ENDPOINT, $this->gradePayload($context))
             ->assertCreated();
 
         $this->assertDatabaseHas('risk_predictions', [
@@ -170,7 +174,7 @@ class AcademicTest extends TestCase
         });
 
         $this->actingAs($monitor, 'sanctum')
-            ->postJson('/api/academic/incidents', [
+            ->postJson(self::ACADEMIC_INCIDENTS_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'incident_at' => '2026-04-15 21:30:00',
                 'category' => 'conducta',
@@ -192,7 +196,7 @@ class AcademicTest extends TestCase
         $payload = [
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
-            'attendance_date' => '2026-04-15',
+            'attendance_date' => self::PERIOD_DATE,
             'status' => 'present',
         ];
 
@@ -228,7 +232,7 @@ class AcademicTest extends TestCase
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
             'academic_period_id' => $context['period']->id,
-            'attendance_date' => '2026-04-15',
+            'attendance_date' => self::PERIOD_DATE,
             'status' => 'present',
             'recorded_by' => $context['teacherUser']->id,
         ]);
@@ -236,7 +240,7 @@ class AcademicTest extends TestCase
         $this->actingAs($context['teacherUser'], 'sanctum')
             ->putJson('/api/academic/attendances/session', [
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-04-15',
+                'attendance_date' => self::PERIOD_DATE,
                 'records' => [
                     ['student_id' => $context['student']->id, 'status' => 'absent_unjustified'],
                 ],
@@ -257,7 +261,7 @@ class AcademicTest extends TestCase
         $presenceId = $this->actingAs($monitor, 'sanctum')
             ->postJson('/api/academic/presences', [
                 'student_id' => $context['student']->id,
-                'presence_date' => '2026-04-15',
+                'presence_date' => self::PERIOD_DATE,
                 'check_type' => 'night',
                 'status' => 'present',
             ])
@@ -273,7 +277,7 @@ class AcademicTest extends TestCase
         $this->assertSame('absent', $presenceLog->new_values['status']);
 
         $incidentId = $this->actingAs($monitor, 'sanctum')
-            ->postJson('/api/academic/incidents', [
+            ->postJson(self::ACADEMIC_INCIDENTS_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'incident_at' => '2026-04-15 21:30:00',
                 'category' => 'salud',
@@ -284,7 +288,7 @@ class AcademicTest extends TestCase
             ->json('data.id');
 
         $this->actingAs($monitor, 'sanctum')
-            ->putJson("/api/academic/incidents/$incidentId", ['severity' => 'moderada'])
+            ->putJson(self::ACADEMIC_INCIDENTS_ENDPOINT."/$incidentId", ['severity' => 'moderada'])
             ->assertOk();
 
         $incidentLog = AuditLog::query()->where('action', 'incident.updated')->firstOrFail();
@@ -292,7 +296,7 @@ class AcademicTest extends TestCase
         $this->assertSame('moderada', $incidentLog->new_values['severity']);
 
         $this->actingAs($monitor, 'sanctum')
-            ->getJson('/api/academic/incidents')
+            ->getJson(self::ACADEMIC_INCIDENTS_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('meta.per_page', 15);
 
@@ -342,7 +346,7 @@ class AcademicTest extends TestCase
             'course_id' => $context['course']->id,
             'evaluation_name' => 'Prueba 1',
             'criterion' => 'B',
-            'evaluation_date' => '2026-04-15',
+            'evaluation_date' => self::PERIOD_DATE,
             'score' => 16.5,
         ];
     }

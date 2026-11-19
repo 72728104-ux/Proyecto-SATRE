@@ -14,9 +14,14 @@ class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const LOGIN_ENDPOINT = '/api/auth/login';
+    private const TUTOR_EMAIL = 'tutor@coar.edu.pe';
+    private const ADMIN_EMAIL = 'admin@coar.edu.pe';
+    private const ME_ENDPOINT = '/api/auth/me';
+
     public function test_login_validates_required_fields(): void
     {
-        $this->postJson('/api/auth/login', [])
+        $this->postJson(self::LOGIN_ENDPOINT, [])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['email', 'password']);
     }
@@ -24,12 +29,12 @@ class AuthenticationTest extends TestCase
     public function test_login_rejects_invalid_credentials(): void
     {
         $this->createUserWithRole(Roles::TEACHER, [
-            'email' => 'tutor@coar.edu.pe',
+            'email' => self::TUTOR_EMAIL,
             'password' => 'coar2026',
         ]);
 
-        $this->postJson('/api/auth/login', [
-            'email' => 'tutor@coar.edu.pe',
+        $this->postJson(self::LOGIN_ENDPOINT, [
+            'email' => self::TUTOR_EMAIL,
             'password' => 'incorrecta',
         ])->assertStatus(422);
     }
@@ -43,14 +48,14 @@ class AuthenticationTest extends TestCase
             'password' => 'coar2026',
         ]);
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(self::LOGIN_ENDPOINT, [
             'email' => InstitutionalIdentity::seededTeacherEmail(),
             'password' => 'coar2026',
         ])->assertOk()
             ->assertJsonPath('user.email', InstitutionalIdentity::seededTeacherEmail())
             ->assertJsonPath('user.dni', InstitutionalIdentity::TEACHER_DNI);
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(self::LOGIN_ENDPOINT, [
             'email' => InstitutionalIdentity::TEACHER_DNI,
             'password' => 'coar2026',
         ])->assertOk()
@@ -60,7 +65,7 @@ class AuthenticationTest extends TestCase
 
     public function test_login_rejects_identifier_that_is_neither_email_nor_dni(): void
     {
-        $this->postJson('/api/auth/login', [
+        $this->postJson(self::LOGIN_ENDPOINT, [
             'email' => '1234567',
             'password' => 'coar2026',
         ])->assertStatus(422)
@@ -71,17 +76,17 @@ class AuthenticationTest extends TestCase
     {
         $this->createUserWithRole(Roles::ADMIN, [
             'name' => 'Rosa Huamán Quispe',
-            'email' => 'admin@coar.edu.pe',
+            'email' => self::ADMIN_EMAIL,
             'password' => 'coar2026',
         ]);
 
-        $response = $this->postJson('/api/auth/login', [
-            'email' => 'admin@coar.edu.pe',
+        $response = $this->postJson(self::LOGIN_ENDPOINT, [
+            'email' => self::ADMIN_EMAIL,
             'password' => 'coar2026',
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('user.email', 'admin@coar.edu.pe')
+            ->assertJsonPath('user.email', self::ADMIN_EMAIL)
             ->assertJsonPath('user.role.slug', Roles::ADMIN)
             ->assertJsonPath('must_change_password', false)
             ->assertJsonStructure(['token', 'expires_at', 'must_change_password', 'user' => ['id', 'name', 'email', 'role']]);
@@ -93,12 +98,12 @@ class AuthenticationTest extends TestCase
     {
         $this->freezeSecond();
         $this->createUserWithRole(Roles::TEACHER, [
-            'email' => 'tutor@coar.edu.pe',
+            'email' => self::TUTOR_EMAIL,
             'password' => 'coar2026',
         ]);
 
-        $response = $this->postJson('/api/auth/login', [
-            'email' => 'tutor@coar.edu.pe',
+        $response = $this->postJson(self::LOGIN_ENDPOINT, [
+            'email' => self::TUTOR_EMAIL,
             'password' => 'coar2026',
         ])->assertOk();
 
@@ -114,7 +119,7 @@ class AuthenticationTest extends TestCase
             'must_change_password' => true,
         ]);
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(self::LOGIN_ENDPOINT, [
             'email' => 'nuevo@coar.edu.pe',
             'password' => 'coar2026',
         ])->assertOk()
@@ -127,10 +132,10 @@ class AuthenticationTest extends TestCase
         $payload = ['email' => 'ataque@coar.edu.pe', 'password' => 'incorrecta'];
 
         for ($i = 0; $i < 5; $i++) {
-            $this->postJson('/api/auth/login', $payload)->assertStatus(422);
+            $this->postJson(self::LOGIN_ENDPOINT, $payload)->assertStatus(422);
         }
 
-        $this->postJson('/api/auth/login', $payload)->assertStatus(429);
+        $this->postJson(self::LOGIN_ENDPOINT, $payload)->assertStatus(429);
     }
 
     public function test_inactive_user_cannot_login(): void
@@ -141,7 +146,7 @@ class AuthenticationTest extends TestCase
             'is_active' => false,
         ]);
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(self::LOGIN_ENDPOINT, [
             'email' => 'inactivo@coar.edu.pe',
             'password' => 'coar2026',
         ])->assertStatus(422);
@@ -149,7 +154,7 @@ class AuthenticationTest extends TestCase
 
     public function test_me_requires_authentication(): void
     {
-        $this->getJson('/api/auth/me')->assertUnauthorized();
+        $this->getJson(self::ME_ENDPOINT)->assertUnauthorized();
     }
 
     public function test_authenticated_user_can_view_profile_and_logout(): void
@@ -159,13 +164,13 @@ class AuthenticationTest extends TestCase
             'password' => 'coar2026',
         ]);
 
-        $token = $this->postJson('/api/auth/login', [
+        $token = $this->postJson(self::LOGIN_ENDPOINT, [
             'email' => 'residencia@coar.edu.pe',
             'password' => 'coar2026',
         ])->json('token');
 
         $this->withToken($token)
-            ->getJson('/api/auth/me')
+            ->getJson(self::ME_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('user.id', $user->id)
             ->assertJsonPath('user.role.slug', Roles::MONITOR)
@@ -180,26 +185,26 @@ class AuthenticationTest extends TestCase
         Auth::forgetGuards();
 
         $this->withToken($token)
-            ->getJson('/api/auth/me')
+            ->getJson(self::ME_ENDPOINT)
             ->assertUnauthorized();
     }
 
     public function test_profile_exposes_college_residence_flag_from_config(): void
     {
         $user = $this->createUserWithRole(Roles::TEACHER, [
-            'email' => 'tutor@coar.edu.pe',
+            'email' => self::TUTOR_EMAIL,
             'password' => 'coar2026',
         ]);
 
         $this->actingAs($user, 'sanctum')
-            ->getJson('/api/auth/me')
+            ->getJson(self::ME_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('user.college_has_residence', true);
 
         config(['app.college_has_residence' => false]);
 
         $this->actingAs($user, 'sanctum')
-            ->getJson('/api/auth/me')
+            ->getJson(self::ME_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('user.college_has_residence', false);
     }

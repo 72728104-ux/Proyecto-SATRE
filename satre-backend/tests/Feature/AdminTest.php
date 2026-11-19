@@ -23,12 +23,23 @@ class AdminTest extends TestCase
 {
     use InteractsWithAdmin, RefreshDatabase;
 
+    private const USERS_ENDPOINT = '/api/admin/users';
+    private const METRICS_ENDPOINT = '/api/admin/metrics';
+    private const ADMIN_EMAIL = 'ana@coar.edu.pe';
+    private const NEW_USER_DNI = '87654322';
+    private const NEW_USER_NAME = 'Nombre Nuevo';
+    private const COURSES_ENDPOINT = '/api/admin/courses';
+    private const PERIODS_ENDPOINT = '/api/admin/periods';
+    private const ENROLLMENTS_ENDPOINT = '/api/admin/enrollments';
+    private const ENROLLMENTS_BULK_ENDPOINT = '/api/admin/enrollments/bulk';
+    private const JSON_ACCEPT = 'application/json';
+
     public function test_non_admin_cannot_access_admin_routes(): void
     {
         $teacher = $this->userWithRole(Roles::TEACHER);
 
-        $this->actingAs($teacher, 'sanctum')->getJson('/api/admin/users')->assertForbidden();
-        $this->actingAs($teacher, 'sanctum')->getJson('/api/admin/metrics')->assertForbidden();
+        $this->actingAs($teacher, 'sanctum')->getJson(self::USERS_ENDPOINT)->assertForbidden();
+        $this->actingAs($teacher, 'sanctum')->getJson(self::METRICS_ENDPOINT)->assertForbidden();
         $this->actingAs($teacher, 'sanctum')->getJson('/api/admin/audit-logs')->assertForbidden();
     }
 
@@ -38,7 +49,7 @@ class AdminTest extends TestCase
         User::factory()->count(20)->create();
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/admin/users')
+            ->getJson(self::USERS_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(15, 'data')
             ->assertJsonPath('meta.per_page', 15)
@@ -53,14 +64,14 @@ class AdminTest extends TestCase
     public function test_user_listing_exposes_profile_id_for_assignment_pickers(): void
     {
         $admin = $this->admin();
-        $this->actingAs($admin, 'sanctum')->postJson('/api/admin/users', [
+        $this->actingAs($admin, 'sanctum')->postJson(self::USERS_ENDPOINT, [
             'name' => 'Ana Rojas',
-            'email' => 'ana@coar.edu.pe',
+            'email' => self::ADMIN_EMAIL,
             'dni' => '87654321',
             'role' => Roles::TEACHER,
             'profile' => ['employee_code' => 'DOC-0101'],
         ])->assertCreated();
-        $teacher = User::query()->where('email', 'ana@coar.edu.pe')->firstOrFail()->teacher;
+        $teacher = User::query()->where('email', self::ADMIN_EMAIL)->firstOrFail()->teacher;
 
         $this->actingAs($admin, 'sanctum')
             ->getJson('/api/admin/users?role=teacher')
@@ -77,10 +88,10 @@ class AdminTest extends TestCase
         $admin = $this->admin();
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/users', [
+            ->postJson(self::USERS_ENDPOINT, [
                 'name' => 'Ana Rojas',
-                'email' => 'ana@coar.edu.pe',
-                'dni' => '87654322',
+                'email' => self::ADMIN_EMAIL,
+                'dni' => self::NEW_USER_DNI,
                 'role' => Roles::TEACHER,
                 'profile' => ['employee_code' => 'DOC-0100', 'specialty' => 'Física'],
             ])
@@ -88,17 +99,17 @@ class AdminTest extends TestCase
             ->assertJsonPath('data.role.slug', Roles::TEACHER)
             ->assertJsonPath('data.must_change_password', true);
 
-        $user = User::query()->where('email', 'ana@coar.edu.pe')->firstOrFail();
+        $user = User::query()->where('email', self::ADMIN_EMAIL)->firstOrFail();
         $this->assertTrue(Hash::check($response->json('temporary_password'), $user->password));
-        $this->assertDatabaseHas('users', ['id' => $user->id, 'dni' => '87654322']);
-        $this->assertDatabaseHas('teachers', ['user_id' => $user->id, 'employee_code' => 'DOC-0100', 'dni' => '87654322']);
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'dni' => self::NEW_USER_DNI]);
+        $this->assertDatabaseHas('teachers', ['user_id' => $user->id, 'employee_code' => 'DOC-0100', 'dni' => self::NEW_USER_DNI]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user.created', 'auditable_id' => $user->id, 'user_id' => $admin->id]);
     }
 
     public function test_student_user_requires_profile(): void
     {
         $this->actingAs($this->admin(), 'sanctum')
-            ->postJson('/api/admin/users', [
+            ->postJson(self::USERS_ENDPOINT, [
                 'name' => 'Sin Perfil',
                 'email' => 'sin.perfil@coar.edu.pe',
                 'dni' => '12345678',
@@ -114,18 +125,18 @@ class AdminTest extends TestCase
         $user = $this->userWithRole(Roles::MONITOR, ['name' => 'Nombre Viejo']);
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson("/api/admin/users/$user->id")
+            ->getJson(self::USERS_ENDPOINT."/$user->id")
             ->assertOk()
             ->assertJsonPath('data.email', $user->email);
 
         $this->actingAs($admin, 'sanctum')
-            ->putJson("/api/admin/users/$user->id", ['name' => 'Nombre Nuevo'])
+            ->putJson(self::USERS_ENDPOINT."/$user->id", ['name' => self::NEW_USER_NAME])
             ->assertOk()
-            ->assertJsonPath('data.name', 'Nombre Nuevo');
+            ->assertJsonPath('data.name', self::NEW_USER_NAME);
 
         $log = AuditLog::query()->where('action', 'user.updated')->where('auditable_id', $user->id)->firstOrFail();
         $this->assertSame(['name' => 'Nombre Viejo'], $log->old_values);
-        $this->assertSame(['name' => 'Nombre Nuevo'], $log->new_values);
+        $this->assertSame(['name' => self::NEW_USER_NAME], $log->new_values);
     }
 
     public function test_toggle_active_deactivates_user_and_revokes_tokens(): void
@@ -135,7 +146,7 @@ class AdminTest extends TestCase
         $user->createToken('web');
 
         $this->actingAs($admin, 'sanctum')
-            ->patchJson("/api/admin/users/$user->id/toggle-active")
+            ->patchJson(self::USERS_ENDPOINT."/$user->id/toggle-active")
             ->assertOk()
             ->assertJsonPath('data.is_active', false);
 
@@ -148,11 +159,11 @@ class AdminTest extends TestCase
         $admin = $this->admin();
 
         $this->actingAs($admin, 'sanctum')
-            ->patchJson("/api/admin/users/$admin->id/toggle-active")
+            ->patchJson(self::USERS_ENDPOINT."/$admin->id/toggle-active")
             ->assertStatus(422);
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/admin/users/$admin->id/reset-password")
+            ->postJson(self::USERS_ENDPOINT."/$admin->id/reset-password")
             ->assertStatus(422);
     }
 
@@ -162,7 +173,7 @@ class AdminTest extends TestCase
         $user = $this->userWithRole(Roles::TEACHER, ['must_change_password' => false]);
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/admin/users/$user->id/reset-password")
+            ->postJson(self::USERS_ENDPOINT."/$user->id/reset-password")
             ->assertOk()
             ->assertJsonPath('data.must_change_password', true);
 
@@ -176,13 +187,13 @@ class AdminTest extends TestCase
         $context = $this->academicContext();
 
         $this->actingAs($admin, 'sanctum')
-            ->deleteJson('/api/admin/users/'.$context['teacher']->user_id)
+            ->deleteJson(self::USERS_ENDPOINT.'/'.$context['teacher']->user_id)
             ->assertStatus(422);
 
         $plain = $this->userWithRole(Roles::ADMIN);
 
         $this->actingAs($admin, 'sanctum')
-            ->deleteJson("/api/admin/users/$plain->id")
+            ->deleteJson(self::USERS_ENDPOINT."/$plain->id")
             ->assertOk();
 
         $this->assertSoftDeleted('users', ['id' => $plain->id]);
@@ -245,7 +256,7 @@ class AdminTest extends TestCase
         $context = $this->academicContext();
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/courses', [
+            ->postJson(self::COURSES_ENDPOINT, [
                 'code' => 'FIS-HL',
                 'name' => 'Física HL',
                 'classroom_id' => $context['classroom']->id,
@@ -267,7 +278,7 @@ class AdminTest extends TestCase
         $otherPeriod = AcademicPeriod::factory()->create(['name' => '2026-II', 'is_current' => false]);
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/courses', [
+            ->postJson(self::COURSES_ENDPOINT, [
                 'code' => 'QUI-SL',
                 'name' => 'Química SL',
                 'classroom_id' => $context['classroom']->id,
@@ -278,7 +289,7 @@ class AdminTest extends TestCase
             ->assertJsonValidationErrors(['classroom_id']);
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/courses', [
+            ->postJson(self::COURSES_ENDPOINT, [
                 'code' => 'MAT-AA',
                 'name' => 'Duplicado',
                 'classroom_id' => $context['classroom']->id,
@@ -295,7 +306,7 @@ class AdminTest extends TestCase
         Enrollment::factory()->create(['student_id' => $context['student']->id, 'course_id' => $context['course']->id]);
 
         $this->actingAs($this->admin(), 'sanctum')
-            ->deleteJson('/api/admin/courses/'.$context['course']->id)
+            ->deleteJson(self::COURSES_ENDPOINT.'/'.$context['course']->id)
             ->assertStatus(422);
     }
 
@@ -311,7 +322,7 @@ class AdminTest extends TestCase
             ->assertJsonPath('data.0.teacher.id', $context['teacher']->id);
 
         $this->actingAs($admin, 'sanctum')
-            ->putJson('/api/admin/courses/'.$context['course']->id, ['name' => 'Matemáticas AA'])
+            ->putJson(self::COURSES_ENDPOINT.'/'.$context['course']->id, ['name' => 'Matemáticas AA'])
             ->assertOk()
             ->assertJsonPath('data.name', 'Matemáticas AA');
     }
@@ -321,19 +332,19 @@ class AdminTest extends TestCase
         $admin = $this->admin();
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/periods', ['name' => '2027-I', 'start_date' => '2027-03-01', 'end_date' => '2027-02-01'])
+            ->postJson(self::PERIODS_ENDPOINT, ['name' => '2027-I', 'start_date' => '2027-03-01', 'end_date' => '2027-02-01'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['end_date']);
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/periods', ['name' => '2027-I', 'start_date' => '2027-03-01', 'end_date' => '2027-07-31'])
+            ->postJson(self::PERIODS_ENDPOINT, ['name' => '2027-I', 'start_date' => '2027-03-01', 'end_date' => '2027-07-31'])
             ->assertCreated()
             ->assertJsonPath('data.is_current', false);
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'period.created']);
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/admin/periods')
+            ->getJson(self::PERIODS_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('meta.per_page', 15);
     }
@@ -345,7 +356,7 @@ class AdminTest extends TestCase
         $next = AcademicPeriod::factory()->create(['name' => '2026-II', 'is_current' => false]);
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/admin/periods/$next->id/set-current")
+            ->postJson(self::PERIODS_ENDPOINT."/$next->id/set-current")
             ->assertOk()
             ->assertJsonPath('data.is_current', true);
 
@@ -359,7 +370,7 @@ class AdminTest extends TestCase
         $context = $this->academicContext();
 
         $this->actingAs($this->admin(), 'sanctum')
-            ->deleteJson('/api/admin/periods/'.$context['period']->id)
+            ->deleteJson(self::PERIODS_ENDPOINT.'/'.$context['period']->id)
             ->assertStatus(422);
 
         $this->assertModelExists(Classroom::query()->find($context['classroom']->id));
@@ -371,7 +382,7 @@ class AdminTest extends TestCase
         $context = $this->academicContext();
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/enrollments', [
+            ->postJson(self::ENROLLMENTS_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
             ])
@@ -382,7 +393,7 @@ class AdminTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'enrollment.created']);
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/enrollments', [
+            ->postJson(self::ENROLLMENTS_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
             ])
@@ -396,14 +407,14 @@ class AdminTest extends TestCase
         $enrollment = Enrollment::factory()->create(['student_id' => $context['student']->id, 'course_id' => $context['course']->id]);
 
         $this->actingAs($admin, 'sanctum')
-            ->deleteJson("/api/admin/enrollments/$enrollment->id")
+            ->deleteJson(self::ENROLLMENTS_ENDPOINT."/$enrollment->id")
             ->assertOk()
             ->assertJsonPath('data.status', 'withdrawn');
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'enrollment.withdrawn', 'auditable_id' => $enrollment->id]);
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/admin/enrollments', [
+            ->postJson(self::ENROLLMENTS_ENDPOINT, [
                 'student_id' => $context['student']->id,
                 'course_id' => $context['course']->id,
             ])
@@ -422,10 +433,10 @@ class AdminTest extends TestCase
         $csv = "\xEF\xBB\xBFstudent_code,course_code\nEST-0001,MAT-AA\nEST-0002,MAT-AA\nEST-0001,MAT-AA\n";
 
         $this->actingAs($admin, 'sanctum')
-            ->post('/api/admin/enrollments/bulk', [
+            ->post(self::ENROLLMENTS_BULK_ENDPOINT, [
                 'file' => UploadedFile::fake()->createWithContent('matriculas.csv', $csv),
                 'academic_period_id' => $context['period']->id,
-            ], ['Accept' => 'application/json'])
+            ], ['Accept' => self::JSON_ACCEPT])
             ->assertOk()
             ->assertJsonPath('data.created', 1)
             ->assertJsonPath('data.skipped', 2);
@@ -443,10 +454,10 @@ class AdminTest extends TestCase
         $csv = "student_code;course_code\nEST-0001;MAT-AA\nEST-9999;MAT-AA\n";
 
         $this->actingAs($admin, 'sanctum')
-            ->post('/api/admin/enrollments/bulk', [
+            ->post(self::ENROLLMENTS_BULK_ENDPOINT, [
                 'file' => UploadedFile::fake()->createWithContent('matriculas.csv', $csv),
                 'academic_period_id' => $context['period']->id,
-            ], ['Accept' => 'application/json'])
+            ], ['Accept' => self::JSON_ACCEPT])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['rows.3']);
 
@@ -458,10 +469,10 @@ class AdminTest extends TestCase
         $context = $this->academicContext();
 
         $this->actingAs($this->admin(), 'sanctum')
-            ->post('/api/admin/enrollments/bulk', [
+            ->post(self::ENROLLMENTS_BULK_ENDPOINT, [
                 'file' => UploadedFile::fake()->createWithContent('matriculas.csv', "codigo,curso\nEST-0001,MAT-AA\n"),
                 'academic_period_id' => $context['period']->id,
-            ], ['Accept' => 'application/json'])
+            ], ['Accept' => self::JSON_ACCEPT])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['file']);
     }
@@ -491,7 +502,7 @@ class AdminTest extends TestCase
     public function test_metrics_without_data_return_200_with_insufficient_data(): void
     {
         $this->actingAs($this->admin(), 'sanctum')
-            ->getJson('/api/admin/metrics')
+            ->getJson(self::METRICS_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('data.users.active', 1)
             ->assertJsonPath('data.attendance_coverage.rate', null)
@@ -525,7 +536,7 @@ class AdminTest extends TestCase
         }
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/admin/metrics')
+            ->getJson(self::METRICS_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('data.users.active', 2)
             ->assertJsonPath('data.users.inactive', 1)

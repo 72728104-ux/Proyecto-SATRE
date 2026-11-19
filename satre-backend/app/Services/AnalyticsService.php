@@ -34,18 +34,18 @@ class AnalyticsService
             ->first();
 
         if ($cached !== null && $cached->generated_at->gt(now()->subHours(self::INSIGHT_TTL_HOURS))) {
-            return $this->insightResponse($cached, available: true, stale: false);
+            $response = $this->insightResponse($cached, available: true, stale: false);
+        } else {
+            $fresh = $this->refreshClassroomInsights($classroom);
+
+            $response = match (true) {
+                $fresh !== null => $this->insightResponse($fresh, available: true, stale: false),
+                $cached !== null => $this->insightResponse($cached, available: false, stale: true),
+                default => ['available' => false, 'stale' => false, 'generated_at' => null, 'data' => null],
+            };
         }
 
-        $fresh = $this->refreshClassroomInsights($classroom);
-
-        if ($fresh !== null) {
-            return $this->insightResponse($fresh, available: true, stale: false);
-        }
-
-        return $cached !== null
-            ? $this->insightResponse($cached, available: false, stale: true)
-            : ['available' => false, 'stale' => false, 'generated_at' => null, 'data' => null];
+        return $response;
     }
 
     public function refreshClassroomInsights(Classroom $classroom): ?AiDiagnostic
@@ -78,29 +78,26 @@ class AnalyticsService
     public function predictionFor(Student $student, bool $refreshIfStale = false, bool $force = false): ?RiskPrediction
     {
         $prediction = $this->latestPrediction($student);
+        $result = $prediction;
 
         if ($force) {
-            return $this->refreshStudentRisk($student) ?? $prediction;
+            $result = $this->refreshStudentRisk($student) ?? $prediction;
+        } elseif ($refreshIfStale && ! $this->isFresh($prediction)) {
+            $periodId = $student->classroom?->academic_period_id
+                ?? AcademicPeriod::query()->where('is_current', true)->value('id');
+
+            if ($periodId !== null) {
+                if ($student->classroom_id) {
+                    $this->refreshClassroomRiskOnce((int) $student->classroom_id, (int) $periodId);
+
+                    $result = $this->latestPrediction($student) ?? $prediction;
+                } else {
+                    $result = $this->refreshStudentRisk($student, (int) $periodId) ?? $prediction;
+                }
+            }
         }
 
-        if (! $refreshIfStale || $this->isFresh($prediction)) {
-            return $prediction;
-        }
-
-        $periodId = $student->classroom?->academic_period_id
-            ?? AcademicPeriod::query()->where('is_current', true)->value('id');
-
-        if ($periodId === null) {
-            return $prediction;
-        }
-
-        if ($student->classroom_id) {
-            $this->refreshClassroomRiskOnce((int) $student->classroom_id, (int) $periodId);
-
-            return $this->latestPrediction($student) ?? $prediction;
-        }
-
-        return $this->refreshStudentRisk($student, (int) $periodId) ?? $prediction;
+        return $result;
     }
 
     public function refreshStudentRisk(Student $student, ?int $periodId = null): ?RiskPrediction

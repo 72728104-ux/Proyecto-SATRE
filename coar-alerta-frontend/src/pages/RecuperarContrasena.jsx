@@ -13,9 +13,9 @@ export default function RecuperarContrasena() {
   })
   const generalError = error && !Object.keys(fieldErrors).length ? error.message : null
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault()
-    mutate(email)
+    await mutate(email)
   }
 
   return (

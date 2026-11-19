@@ -46,7 +46,7 @@ export default function RestablecerContrasena() {
     const result = await mutate({ token, email, ...form })
     if (!result.ok) return
     toast.success('Contraseña restablecida. Inicia sesión con tu nueva contraseña.')
-    navigate('/login', { replace: true })
+    void navigate('/login', { replace: true })
   }
 
   if (!token || !email) {

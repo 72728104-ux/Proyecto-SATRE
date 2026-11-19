@@ -56,7 +56,7 @@ class TeacherAssistantTest extends TestCase
     public function test_teacher_query_forwards_to_python_hybrid_and_returns_strategies(): void
     {
         Http::fake([
-            self::BASE_URL.'/api/v1/analytics/teacher-assistant' => Http::response($this->hybridReply()),
+            self::BASE_URL.self::ENDPOINT => Http::response($this->hybridReply()),
         ]);
 
         $this->actingAs($this->teacherUser, 'sanctum')
@@ -73,7 +73,7 @@ class TeacherAssistantTest extends TestCase
             ->assertJsonPath('data.metrics.passing_score', 11);
 
         Http::assertSent(fn (Request $request) => $request->hasHeader('X-Internal-Key', 'test-internal-key')
-            && str_ends_with($request->url(), '/api/v1/analytics/teacher-assistant')
+            && str_ends_with($request->url(), self::ENDPOINT)
             && $request['classroom_id'] === $this->classroom->id
             && $request['criterion'] === 'D'
             && ! isset($request['name'])
@@ -83,7 +83,7 @@ class TeacherAssistantTest extends TestCase
     public function test_falls_back_to_gemini_15_flash_with_three_retries(): void
     {
         Http::fake([
-            self::BASE_URL.'/api/v1/analytics/teacher-assistant' => Http::response('upstream crash', 500),
+            self::BASE_URL.self::ENDPOINT => Http::response('upstream crash', 500),
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent' => Http::sequence()
                 ->push(['error' => ['message' => 'busy']], 503)
                 ->push(['error' => ['message' => 'busy']], 503)
@@ -122,7 +122,7 @@ class TeacherAssistantTest extends TestCase
     {
         config(['services.gemini.key' => null]);
         Http::fake([
-            self::BASE_URL.'/api/v1/analytics/teacher-assistant' => Http::response('crash', 500),
+            self::BASE_URL.self::ENDPOINT => Http::response('crash', 500),
         ]);
 
         $this->actingAs($this->teacherUser, 'sanctum')
@@ -171,7 +171,7 @@ class TeacherAssistantTest extends TestCase
     public function test_specific_student_query_sends_internal_student_id(): void
     {
         Http::fake([
-            self::BASE_URL.'/api/v1/analytics/teacher-assistant' => Http::response($this->hybridReply('student')),
+            self::BASE_URL.self::ENDPOINT => Http::response($this->hybridReply('student')),
         ]);
 
         $this->actingAs($this->teacherUser, 'sanctum')
@@ -183,7 +183,7 @@ class TeacherAssistantTest extends TestCase
             ->assertOk()
             ->assertJsonPath('available', true);
 
-        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/api/v1/analytics/teacher-assistant')
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), self::ENDPOINT)
             && $request['student_id'] === $this->student->id
             && ! isset($request['first_name'])
             && ! isset($request['student_name']));

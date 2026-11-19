@@ -16,7 +16,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use RuntimeException;
+use App\Exceptions\SeederDataException;
 
 /**
  * Cohorte 4to B para probar el motor de riesgo (§5.3) y los insights por criterio.
@@ -68,7 +68,7 @@ class AnalyticsCohortSeeder extends Seeder
     {
         $secret = (string) config('satre.seed_secret');
         if ($secret === '') {
-            throw new RuntimeException('SATRE_SEED_SECRET must be set to seed local users.');
+            throw new SeederDataException('SATRE_SEED_SECRET must be set to seed local users.');
         }
 
         return $secret;
@@ -83,7 +83,7 @@ class AnalyticsCohortSeeder extends Seeder
 
         $asOf = $this->asOf($period);
         if ($period->start_date->copy()->startOfDay()->gt($asOf->copy()->subDays(7))) {
-            throw new RuntimeException('El periodo actual es demasiado corto para ubicar la incidencia grave de los últimos 7 días.');
+            throw new SeederDataException('El periodo actual es demasiado corto para ubicar la incidencia grave de los últimos 7 días.');
         }
 
         $teacher = $this->teacher();
@@ -97,12 +97,12 @@ class AnalyticsCohortSeeder extends Seeder
         }
 
         $courses = $this->courses($period, $classroom, $teacher);
-        $weekdays = $this->datesBetween($period->start_date, $asOf, null);
+        $weekdays = AnalyticsCohortData::datesBetween($period->start_date, $asOf, null);
         $classDates = [];
         foreach (self::COURSES as $index => $blueprint) {
-            $classDates[$index] = $this->datesBetween($period->start_date, $asOf, $blueprint['weekday']);
+            $classDates[$index] = AnalyticsCohortData::datesBetween($period->start_date, $asOf, $blueprint['weekday']);
         }
-        $nightDates = $this->datesBetween($period->start_date, $asOf, 3);
+        $nightDates = AnalyticsCohortData::datesBetween($period->start_date, $asOf, 3);
 
         $now = now()->toDateTimeString();
         $attendanceRows = [];
@@ -113,7 +113,7 @@ class AnalyticsCohortSeeder extends Seeder
         $grave = [];
         $sparse = [];
 
-        foreach ($this->cohortPlan() as $position => $slot) {
+        foreach (AnalyticsCohortData::cohortPlan() as $position => $slot) {
             $number = $position + 1;
             $code = sprintf('ANL-%03d', $number);
             $profile = $slot['profile'];
@@ -242,27 +242,11 @@ class AnalyticsCohortSeeder extends Seeder
             'teacher_name' => $teacher->user->name,
         ];
     }
-
-    /**
-     * @return list<array{profile: string, ordinal: int}>
-     */
-    private function cohortPlan(): array
-    {
-        $plan = [];
-        foreach (['BAJO' => 10, 'MEDIO' => 9, 'ALTO' => 7, 'INSUFICIENTE' => 4] as $profile => $count) {
-            for ($ordinal = 0; $ordinal < $count; $ordinal++) {
-                $plan[] = ['profile' => $profile, 'ordinal' => $ordinal];
-            }
-        }
-
-        return $plan;
-    }
-
     private function teacher(): Teacher
     {
         $roleId = Role::query()->where('slug', Roles::TEACHER)->value('id');
         if ($roleId === null) {
-            throw new RuntimeException('No existe el rol teacher. Ejecuta RoleSeeder primero.');
+            throw new SeederDataException('No existe el rol teacher. Ejecuta RoleSeeder primero.');
         }
 
         $email = InstitutionalIdentity::cohortTeacherEmail();
@@ -328,54 +312,7 @@ class AnalyticsCohortSeeder extends Seeder
         $end = $period->end_date->copy()->startOfDay();
 
         return $today->lt($end) ? $today->copy() : $end;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function datesBetween(Carbon $start, Carbon $end, ?int $isoWeekday): array
-    {
-        $dates = [];
-        for ($day = $start->copy()->startOfDay(); $day->lte($end); $day->addDay()) {
-            if ($day->isWeekend()) {
-                continue;
-            }
-            if ($isoWeekday !== null && (int) $day->dayOfWeekIso !== $isoWeekday) {
-                continue;
-            }
-            $dates[] = $day->toDateString();
-        }
-
-        return $dates;
-    }
-
-    /**
-     * @param  list<string>  $dates
-     * @return list<string>
-     */
-    private function pickDates(array $dates, int $count, int $offset): array
-    {
-        $total = count($dates);
-        if ($total < $count) {
-            throw new RuntimeException('El periodo académico actual no tiene suficientes días hábiles para la cohorte de analítica.');
-        }
-
-        $offset = $offset % $total;
-        $rotated = array_merge(array_slice($dates, $offset), array_slice($dates, 0, $offset));
-        $step = $total / $count;
-        $picked = [];
-        for ($i = 0; $i < $count; $i++) {
-            $picked[] = $rotated[min($total - 1, (int) floor($i * $step))];
-        }
-        sort($picked);
-        if (count(array_unique($picked)) !== $count) {
-            throw new RuntimeException('No se pudieron elegir fechas distintas dentro del periodo académico actual.');
-        }
-
-        return $picked;
-    }
-
-    /**
+    }    /**
      * @param  list<Course>  $courses
      * @param  array<int, list<string>>  $classDates
      * @param  list<array<string, mixed>>  $rows
@@ -397,11 +334,11 @@ class AnalyticsCohortSeeder extends Seeder
             'MEDIO' => ['unexcused' => 4, 'late' => 1 + ($ordinal % 2)],
             default => ['unexcused' => 7 + ($ordinal % 2), 'late' => 2],
         };
-        $unexcusedQuota = $this->quota($mix['unexcused'], count($courses), $ordinal);
-        $lateQuota = $this->quota($mix['late'], count($courses), $ordinal + 1);
+        $unexcusedQuota = AnalyticsCohortData::quota($mix['unexcused'], count($courses), $ordinal);
+        $lateQuota = AnalyticsCohortData::quota($mix['late'], count($courses), $ordinal + 1);
 
         foreach ($courses as $index => $course) {
-            $dates = $this->pickDates($classDates[$index], self::SESSIONS_PER_COURSE, $ordinal + $index);
+            $dates = AnalyticsCohortData::pickDates($classDates[$index], self::SESSIONS_PER_COURSE, $ordinal + $index);
             $statuses = $this->mixStatuses(self::SESSIONS_PER_COURSE, [
                 'absent_unjustified' => $unexcusedQuota[$index],
                 'late' => $lateQuota[$index],
@@ -443,9 +380,9 @@ class AnalyticsCohortSeeder extends Seeder
     ): void {
         $specs = $this->gradeSpecs($profile, $ordinal);
         if ($profile !== 'ALTO') {
-            $specs = $this->permute($specs, $faker);
+            $specs = AnalyticsCohortData::permute($specs, $faker);
         }
-        $dates = $this->pickDates($weekdays, count($specs), $ordinal * 3);
+        $dates = AnalyticsCohortData::pickDates($weekdays, count($specs), $ordinal * 3);
         foreach ($specs as $index => $spec) {
             $recordedAt = Carbon::parse($dates[$index])->setTime(15, ($ordinal + $index) % 60);
             $rows[] = [
@@ -565,7 +502,7 @@ class AnalyticsCohortSeeder extends Seeder
             'MEDIO' => 2 + ($ordinal % 2),
             default => 3 + ($ordinal % 2),
         };
-        $dates = $this->pickDates($nightDates, self::NIGHT_CHECKS, $ordinal);
+        $dates = AnalyticsCohortData::pickDates($nightDates, self::NIGHT_CHECKS, $ordinal);
         $statuses = $this->mixStatuses(self::NIGHT_CHECKS, ['absent' => $absences], 'present', $faker);
 
         foreach ($dates as $index => $date) {
@@ -690,7 +627,7 @@ class AnalyticsCohortSeeder extends Seeder
             $grouped[$courseIndex][] = $status;
         }
         foreach ($grouped as $courseIndex => $statuses) {
-            $dates = $this->pickDates($classDates[$courseIndex], count($statuses), $ordinal + 5);
+            $dates = AnalyticsCohortData::pickDates($classDates[$courseIndex], count($statuses), $ordinal + 5);
             foreach ($statuses as $index => $status) {
                 $attendanceRows[] = [
                     'student_id' => $studentId,
@@ -706,7 +643,7 @@ class AnalyticsCohortSeeder extends Seeder
             }
         }
 
-        $gradeDates = $this->pickDates($weekdays, count($grades), $ordinal + 9);
+        $gradeDates = AnalyticsCohortData::pickDates($weekdays, count($grades), $ordinal + 9);
         foreach ($grades as $index => [$courseIndex, $criterion, $score]) {
             $gradeRows[] = [
                 'student_id' => $studentId,
@@ -754,46 +691,14 @@ class AnalyticsCohortSeeder extends Seeder
             }
         }
         if ($used > $size) {
-            throw new RuntimeException('La mezcla de estados no cabe en las sesiones generadas.');
+            throw new SeederDataException('La mezcla de estados no cabe en las sesiones generadas.');
         }
         if ($size - $used > 0) {
             $list = array_merge($list, array_fill(0, $size - $used, $rest));
         }
 
-        return $this->permute($list, $faker);
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function quota(int $total, int $buckets, int $shift): array
-    {
-        $parts = array_fill(0, $buckets, intdiv($total, $buckets));
-        for ($i = 0; $i < $total % $buckets; $i++) {
-            $parts[($shift + $i) % $buckets]++;
-        }
-
-        return $parts;
-    }
-
-    /**
-     * @template T
-     *
-     * @param  list<T>  $items
-     * @return list<T>
-     */
-    private function permute(array $items, Generator $faker): array
-    {
-        $items = array_values($items);
-        for ($i = count($items) - 1; $i > 0; $i--) {
-            $j = $faker->numberBetween(0, $i);
-            [$items[$i], $items[$j]] = [$items[$j], $items[$i]];
-        }
-
-        return $items;
-    }
-
-    /**
+        return AnalyticsCohortData::permute($list, $faker);
+    }    /**
      * @param  list<array<string, mixed>>  $rows
      */
     private function insertRows(string $table, array $rows): void

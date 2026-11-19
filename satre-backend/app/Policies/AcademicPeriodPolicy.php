@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Models\AcademicPeriod;
 use App\Models\User;
 use App\Support\Roles;
 
@@ -13,7 +12,7 @@ class AcademicPeriodPolicy
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function view(User $user, AcademicPeriod $period): bool
+    public function view(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
@@ -23,17 +22,17 @@ class AcademicPeriodPolicy
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function update(User $user, AcademicPeriod $period): bool
+    public function update(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function delete(User $user, AcademicPeriod $period): bool
+    public function delete(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }
 
-    public function setCurrent(User $user, AcademicPeriod $period): bool
+    public function setCurrent(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN);
     }

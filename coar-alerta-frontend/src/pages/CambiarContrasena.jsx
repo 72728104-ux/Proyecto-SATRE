@@ -46,7 +46,7 @@ export default function CambiarContrasena() {
     if (!result.ok) return
     setForm(EMPTY_FORM)
     toast.success('Contraseña actualizada correctamente.')
-    navigate(ROLE_HOME[role] ?? '/', { replace: true })
+    void navigate(ROLE_HOME[role] ?? '/', { replace: true })
   }
 
   return (

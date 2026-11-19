@@ -8,29 +8,34 @@ use Tests\TestCase;
 
 class AnalyticsPrivacyTest extends TestCase
 {
+    private const TOPIC_PHOTOSYNTHESIS = 'Fotosíntesis';
+    private const OPTION_B_MESSAGE = 'opción b';
+    private const STUDENT_NAME = 'Valeria Chávez';
+    private const STUDENT_DNI = '78901234';
+
     public function test_tutor_payload_keeps_topic_criterion_and_structured_answer_only(): void
     {
         $payload = AnalyticsPrivacy::forTutor([
-            'topic' => 'Fotosíntesis',
+            'topic' => self::TOPIC_PHOTOSYNTHESIS,
             'criterion' => 'A',
-            'message' => 'opción b',
+            'message' => self::OPTION_B_MESSAGE,
             'option_id' => 'b',
             'course_id' => 4,
             'state' => ['step' => 'pregunta_guia'],
-            'name' => 'Valeria Chávez',
+            'name' => self::STUDENT_NAME,
             'first_name' => 'Valeria',
             'student_code' => 'EST-0003',
-            'document_number' => '78901234',
+            'document_number' => self::STUDENT_DNI,
             'incidents' => [['category' => 'salud']],
             'health' => 'asma',
             'student_id' => 12,
         ]);
 
         $this->assertSame([
-            'topic' => 'Fotosíntesis',
+            'topic' => self::TOPIC_PHOTOSYNTHESIS,
             'course_id' => 4,
             'criterion' => 'A',
-            'message' => 'opción b',
+            'message' => self::OPTION_B_MESSAGE,
             'option_id' => 'b',
             'state' => ['step' => 'pregunta_guia'],
         ], $payload);
@@ -45,13 +50,13 @@ class AnalyticsPrivacyTest extends TestCase
         $payload = AnalyticsPrivacy::forHybridTutor([
             'student_id' => 12,
             'user_message' => '[HINT] Dame una pista',
-            'history' => [['role' => 'student', 'content' => 'opción b']],
-            'topic' => 'Fotosíntesis',
+            'history' => [['role' => 'student', 'content' => self::OPTION_B_MESSAGE]],
+            'topic' => self::TOPIC_PHOTOSYNTHESIS,
             'create_phase' => 'explicar',
             'intent' => 'hint',
             'criterion' => 'A',
-            'name' => 'Valeria Chávez',
-            'dni' => '78901234',
+            'name' => self::STUDENT_NAME,
+            'dni' => self::STUDENT_DNI,
             'incidents' => [['category' => 'salud']],
         ]);
 
@@ -71,8 +76,8 @@ class AnalyticsPrivacyTest extends TestCase
             'user_message' => '¿Qué actividades remediales sugieres para la competencia D?',
             'history' => [['role' => 'teacher', 'content' => 'estado del aula']],
             'criterion' => 'D',
-            'name' => 'Valeria Chávez',
-            'dni' => '78901234',
+            'name' => self::STUDENT_NAME,
+            'dni' => self::STUDENT_DNI,
             'incidents' => [['category' => 'salud']],
         ]);
 
@@ -105,7 +110,7 @@ class AnalyticsPrivacyTest extends TestCase
     {
         $choice = new GuidedQuestion([
             'type' => GuidedQuestion::TYPE_MULTIPLE_CHOICE,
-            'options' => [['id' => 'a', 'text' => 'Fotosíntesis'], ['id' => 'b', 'text' => 'Respiración']],
+            'options' => [['id' => 'a', 'text' => self::TOPIC_PHOTOSYNTHESIS], ['id' => 'b', 'text' => 'Respiración']],
             'correct_answer' => 'a',
         ]);
         $short = new GuidedQuestion([
@@ -113,7 +118,7 @@ class AnalyticsPrivacyTest extends TestCase
             'correct_answer' => 'hipótesis nula',
         ]);
 
-        $this->assertTrue($choice->isCorrectResponse('Fotosíntesis'));
+        $this->assertTrue($choice->isCorrectResponse(self::TOPIC_PHOTOSYNTHESIS));
         $this->assertFalse($choice->isCorrectResponse('b'));
         $this->assertTrue($short->isCorrectResponse('La hipótesis nula del artículo'));
         $this->assertFalse($short->isCorrectResponse('otra idea'));

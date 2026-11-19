@@ -25,31 +25,31 @@ class StudentPolicy
     }
 
     /**
-     * §1 "Alertas y riesgo": admin todo, teacher su aula, monitor residencial, student propio, guardian hijos.
+     * §1 "Alertas y riesgo": admin con acceso total, teacher su aula, monitor residencial, student propio, guardian hijos.
      */
     public function viewRisk(User $user, Student $student): bool
     {
-        if ($user->hasRole(Roles::ADMIN)) {
-            return true;
+        $canView = $user->hasRole(Roles::ADMIN);
+
+        if (! $canView) {
+            if ($user->hasRole(Roles::TEACHER)) {
+                $teacherId = $user->teacher?->id;
+
+                $canView = $teacherId !== null && (
+                    $student->classroom()->where('tutor_id', $teacherId)->exists()
+                    || $student->enrollments()
+                        ->where('status', 'active')
+                        ->whereHas('course', fn ($query) => $query->where('teacher_id', $teacherId))
+                        ->exists()
+                );
+            } elseif ($user->hasRole(Roles::MONITOR)) {
+                $canView = $student->is_boarder;
+            } else {
+                $canView = $this->viewSummary($user, $student);
+            }
         }
 
-        if ($user->hasRole(Roles::TEACHER)) {
-            $teacherId = $user->teacher?->id;
-
-            return $teacherId !== null && (
-                $student->classroom()->where('tutor_id', $teacherId)->exists()
-                || $student->enrollments()
-                    ->where('status', 'active')
-                    ->whereHas('course', fn ($query) => $query->where('teacher_id', $teacherId))
-                    ->exists()
-            );
-        }
-
-        if ($user->hasRole(Roles::MONITOR)) {
-            return $student->is_boarder;
-        }
-
-        return $this->viewSummary($user, $student);
+        return $canView;
     }
 
     /**
@@ -61,7 +61,7 @@ class StudentPolicy
     }
 
     /**
-     * §1 Reportes: admin todo, teacher su aula, student propio, guardian hijos.
+     * §1 Reportes: admin con acceso total, teacher su aula, student propio, guardian hijos.
      */
     public function viewPerformance(User $user, Student $student): bool
     {

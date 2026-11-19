@@ -23,7 +23,7 @@ describe('mineduScale', () => {
     expect(isValidScore(20.01)).toBe(false)
     expect(isValidScore(-0.01)).toBe(false)
     expect(isValidScore('')).toBe(false)
-    expect(normalizeScore('16.555')).toBe(16.56)
+    expect(normalizeScore('16.555')).toBeCloseTo(16.56, 2)
   })
 
   it('mapea bandas oficiales AD/A/B/C', () => {

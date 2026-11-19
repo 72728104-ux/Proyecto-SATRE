@@ -34,34 +34,42 @@ class GuidedQuestion extends Model
         $given = self::normalize($response);
         $expected = self::normalize($this->correct_answer);
 
-        if ($given === '' || $expected === '') {
-            return false;
-        }
+        $isCorrect = $given !== '' && $expected !== ''
+            && ($given === $expected || $this->matchesExpectedAnswer($given, $expected));
 
-        if ($given === $expected) {
-            return true;
-        }
+        return $isCorrect;
+    }
 
-        if ($this->type === self::TYPE_MULTIPLE_CHOICE) {
-            foreach ($this->options ?? [] as $option) {
-                if (! is_array($option)) {
-                    continue;
-                }
+    private function matchesExpectedAnswer(string $given, string $expected): bool
+    {
+        return $this->type === self::TYPE_MULTIPLE_CHOICE
+            ? $this->matchesMultipleChoiceOption($given, $expected)
+            : $this->matchesShortAnswer($given, $expected);
+    }
 
-                $id = self::normalize((string) ($option['id'] ?? ''));
-                $text = self::normalize((string) ($option['text'] ?? ''));
-
-                $matchesOption = ($id !== '' && $given === $id) || ($text !== '' && $given === $text);
-                $optionIsCorrect = ($id !== '' && $expected === $id) || ($text !== '' && $expected === $text);
-
-                if ($matchesOption && $optionIsCorrect) {
-                    return true;
-                }
+    private function matchesMultipleChoiceOption(string $given, string $expected): bool
+    {
+        foreach ($this->options ?? [] as $option) {
+            if (! is_array($option)) {
+                continue;
             }
 
-            return false;
+            $id = self::normalize((string) ($option['id'] ?? ''));
+            $text = self::normalize((string) ($option['text'] ?? ''));
+
+            $matchesOption = ($id !== '' && $given === $id) || ($text !== '' && $given === $text);
+            $optionIsCorrect = ($id !== '' && $expected === $id) || ($text !== '' && $expected === $text);
+
+            if ($matchesOption && $optionIsCorrect) {
+                return true;
+            }
         }
 
+        return false;
+    }
+
+    private function matchesShortAnswer(string $given, string $expected): bool
+    {
         $tokens = preg_split('/\s+/u', $expected, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         return $tokens !== [] && collect($tokens)->every(

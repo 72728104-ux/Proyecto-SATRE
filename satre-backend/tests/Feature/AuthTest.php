@@ -17,13 +17,21 @@ class AuthTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const TUTOR_EMAIL = 'tutor@coar.edu.pe';
+    private const LOGIN_ENDPOINT = '/api/auth/login';
+    private const ME_ENDPOINT = '/api/auth/me';
+    private const NEW_USER_EMAIL = 'nuevo@coar.edu.pe';
+    private const CHANGE_PASSWORD_ENDPOINT = '/api/auth/change-password';
+    private const REGISTER_ENDPOINT = '/api/auth/register';
+    private const FORGOT_PASSWORD_ENDPOINT = '/api/auth/forgot-password';
+
     public function test_login_returns_token_with_eight_hour_expiration(): void
     {
         $this->freezeSecond();
-        $this->user(['email' => 'tutor@coar.edu.pe']);
+        $this->user(['email' => self::TUTOR_EMAIL]);
 
-        $response = $this->postJson('/api/auth/login', [
-            'email' => 'tutor@coar.edu.pe',
+        $response = $this->postJson(self::LOGIN_ENDPOINT, [
+            'email' => self::TUTOR_EMAIL,
             'password' => 'coar2026',
         ])->assertOk()
             ->assertJsonStructure(['token', 'expires_at', 'must_change_password', 'user']);
@@ -36,15 +44,15 @@ class AuthTest extends TestCase
 
     public function test_expired_token_cannot_access_me_or_refresh(): void
     {
-        $this->user(['email' => 'tutor@coar.edu.pe']);
-        $token = $this->login('tutor@coar.edu.pe');
+        $this->user(['email' => self::TUTOR_EMAIL]);
+        $token = $this->login(self::TUTOR_EMAIL);
 
-        $this->withToken($token)->getJson('/api/auth/me')->assertOk();
+        $this->withToken($token)->getJson(self::ME_ENDPOINT)->assertOk();
 
         Auth::forgetGuards();
         $this->travel(8 * 60 + 1)->minutes();
 
-        $this->withToken($token)->getJson('/api/auth/me')->assertUnauthorized();
+        $this->withToken($token)->getJson(self::ME_ENDPOINT)->assertUnauthorized();
         Auth::forgetGuards();
         $this->withToken($token)->postJson('/api/auth/refresh')->assertUnauthorized();
     }
@@ -52,38 +60,38 @@ class AuthTest extends TestCase
     public function test_first_login_forces_must_change_password_when_never_changed(): void
     {
         $this->user([
-            'email' => 'nuevo@coar.edu.pe',
+            'email' => self::NEW_USER_EMAIL,
             'must_change_password' => false,
             'password_changed_at' => null,
         ]);
 
-        $this->postJson('/api/auth/login', [
-            'email' => 'nuevo@coar.edu.pe',
+        $this->postJson(self::LOGIN_ENDPOINT, [
+            'email' => self::NEW_USER_EMAIL,
             'password' => 'coar2026',
         ])->assertOk()
             ->assertJsonPath('must_change_password', true)
             ->assertJsonPath('user.must_change_password', true);
 
-        $this->assertTrue(User::query()->where('email', 'nuevo@coar.edu.pe')->value('must_change_password'));
+        $this->assertTrue(User::query()->where('email', self::NEW_USER_EMAIL)->value('must_change_password'));
     }
 
     public function test_change_password_requires_ten_characters_and_clears_flag(): void
     {
         $user = $this->user([
-            'email' => 'nuevo@coar.edu.pe',
+            'email' => self::NEW_USER_EMAIL,
             'must_change_password' => true,
             'password_changed_at' => null,
         ]);
-        $token = $this->login('nuevo@coar.edu.pe');
+        $token = $this->login(self::NEW_USER_EMAIL);
 
-        $this->withToken($token)->postJson('/api/auth/change-password', [
+        $this->withToken($token)->postJson(self::CHANGE_PASSWORD_ENDPOINT, [
             'current_password' => 'coar2026',
             'password' => 'Corta2026',
             'password_confirmation' => 'Corta2026',
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['password']);
 
-        $this->withToken($token)->postJson('/api/auth/change-password', [
+        $this->withToken($token)->postJson(self::CHANGE_PASSWORD_ENDPOINT, [
             'current_password' => 'coar2026',
             'password' => 'NuevaClave2026',
             'password_confirmation' => 'NuevaClave2026',
@@ -113,10 +121,10 @@ class AuthTest extends TestCase
         $this->assertNotSame($oldToken, $newToken);
 
         Auth::forgetGuards();
-        $this->withToken($oldToken)->getJson('/api/auth/me')->assertUnauthorized();
+        $this->withToken($oldToken)->getJson(self::ME_ENDPOINT)->assertUnauthorized();
         Auth::forgetGuards();
         $this->withToken($newToken)
-            ->postJson('/api/auth/register', [
+            ->postJson(self::REGISTER_ENDPOINT, [
                 'name' => 'Otra Admin',
                 'email' => 'otra.admin@coar.edu.pe',
                 'dni' => '10000099',
@@ -132,7 +140,7 @@ class AuthTest extends TestCase
         $token = $this->login('residencia@coar.edu.pe');
 
         $this->withToken($token)
-            ->getJson('/api/auth/me')
+            ->getJson(self::ME_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('user.id', $user->id)
             ->assertJsonPath('user.role.slug', Roles::MONITOR);
@@ -141,7 +149,7 @@ class AuthTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0);
 
         Auth::forgetGuards();
-        $this->withToken($token)->getJson('/api/auth/me')->assertUnauthorized();
+        $this->withToken($token)->getJson(self::ME_ENDPOINT)->assertUnauthorized();
     }
 
     public function test_login_and_forgot_password_are_throttled(): void
@@ -149,26 +157,26 @@ class AuthTest extends TestCase
         $login = ['email' => 'auth-throttle@coar.edu.pe', 'password' => 'incorrecta'];
 
         for ($i = 0; $i < 5; $i++) {
-            $this->postJson('/api/auth/login', $login)->assertStatus(422);
+            $this->postJson(self::LOGIN_ENDPOINT, $login)->assertStatus(422);
         }
 
-        $this->postJson('/api/auth/login', $login)->assertStatus(429);
+        $this->postJson(self::LOGIN_ENDPOINT, $login)->assertStatus(429);
 
         Notification::fake();
 
         for ($i = 0; $i < 3; $i++) {
-            $this->postJson('/api/auth/forgot-password', ['email' => 'auth-forgot-throttle@coar.edu.pe'])->assertOk();
+            $this->postJson(self::FORGOT_PASSWORD_ENDPOINT, ['email' => 'auth-forgot-throttle@coar.edu.pe'])->assertOk();
         }
 
-        $this->postJson('/api/auth/forgot-password', ['email' => 'auth-forgot-throttle@coar.edu.pe'])->assertStatus(429);
+        $this->postJson(self::FORGOT_PASSWORD_ENDPOINT, ['email' => 'auth-forgot-throttle@coar.edu.pe'])->assertStatus(429);
     }
 
     public function test_forgot_and_reset_password_expire_after_sixty_minutes(): void
     {
         Notification::fake();
-        $user = $this->user(['email' => 'tutor@coar.edu.pe', 'must_change_password' => true]);
+        $user = $this->user(['email' => self::TUTOR_EMAIL, 'must_change_password' => true]);
 
-        $this->postJson('/api/auth/forgot-password', ['email' => 'tutor@coar.edu.pe'])->assertOk();
+        $this->postJson(self::FORGOT_PASSWORD_ENDPOINT, ['email' => self::TUTOR_EMAIL])->assertOk();
         Notification::assertSentTo($user, ResetPassword::class);
 
         $resetToken = Password::broker()->createToken($user);
@@ -177,7 +185,7 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/auth/reset-password', [
             'token' => $resetToken,
-            'email' => 'tutor@coar.edu.pe',
+            'email' => self::TUTOR_EMAIL,
             'password' => 'NuevaClave2026',
             'password_confirmation' => 'NuevaClave2026',
         ])->assertStatus(422);
@@ -187,7 +195,7 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/auth/reset-password', [
             'token' => $freshToken,
-            'email' => 'tutor@coar.edu.pe',
+            'email' => self::TUTOR_EMAIL,
             'password' => 'NuevaClave2026',
             'password_confirmation' => 'NuevaClave2026',
         ])->assertOk();
@@ -199,30 +207,30 @@ class AuthTest extends TestCase
 
     public function test_register_is_forbidden_for_non_admin(): void
     {
-        $this->user(['email' => 'tutor@coar.edu.pe']);
+        $this->user(['email' => self::TUTOR_EMAIL]);
 
-        $this->postJson('/api/auth/register')->assertUnauthorized();
+        $this->postJson(self::REGISTER_ENDPOINT)->assertUnauthorized();
 
-        $this->withToken($this->login('tutor@coar.edu.pe'))
-            ->postJson('/api/auth/register')
+        $this->withToken($this->login(self::TUTOR_EMAIL))
+            ->postJson(self::REGISTER_ENDPOINT)
             ->assertForbidden();
     }
 
     public function test_must_change_password_blocks_protected_routes_until_changed(): void
     {
         $this->user([
-            'email' => 'nuevo@coar.edu.pe',
+            'email' => self::NEW_USER_EMAIL,
             'must_change_password' => true,
             'password_changed_at' => null,
         ]);
-        $token = $this->login('nuevo@coar.edu.pe');
+        $token = $this->login(self::NEW_USER_EMAIL);
 
         $this->withToken($token)
             ->getJson('/api/grades')
             ->assertForbidden()
             ->assertJsonPath('must_change_password', true);
 
-        $this->withToken($token)->postJson('/api/auth/change-password', [
+        $this->withToken($token)->postJson(self::CHANGE_PASSWORD_ENDPOINT, [
             'current_password' => 'coar2026',
             'password' => 'NuevaClave2026',
             'password_confirmation' => 'NuevaClave2026',
@@ -233,10 +241,10 @@ class AuthTest extends TestCase
 
     public function test_login_sets_security_headers(): void
     {
-        $this->user(['email' => 'tutor@coar.edu.pe']);
+        $this->user(['email' => self::TUTOR_EMAIL]);
 
-        $this->postJson('/api/auth/login', [
-            'email' => 'tutor@coar.edu.pe',
+        $this->postJson(self::LOGIN_ENDPOINT, [
+            'email' => self::TUTOR_EMAIL,
             'password' => 'coar2026',
         ])->assertOk()
             ->assertHeader('X-Frame-Options', 'DENY')
@@ -245,7 +253,7 @@ class AuthTest extends TestCase
 
     private function login(string $email): string
     {
-        return $this->postJson('/api/auth/login', [
+        return $this->postJson(self::LOGIN_ENDPOINT, [
             'email' => $email,
             'password' => 'coar2026',
         ])->assertOk()->json('token');

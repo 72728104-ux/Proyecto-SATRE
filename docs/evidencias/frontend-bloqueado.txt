@@ -1,0 +1,17 @@
+# Intento de ejecución frontend — no es un resultado de pruebas
+
+Comando intentado desde `coar-alerta-frontend`:
+
+`npx vitest run src/api/auth.test.js --reporter=verbose`
+
+Resultado observado por npm:
+
+```text
+npm error code ECONNRESET
+npm error syscall read
+npm error errno ECONNRESET
+npm error network request to https://registry.npmjs.org/vitest failed, reason: read ECONNRESET
+npm error network This is a problem related to network connectivity.
+```
+
+La ejecución no produjo salida de Vitest. No puede contabilizarse como suite aprobada ni fallida. El archivo `vitest-auth.txt` quedó vacío; usar este registro únicamente como constancia del bloqueo de red.

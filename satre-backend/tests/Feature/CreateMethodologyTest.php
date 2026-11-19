@@ -21,21 +21,26 @@ class CreateMethodologyTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const READINGS_ENDPOINT = '/api/academic/readings';
+    private const READING_TITLE = 'Artículo CREATE';
+    private const READING_CONTENT = 'Texto del artículo';
+    private const HYPOTHESIS_LABEL = 'Hipótesis';
+
     public function test_teacher_creates_and_updates_reading_for_own_course(): void
     {
         $context = $this->methodologyContext();
         $payload = $this->readingPayload($context);
 
         $readingId = $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/academic/readings', $payload)
+            ->postJson(self::READINGS_ENDPOINT, $payload)
             ->assertCreated()
-            ->assertJsonPath('data.title', 'Artículo CREATE')
+            ->assertJsonPath('data.title', self::READING_TITLE)
             ->assertJsonPath('data.criterion', 'A')
             ->assertJsonPath('data.course_id', $context['course']->id)
             ->json('data.id');
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->putJson("/api/academic/readings/$readingId", [
+            ->putJson(self::READINGS_ENDPOINT."/$readingId", [
                 'title' => 'Artículo CREATE actualizado',
                 'criterion' => 'B',
             ])
@@ -51,17 +56,17 @@ class CreateMethodologyTest extends TestCase
         Teacher::factory()->create(['user_id' => $otherTeacherUser->id]);
 
         $this->actingAs($otherTeacherUser, 'sanctum')
-            ->postJson('/api/academic/readings', $this->readingPayload($context))
+            ->postJson(self::READINGS_ENDPOINT, $this->readingPayload($context))
             ->assertForbidden();
 
         $reading = $this->createReading($context);
 
         $this->actingAs($otherTeacherUser, 'sanctum')
-            ->putJson("/api/academic/readings/{$reading->id}", ['title' => 'Intruso'])
+            ->putJson(self::READINGS_ENDPOINT."/{$reading->id}", ['title' => 'Intruso'])
             ->assertForbidden();
 
         $this->actingAs($otherTeacherUser, 'sanctum')
-            ->getJson('/api/academic/readings')
+            ->getJson(self::READINGS_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(0, 'data');
     }
@@ -73,13 +78,13 @@ class CreateMethodologyTest extends TestCase
         $admin = $this->userWithRole(Roles::ADMIN);
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/academic/readings')
+            ->getJson(self::READINGS_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('meta.per_page', 15);
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/academic/readings', $this->readingPayload($context))
+            ->postJson(self::READINGS_ENDPOINT, $this->readingPayload($context))
             ->assertForbidden();
     }
 
@@ -105,7 +110,7 @@ class CreateMethodologyTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $reading->id)
-            ->assertJsonPath('data.0.content', 'Texto del artículo');
+            ->assertJsonPath('data.0.content', self::READING_CONTENT);
     }
 
     public function test_student_submits_conceptual_map_without_automatic_grade(): void
@@ -120,7 +125,7 @@ class CreateMethodologyTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.student_id', $context['student']->id)
             ->assertJsonPath('data.reading_material_id', $reading->id)
-            ->assertJsonPath('data.nodes.0.label', 'Hipótesis')
+            ->assertJsonPath('data.nodes.0.label', self::HYPOTHESIS_LABEL)
             ->assertJsonMissingPath('data.score')
             ->assertJsonMissingPath('data.grade');
 
@@ -147,7 +152,7 @@ class CreateMethodologyTest extends TestCase
 
         $this->actingAs($studentUser, 'sanctum')
             ->postJson("/api/academic/readings/{$reading->id}/artifacts", [
-                'nodes' => [['id' => 'n1', 'label' => 'Hipótesis']],
+                'nodes' => [['id' => 'n1', 'label' => self::HYPOTHESIS_LABEL]],
                 'connections' => [],
             ])
             ->assertStatus(422)
@@ -205,11 +210,11 @@ class CreateMethodologyTest extends TestCase
         $this->createReading($context);
 
         $this->actingAs($this->userWithRole(Roles::MONITOR), 'sanctum')
-            ->getJson('/api/academic/readings')
+            ->getJson(self::READINGS_ENDPOINT)
             ->assertForbidden();
 
         $this->actingAs($this->userWithRole(Roles::GUARDIAN), 'sanctum')
-            ->postJson('/api/academic/readings', $this->readingPayload($context))
+            ->postJson(self::READINGS_ENDPOINT, $this->readingPayload($context))
             ->assertForbidden();
     }
 
@@ -246,9 +251,9 @@ class CreateMethodologyTest extends TestCase
     {
         return [
             'course_id' => $context['course']->id,
-            'title' => 'Artículo CREATE',
+            'title' => self::READING_TITLE,
             'criterion' => 'A',
-            'content' => 'Texto del artículo',
+            'content' => self::READING_CONTENT,
             'url' => 'https://example.edu/articulo',
         ];
     }
@@ -259,7 +264,7 @@ class CreateMethodologyTest extends TestCase
     private function artifactPayload(): array
     {
         return [
-            'nodes' => [['id' => 'n1', 'label' => 'Hipótesis']],
+            'nodes' => [['id' => 'n1', 'label' => self::HYPOTHESIS_LABEL]],
             'connections' => [['from' => 'n1', 'to' => 'n1']],
         ];
     }
@@ -271,9 +276,9 @@ class CreateMethodologyTest extends TestCase
     {
         return ReadingMaterial::query()->create([
             'course_id' => $context['course']->id,
-            'title' => 'Artículo CREATE',
+            'title' => self::READING_TITLE,
             'criterion' => 'A',
-            'content' => 'Texto del artículo',
+            'content' => self::READING_CONTENT,
             'url' => 'https://example.edu/articulo',
             'created_by' => $context['teacherUser']->id,
         ]);

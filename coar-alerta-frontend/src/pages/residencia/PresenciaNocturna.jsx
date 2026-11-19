@@ -6,8 +6,10 @@ import EmptyState from '../../components/EmptyState'
 import Field from '../../components/Field'
 import Pagination from '../../components/Pagination'
 import { SkeletonList } from '../../components/Skeleton'
+import StatusRadioGroup from '../../components/StatusRadioGroup'
 import { useToast } from '../../components/Toast'
 import { useApi, useMutation } from '../../hooks/useApi'
+import { rowErrorsFrom } from '../../utils/rows'
 import { notifyError, useDebounced, useEditor, useFormState, useLoadErrorToast, usePagedList } from '../admin/shared/hooks'
 import { FilterBar, FormModal, LoadError, actionButton, primaryButton, secondaryButton } from '../admin/shared/ui'
 import {
@@ -22,22 +24,6 @@ import {
 } from './shared'
 
 const MAX_BULK = 100
-const STATUS_TONES = {
-  present: 'border-teal-600 bg-teal-600 text-white',
-  absent: 'border-rose-600 bg-rose-600 text-white',
-  on_permission: 'border-sky-600 bg-sky-600 text-white',
-}
-
-/** `records.3.notes` → { [studentId]: { notes: 'mensaje' } } según el orden en que se enviaron. */
-function rowErrorsFrom(fieldErrors, studentIds) {
-  const byStudent = {}
-  Object.entries(fieldErrors).forEach(([key, message]) => {
-    const match = key.match(/^records\.(\d+)\.(\w+)$/)
-    const studentId = match ? studentIds[Number(match[1])] : null
-    if (studentId) byStudent[studentId] = { ...byStudent[studentId], [match[2]]: message }
-  })
-  return byStudent
-}
 
 function ResidentRow({ resident, value, dirty, errors = {}, onChange }) {
   const saved = resident.presence
@@ -56,23 +42,14 @@ function ResidentRow({ resident, value, dirty, errors = {}, onChange }) {
             {dirty ? ' · sin guardar' : saved ? ' · registrado' : ' · pendiente'}
           </p>
         </div>
-        <div role="radiogroup" aria-label={`Estado de ${resident.name}`} className="grid grid-cols-3 gap-1.5 sm:flex sm:gap-2">
-          {Object.entries(PRESENCE_STATUS).map(([status, meta]) => (
-            <button
-              key={status}
-              type="button"
-              role="radio"
-              aria-checked={value.status === status}
-              data-cy={`presence-status-${status}`}
-              onClick={() => onChange({ status })}
-              className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-medium leading-tight sm:min-h-10 sm:px-3 sm:text-sm ${
-                value.status === status ? STATUS_TONES[status] : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {meta.label}
-            </button>
-          ))}
-        </div>
+        <StatusRadioGroup
+          options={PRESENCE_STATUS}
+          value={value}
+          onChange={onChange}
+          ariaLabel={`Estado de ${resident.first_name ?? resident.name}`}
+          dataCy="presence-status"
+          compact
+        />
       </div>
       {errors.status || errors.student_id ? <p className="mt-2 text-xs text-rose-600">{errors.status ?? errors.student_id}</p> : null}
       {showNotes ? (

@@ -344,7 +344,7 @@ describe('apiRequest y refreshAccessToken', () => {
     await expect(apiRequest('/auth/me', { signal: controller.signal })).rejects.toMatchObject({
       kind: 'aborted',
     })
-    expect(listener).not.toHaveBeenCalled()
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ type: 'aborted' }))
 
     globalThis.fetch.mockImplementationOnce(
       (_url, options) =>

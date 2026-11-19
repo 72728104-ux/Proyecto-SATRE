@@ -26,12 +26,21 @@ class AcademicModuleTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const GRADES_ENDPOINT = '/api/grades';
+    private const PERIOD_DATE = '2026-04-15';
+    private const PRESENCES_ENDPOINT = '/api/presences';
+    private const INCIDENTS_ENDPOINT = '/api/incidents';
+    private const INCIDENT_AT = '2026-04-15 21:30:00';
+    private const PERMISSIONS_ENDPOINT = '/api/permissions';
+    private const ME_SUMMARY_ENDPOINT = '/api/me/summary';
+    private const ME_SUMMARY_STUDENT_ENDPOINT = '/api/me/summary?student_id=';
+
     public function test_teacher_records_grade_in_minedu_scale_and_update_is_audited(): void
     {
         $context = $this->academicContext();
 
         $gradeId = $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/grades', $this->gradePayload($context))
+            ->postJson(self::GRADES_ENDPOINT, $this->gradePayload($context))
             ->assertCreated()
             ->assertJsonPath('data.score', 16.5)
             ->assertJsonPath('data.literal', 'A')
@@ -41,7 +50,7 @@ class AcademicModuleTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'grade.recorded', 'auditable_id' => $gradeId]);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->putJson("/api/grades/$gradeId", ['score' => 19])
+            ->putJson(self::GRADES_ENDPOINT."/$gradeId", ['score' => 19])
             ->assertOk()
             ->assertJsonPath('data.score', 19)
             ->assertJsonPath('data.literal', 'AD');
@@ -57,13 +66,13 @@ class AcademicModuleTest extends TestCase
 
         foreach ([-0.01, 20.01] as $score) {
             $this->actingAs($context['teacherUser'], 'sanctum')
-                ->postJson('/api/grades', ['score' => $score] + $this->gradePayload($context))
+                ->postJson(self::GRADES_ENDPOINT, ['score' => $score] + $this->gradePayload($context))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['score']);
         }
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/grades', ['criterion' => 'E'] + $this->gradePayload($context))
+            ->postJson(self::GRADES_ENDPOINT, ['criterion' => 'E'] + $this->gradePayload($context))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['criterion']);
     }
@@ -75,22 +84,22 @@ class AcademicModuleTest extends TestCase
         Teacher::factory()->create(['user_id' => $otherTeacherUser->id]);
 
         $this->actingAs($otherTeacherUser, 'sanctum')
-            ->postJson('/api/grades', $this->gradePayload($context))
+            ->postJson(self::GRADES_ENDPOINT, $this->gradePayload($context))
             ->assertForbidden();
 
         $grade = $this->createGrade($context, 16.5);
 
         $this->actingAs($otherTeacherUser, 'sanctum')
-            ->putJson("/api/grades/{$grade->id}", ['score' => 8])
+            ->putJson(self::GRADES_ENDPOINT."/{$grade->id}", ['score' => 8])
             ->assertForbidden();
 
         $this->actingAs($otherTeacherUser, 'sanctum')
-            ->getJson('/api/grades')
+            ->getJson(self::GRADES_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->getJson('/api/grades')
+            ->getJson(self::GRADES_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('meta.per_page', 15);
@@ -102,28 +111,28 @@ class AcademicModuleTest extends TestCase
         $monitor = $this->userWithRole(Roles::MONITOR);
         $payload = [
             'student_id' => $context['student']->id,
-            'presence_date' => '2026-04-15',
+            'presence_date' => self::PERIOD_DATE,
             'check_type' => 'night',
             'status' => 'present',
         ];
 
         $presenceId = $this->actingAs($monitor, 'sanctum')
-            ->postJson('/api/presences', $payload)
+            ->postJson(self::PRESENCES_ENDPOINT, $payload)
             ->assertCreated()
             ->json('data.id');
 
-        $this->actingAs($monitor, 'sanctum')->postJson('/api/presences', $payload)->assertStatus(422);
+        $this->actingAs($monitor, 'sanctum')->postJson(self::PRESENCES_ENDPOINT, $payload)->assertStatus(422);
 
         $this->actingAs($monitor, 'sanctum')
-            ->putJson("/api/presences/$presenceId", ['status' => 'absent'])
+            ->putJson(self::PRESENCES_ENDPOINT."/$presenceId", ['status' => 'absent'])
             ->assertOk()
             ->assertJsonPath('data.status', 'absent');
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'presence.updated', 'auditable_id' => $presenceId]);
 
         $admin = $this->userWithRole(Roles::ADMIN);
-        $this->actingAs($admin, 'sanctum')->getJson('/api/presences')->assertOk()->assertJsonCount(1, 'data');
-        $this->actingAs($admin, 'sanctum')->putJson("/api/presences/$presenceId", ['status' => 'present'])->assertForbidden();
+        $this->actingAs($admin, 'sanctum')->getJson(self::PRESENCES_ENDPOINT)->assertOk()->assertJsonCount(1, 'data');
+        $this->actingAs($admin, 'sanctum')->putJson(self::PRESENCES_ENDPOINT."/$presenceId", ['status' => 'present'])->assertForbidden();
     }
 
     public function test_incidents_are_audited_and_teacher_only_sees_own_classroom(): void
@@ -133,9 +142,9 @@ class AcademicModuleTest extends TestCase
         $outsider = Student::factory()->create();
 
         $incidentId = $this->actingAs($monitor, 'sanctum')
-            ->postJson('/api/incidents', [
+            ->postJson(self::INCIDENTS_ENDPOINT, [
                 'student_id' => $context['student']->id,
-                'incident_at' => '2026-04-15 21:30:00',
+                'incident_at' => self::INCIDENT_AT,
                 'category' => 'convivencia',
                 'severity' => 'leve',
                 'description' => 'Discusión en el pabellón.',
@@ -147,14 +156,14 @@ class AcademicModuleTest extends TestCase
         Incident::query()->create([
             'student_id' => $outsider->id,
             'reported_by' => $monitor->id,
-            'incident_at' => '2026-04-15 21:30:00',
+            'incident_at' => self::INCIDENT_AT,
             'category' => 'conducta',
             'severity' => 'leve',
             'description' => 'Otro aula.',
         ]);
 
         $this->actingAs($monitor, 'sanctum')
-            ->putJson("/api/incidents/$incidentId", ['severity' => 'moderada', 'status' => 'resolved'])
+            ->putJson(self::INCIDENTS_ENDPOINT."/$incidentId", ['severity' => 'moderada', 'status' => 'resolved'])
             ->assertOk()
             ->assertJsonPath('data.severity', 'moderada')
             ->assertJsonPath('data.status', 'resolved');
@@ -165,18 +174,18 @@ class AcademicModuleTest extends TestCase
         $this->assertNotNull(Incident::query()->find($incidentId)->resolved_at);
 
         $this->actingAs($monitor, 'sanctum')
-            ->postJson('/api/incidents', ['category' => 'otro', 'severity' => 'leve'])
+            ->postJson(self::INCIDENTS_ENDPOINT, ['category' => 'otro', 'severity' => 'leve'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['category']);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->getJson('/api/incidents')
+            ->getJson(self::INCIDENTS_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $incidentId);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->putJson("/api/incidents/$incidentId", ['severity' => 'grave'])
+            ->putJson(self::INCIDENTS_ENDPOINT."/$incidentId", ['severity' => 'grave'])
             ->assertForbidden();
     }
 
@@ -187,7 +196,7 @@ class AcademicModuleTest extends TestCase
         $monitor = $this->userWithRole(Roles::MONITOR);
 
         $permissionId = $this->actingAs($studentUser, 'sanctum')
-            ->postJson('/api/permissions', [
+            ->postJson(self::PERMISSIONS_ENDPOINT, [
                 'type' => 'salida',
                 'reason' => 'Cita médica',
                 'starts_at' => '2026-04-18 08:00:00',
@@ -198,30 +207,30 @@ class AcademicModuleTest extends TestCase
             ->json('data.id');
 
         $this->actingAs($monitor, 'sanctum')
-            ->patchJson("/api/permissions/$permissionId/resolve", ['decision' => 'approved'])
+            ->patchJson(self::PERMISSIONS_ENDPOINT."/$permissionId/resolve", ['decision' => 'approved'])
             ->assertStatus(422);
 
         $otherGuardianUser = $this->userWithRole(Roles::GUARDIAN);
         Guardian::query()->create(['user_id' => $otherGuardianUser->id, 'document_number' => '20202020', 'first_name' => 'Otro', 'last_name' => 'Apoderado']);
         $this->actingAs($otherGuardianUser, 'sanctum')
-            ->patchJson("/api/permissions/$permissionId/guardian", ['decision' => 'approved'])
+            ->patchJson(self::PERMISSIONS_ENDPOINT."/$permissionId/guardian", ['decision' => 'approved'])
             ->assertForbidden();
 
         $this->actingAs($guardianUser, 'sanctum')
-            ->patchJson("/api/permissions/$permissionId/guardian", ['decision' => 'approved'])
+            ->patchJson(self::PERMISSIONS_ENDPOINT."/$permissionId/guardian", ['decision' => 'approved'])
             ->assertOk()
             ->assertJsonPath('data.status', PermissionRequest::STATUS_APPROVED_GUARDIAN);
 
         $this->actingAs($monitor, 'sanctum')
-            ->patchJson("/api/permissions/$permissionId/resolve", ['decision' => 'approved'])
+            ->patchJson(self::PERMISSIONS_ENDPOINT."/$permissionId/resolve", ['decision' => 'approved'])
             ->assertOk()
             ->assertJsonPath('data.status', PermissionRequest::STATUS_APPROVED)
             ->assertJsonPath('data.reviewed_by', $monitor->id);
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'permission.resolved', 'auditable_id' => $permissionId]);
 
-        $this->actingAs($guardianUser, 'sanctum')->getJson('/api/permissions')->assertOk()->assertJsonCount(1, 'data');
-        $this->actingAs($otherGuardianUser, 'sanctum')->getJson('/api/permissions')->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAs($guardianUser, 'sanctum')->getJson(self::PERMISSIONS_ENDPOINT)->assertOk()->assertJsonCount(1, 'data');
+        $this->actingAs($otherGuardianUser, 'sanctum')->getJson(self::PERMISSIONS_ENDPOINT)->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_me_summary_for_student_and_linked_guardian_only(): void
@@ -234,7 +243,7 @@ class AcademicModuleTest extends TestCase
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
             'academic_period_id' => $context['period']->id,
-            'attendance_date' => '2026-04-15',
+            'attendance_date' => self::PERIOD_DATE,
             'status' => 'present',
             'recorded_by' => $context['teacherUser']->id,
         ]);
@@ -248,7 +257,7 @@ class AcademicModuleTest extends TestCase
         ]);
 
         $this->actingAs($studentUser, 'sanctum')
-            ->getJson('/api/me/summary')
+            ->getJson(self::ME_SUMMARY_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('data.student.id', $context['student']->id)
             ->assertJsonPath('data.grades.average', 13)
@@ -257,15 +266,15 @@ class AcademicModuleTest extends TestCase
             ->assertJsonPath('data.alerts.open', 1);
 
         $this->actingAs($guardianUser, 'sanctum')
-            ->getJson('/api/me/summary?student_id='.$context['student']->id)
+            ->getJson(self::ME_SUMMARY_STUDENT_ENDPOINT.$context['student']->id)
             ->assertOk()
             ->assertJsonPath('data.grades.by_course.0.passing', true);
 
         $this->actingAs($guardianUser, 'sanctum')
-            ->getJson('/api/me/summary?student_id='.Student::factory()->create()->id)
+            ->getJson(self::ME_SUMMARY_STUDENT_ENDPOINT.Student::factory()->create()->id)
             ->assertForbidden();
 
-        $this->actingAs($guardianUser, 'sanctum')->getJson('/api/me/summary')->assertStatus(422);
+        $this->actingAs($guardianUser, 'sanctum')->getJson(self::ME_SUMMARY_ENDPOINT)->assertStatus(422);
     }
 
     public function test_guardian_profile_lists_linked_students(): void
@@ -304,7 +313,7 @@ class AcademicModuleTest extends TestCase
         }
 
         $this->actingAs($guardianUser, 'sanctum')
-            ->getJson('/api/me/summary?student_id='.$context['student']->id)
+            ->getJson(self::ME_SUMMARY_STUDENT_ENDPOINT.$context['student']->id)
             ->assertOk()
             ->assertJsonPath('data.residence.total', 4)
             ->assertJsonPath('data.residence.by_status.absent', 1)
@@ -312,7 +321,7 @@ class AcademicModuleTest extends TestCase
 
         $context['student']->update(['is_boarder' => false]);
         $this->actingAs($studentUser, 'sanctum')
-            ->getJson('/api/me/summary')
+            ->getJson(self::ME_SUMMARY_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('data.residence', null);
     }
@@ -325,7 +334,7 @@ class AcademicModuleTest extends TestCase
         $context['student']->update(['is_boarder' => true]);
 
         $this->actingAs($studentUser, 'sanctum')
-            ->getJson('/api/me/summary')
+            ->getJson(self::ME_SUMMARY_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('data.residence', null);
     }
@@ -338,7 +347,7 @@ class AcademicModuleTest extends TestCase
         $incident = fn (Student $student, string $category) => Incident::query()->create([
             'student_id' => $student->id,
             'reported_by' => $monitor->id,
-            'incident_at' => '2026-04-15 21:30:00',
+            'incident_at' => self::INCIDENT_AT,
             'category' => $category,
             'severity' => 'leve',
             'description' => 'Detalle confidencial',
@@ -350,7 +359,7 @@ class AcademicModuleTest extends TestCase
         $incident(Student::factory()->create(), 'convivencia');
 
         $response = $this->actingAs($guardianUser, 'sanctum')
-            ->getJson('/api/incidents')
+            ->getJson(self::INCIDENTS_ENDPOINT)
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('meta.per_page', 15)
@@ -386,11 +395,39 @@ class AcademicModuleTest extends TestCase
         [$studentUser] = $this->studentWithGuardian($context['student']);
 
         $this->actingAs($studentUser, 'sanctum')
-            ->getJson('/api/me/summary')
+            ->getJson(self::ME_SUMMARY_ENDPOINT)
             ->assertOk()
             ->assertJsonPath('data.grades.average', null)
             ->assertJsonPath('data.attendance.rate', null)
             ->assertJsonPath('data.alerts.open', 0);
+    }
+
+    public function test_guardian_cannot_approve_permission_for_other_student(): void
+    {
+        // A02 - P05
+        $context = $this->academicContext();
+        [$studentUser, $guardianUser] = $this->studentWithGuardian($context['student']);
+        $otherGuardianUser = $this->userWithRole(Roles::GUARDIAN);
+        Guardian::query()->create(['user_id' => $otherGuardianUser->id, 'document_number' => '20202020', 'first_name' => 'Otro', 'last_name' => 'Apoderado']);
+
+        $permissionId = $this->actingAs($studentUser, 'sanctum')
+            ->postJson(self::PERMISSIONS_ENDPOINT, [
+                'type' => 'salida',
+                'reason' => 'Cita médica',
+                'starts_at' => '2026-04-18 08:00:00',
+                'ends_at' => '2026-04-18 18:00:00',
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingAs($otherGuardianUser, 'sanctum')
+            ->patchJson(self::PERMISSIONS_ENDPOINT."/$permissionId/guardian", ['decision' => 'approved'])
+            ->assertForbidden();
+
+        $this->actingAs($guardianUser, 'sanctum')
+            ->patchJson(self::PERMISSIONS_ENDPOINT."/$permissionId/guardian", ['decision' => 'approved'])
+            ->assertOk()
+            ->assertJsonPath('data.status', PermissionRequest::STATUS_APPROVED_GUARDIAN);
     }
 
     /**
@@ -403,7 +440,7 @@ class AcademicModuleTest extends TestCase
             'course_id' => $context['course']->id,
             'evaluation_name' => 'Prueba 1',
             'criterion' => 'B',
-            'evaluation_date' => '2026-04-15',
+            'evaluation_date' => self::PERIOD_DATE,
             'score' => 16.5,
         ];
     }

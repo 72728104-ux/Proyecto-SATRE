@@ -1,0 +1,1968 @@
+﻿{
+    "total":  31,
+    "p":  1,
+    "ps":  500,
+    "paging":  {
+                   "pageIndex":  1,
+                   "pageSize":  500,
+                   "total":  31
+               },
+    "effortTotal":  435,
+    "issues":  [
+                   {
+                       "key":  "20f252fd-8138-4fde-bd1e-8638ebcb8519",
+                       "rule":  "javascript:S1313",
+                       "severity":  "MINOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/admin/Auditoria.test.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "d7f78d1a270244c3e35763a2a605a77c",
+                       "textRange":  {
+                                         "startLine":  69,
+                                         "endLine":  69,
+                                         "startOffset":  14,
+                                         "endOffset":  24
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Make sure using a hardcoded IP address 10.0.0.1 is safe here.",
+                       "effort":  "30min",
+                       "debt":  "30min",
+                       "author":  "",
+                       "tags":  [
+                                    "former-hotspot"
+                                ],
+                       "creationDate":  "2026-10-27T22:52:46+0000",
+                       "updateDate":  "2026-10-27T23:25:19+0000",
+                       "closeDate":  "2026-10-27T23:25:19+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "TRUSTWORTHY",
+                       "cleanCodeAttributeCategory":  "RESPONSIBLE",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "SECURITY",
+                                           "severity":  "LOW"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "416a5e7f-a0f3-4cae-a5d3-6a3920325807",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/admin/shared/hooks.test.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "243ee27966c858a36bc6e40e067987e1",
+                       "textRange":  {
+                                         "startLine":  74,
+                                         "endLine":  74,
+                                         "startOffset":  4,
+                                         "endOffset":  42
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-10-27T22:52:46+0000",
+                       "updateDate":  "2026-10-27T23:25:19+0000",
+                       "closeDate":  "2026-10-27T23:25:19+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "5c0bff97-81e0-469b-baff-96e2f140c379",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/admin/shared/hooks.test.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "5ad2ca99385acbf768687848d05070cc",
+                       "textRange":  {
+                                         "startLine":  89,
+                                         "endLine":  89,
+                                         "startOffset":  4,
+                                         "endOffset":  42
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-10-27T22:52:46+0000",
+                       "updateDate":  "2026-10-27T23:25:19+0000",
+                       "closeDate":  "2026-10-27T23:25:19+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "6483682f-e0f5-40c3-9241-a5910bbce058",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/admin/shared/hooks.test.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "acad9dc8ed6184610c44f1bf27e6c04a",
+                       "textRange":  {
+                                         "startLine":  77,
+                                         "endLine":  77,
+                                         "startOffset":  4,
+                                         "endOffset":  40
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-10-27T22:52:46+0000",
+                       "updateDate":  "2026-10-27T23:25:19+0000",
+                       "closeDate":  "2026-10-27T23:25:19+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "ba29a29f-a8d3-4a86-b9a8-30f92c2f5a7c",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/admin/shared/hooks.test.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "acad9dc8ed6184610c44f1bf27e6c04a",
+                       "textRange":  {
+                                         "startLine":  91,
+                                         "endLine":  91,
+                                         "startOffset":  4,
+                                         "endOffset":  40
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-10-27T22:52:46+0000",
+                       "updateDate":  "2026-10-27T23:25:19+0000",
+                       "closeDate":  "2026-10-27T23:25:19+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "c0c1692b-5896-4211-b5e0-9fd7ecbe334a",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/admin/shared/hooks.test.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "6bab84459a89496f0add4c6ea91a419a",
+                       "textRange":  {
+                                         "startLine":  72,
+                                         "endLine":  72,
+                                         "startOffset":  4,
+                                         "endOffset":  42
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-10-27T22:52:46+0000",
+                       "updateDate":  "2026-10-27T23:25:19+0000",
+                       "closeDate":  "2026-10-27T23:25:19+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "477ec9b5-7ebd-473e-930a-cbe6aaefdab0",
+                       "rule":  "javascript:S7737",
+                       "severity":  "MINOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/shared/AlertWorkspace.test.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "97014e8f875e84c4a78bf0994f745d17",
+                       "textRange":  {
+                                         "startLine":  57,
+                                         "endLine":  57,
+                                         "startOffset":  20,
+                                         "endOffset":  24
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Do not use an object literal as default for parameter `meta`.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "",
+                       "tags":  [
+                                    "editable-source",
+                                    "confusing",
+                                    "pitfall"
+                                ],
+                       "creationDate":  "2026-10-27T22:52:46+0000",
+                       "updateDate":  "2026-10-27T23:25:19+0000",
+                       "closeDate":  "2026-10-27T23:25:19+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "CLEAR",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "MAINTAINABILITY",
+                                           "severity":  "MEDIUM"
+                                       },
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "66b7e309-2b60-4520-a669-567d70627cb9",
+                       "rule":  "javascript:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/api/client.js",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "f7bc32aa515efb9a37352f74d3c07500",
+                       "textRange":  {
+                                         "startLine":  7,
+                                         "endLine":  7,
+                                         "startOffset":  54,
+                                         "endOffset":  60
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-26T19:56:01+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "058dfe21-d6b2-4334-8480-e135042c8ea1",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "6ce35c7876ef98dbc7a5f29768bca04b",
+                       "textRange":  {
+                                         "startLine":  305,
+                                         "endLine":  305,
+                                         "startOffset":  23,
+                                         "endOffset":  67
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-26T19:56:01+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "290daa22-3ac2-4641-8bba-251ee68cb52d",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "da78041b83b37007a30bc8e5c0fa69a9",
+                       "textRange":  {
+                                         "startLine":  233,
+                                         "endLine":  233,
+                                         "startOffset":  20,
+                                         "endOffset":  34
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-26T19:56:01+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "4135d707-c1a7-47d6-a5b9-dab5a7c57782",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "c948d1f0689167967b2fc4423d58f1c7",
+                       "textRange":  {
+                                         "startLine":  312,
+                                         "endLine":  312,
+                                         "startOffset":  23,
+                                         "endOffset":  65
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-26T19:56:01+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "b1f7c950-f28a-4244-84a1-3ed06ca73a8a",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "bbc42918bc56073605a8d7c2b1f2b542",
+                       "textRange":  {
+                                         "startLine":  243,
+                                         "endLine":  243,
+                                         "startOffset":  23,
+                                         "endOffset":  69
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-26T19:56:01+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "e102e215-920e-40d0-8089-2caf7e9b3e04",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "386d8975ade99c0dae9509192b662152",
+                       "textRange":  {
+                                         "startLine":  270,
+                                         "endLine":  270,
+                                         "startOffset":  24,
+                                         "endOffset":  66
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-26T19:56:01+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "8fa00b16-a351-4f90-82ce-f1ea3c2e6934",
+                       "rule":  "javascript:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/estudiante/tutor/sanitizeMermaid.js",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "601fde51a9087059a5ee9a7e3fb9a4b9",
+                       "textRange":  {
+                                         "startLine":  14,
+                                         "endLine":  14,
+                                         "startOffset":  24,
+                                         "endOffset":  61
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-19T19:19:34+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "f056273f-f96c-4894-b660-1ae90a969db1",
+                       "rule":  "javascript:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/estudiante/tutor/sanitizeMermaid.js",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "a01f6dca0f9f90272e35a54728a323a9",
+                       "textRange":  {
+                                         "startLine":  8,
+                                         "endLine":  8,
+                                         "startOffset":  95,
+                                         "endOffset":  111
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-19T19:19:34+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "2ef3e18e-f731-45b0-a857-e7fe1b56b5fd",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/tutor/IADocente.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "eb5ee66f0e92092e0c8737a4a822590e",
+                       "textRange":  {
+                                         "startLine":  208,
+                                         "endLine":  208,
+                                         "startOffset":  10,
+                                         "endOffset":  21
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-10-19T19:19:34+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "77b2eb06-8c64-4c51-a7ac-30c4c09b24b0",
+                       "rule":  "javascript:S1244",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/utils/mineduScale.test.js",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "460a5108b7832ec9a250fc5d34b7acfd",
+                       "textRange":  {
+                                         "startLine":  26,
+                                         "endLine":  26,
+                                         "startOffset":  37,
+                                         "endOffset":  41
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Do not check floating point equality or inequality with exact values, use a range instead.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+
+                                ],
+                       "creationDate":  "2026-10-19T19:19:34+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "482ddbe5-5085-4fee-a4d3-7f52749ee8b4",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/RecuperarContrasena.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "924030c669c4ebe7343c1489c788df8a",
+                       "textRange":  {
+                                         "startLine":  18,
+                                         "endLine":  18,
+                                         "startOffset":  4,
+                                         "endOffset":  17
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "db21cd34-163d-42f6-b315-2b8ee0c43c17",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/RestablecerContrasena.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "7709fb983f23ca9a784d0adcf00fe680",
+                       "textRange":  {
+                                         "startLine":  49,
+                                         "endLine":  49,
+                                         "startOffset":  4,
+                                         "endOffset":  41
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "f591efb0-4099-45b6-8f1a-98d89ae11e9f",
+                       "rule":  "javascript:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/estudiante/LecturasEstudiante.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "c2c26f28ab97c7f01ae94185a594f798",
+                       "textRange":  {
+                                         "startLine":  51,
+                                         "endLine":  51,
+                                         "startOffset":  42,
+                                         "endOffset":  69
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "2f212dd9-aee5-4595-b2d7-794d94e4f481",
+                       "rule":  "javascript:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/estudiante/tutor/createProtocol.js",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "0d3b79eddbc2f7975ee6f347d6f050c4",
+                       "textRange":  {
+                                         "startLine":  113,
+                                         "endLine":  113,
+                                         "startOffset":  13,
+                                         "endOffset":  42
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "2ee177aa-ad5f-43ab-a0c8-0839a88f5ddd",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "f89d296f60a76f071c269f2916e9adbd",
+                       "textRange":  {
+                                         "startLine":  242,
+                                         "endLine":  242,
+                                         "startOffset":  23,
+                                         "endOffset":  60
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "638e481a-33bd-4092-a78d-65943bd48b4a",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "ada2a477d2d6431891b4fedffa96f849",
+                       "textRange":  {
+                                         "startLine":  269,
+                                         "endLine":  269,
+                                         "startOffset":  24,
+                                         "endOffset":  45
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "8c0fd6ba-b390-4ef3-ae14-2dbf6b3d2f9f",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "2a0e40eb9d75b755e542790adaffd4a0",
+                       "textRange":  {
+                                         "startLine":  300,
+                                         "endLine":  300,
+                                         "startOffset":  23,
+                                         "endOffset":  58
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "b6ec1e0f-2c6f-4761-b11c-a2e934a5bf9d",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "efa03ea3a75424cc300b96a3510684f1",
+                       "textRange":  {
+                                         "startLine":  232,
+                                         "endLine":  232,
+                                         "startOffset":  20,
+                                         "endOffset":  27
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "b8385b5d-0622-4fba-8b4a-8cd632989ee3",
+                       "rule":  "python:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "8083e784c5d1e75504a12fccbb64b08e",
+                       "textRange":  {
+                                         "startLine":  296,
+                                         "endLine":  296,
+                                         "startOffset":  35,
+                                         "endOffset":  60
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-10-04T18:01:34+0000",
+                       "updateDate":  "2026-10-27T20:16:35+0000",
+                       "closeDate":  "2026-10-27T20:16:35+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "bb86ebfe-3c0e-48d2-9886-0dcbc28cb8a1",
+                       "rule":  "javascript:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/api/client.js",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "f18e6285029c5638aa2c3ec5547286da",
+                       "textRange":  {
+                                         "startLine":  13,
+                                         "endLine":  13,
+                                         "startOffset":  34,
+                                         "endOffset":  40
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-09-27T21:27:59+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "ea46915e-868f-4695-8b68-746c23d11f03",
+                       "rule":  "javascript:S8786",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/api/client.js",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "b35b18fcce6318a4689d02d5244bfbf9",
+                       "textRange":  {
+                                         "startLine":  9,
+                                         "endLine":  9,
+                                         "startOffset":  55,
+                                         "endOffset":  61
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking.",
+                       "effort":  "20min",
+                       "debt":  "20min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "regex",
+                                    "performance"
+                                ],
+                       "creationDate":  "2026-09-27T21:27:59+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "EFFICIENT",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "42780d4d-a724-4517-859b-17a0ecf4e703",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/components/RoleSwitcher.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "c86507dfe5964f9226d94bc14a939447",
+                       "textRange":  {
+                                         "startLine":  45,
+                                         "endLine":  47,
+                                         "startOffset":  4,
+                                         "endOffset":  6
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-09-27T21:27:59+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "6a50f363-bf8d-415b-91fe-3a4658920e12",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/CambiarContrasena.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "5d205edf9c761f9995a5658629f83168",
+                       "textRange":  {
+                                         "startLine":  49,
+                                         "endLine":  49,
+                                         "startOffset":  4,
+                                         "endOffset":  55
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-09-27T21:27:59+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   },
+                   {
+                       "key":  "b6c364fc-9c47-4263-ac76-9573a6f7eb5e",
+                       "rule":  "javascript:S9383",
+                       "severity":  "MAJOR",
+                       "component":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/Login.jsx",
+                       "project":  "uc-group4612142_satre",
+                       "hash":  "c86507dfe5964f9226d94bc14a939447",
+                       "textRange":  {
+                                         "startLine":  34,
+                                         "endLine":  36,
+                                         "startOffset":  4,
+                                         "endOffset":  6
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.",
+                       "effort":  "5min",
+                       "debt":  "5min",
+                       "author":  "72728104@continental.edu.pe",
+                       "tags":  [
+                                    "async",
+                                    "es2017",
+                                    "type-dependent",
+                                    "promise"
+                                ],
+                       "creationDate":  "2026-09-27T21:27:59+0000",
+                       "updateDate":  "2026-10-26T19:56:01+0000",
+                       "closeDate":  "2026-10-26T19:56:01+0000",
+                       "type":  "BUG",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ],
+                       "codeVariants":  [
+
+                                        ],
+                       "cleanCodeAttribute":  "LOGICAL",
+                       "cleanCodeAttributeCategory":  "INTENTIONAL",
+                       "impacts":  [
+                                       {
+                                           "softwareQuality":  "RELIABILITY",
+                                           "severity":  "MEDIUM"
+                                       }
+                                   ],
+                       "issueStatus":  "FIXED",
+                       "prioritizedRule":  false,
+                       "fromSonarQubeUpdate":  false,
+                       "internalTags":  [
+
+                                        ],
+                       "linkedTicketStatus":  "NOT_LINKED"
+                   }
+               ],
+    "components":  [
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/RestablecerContrasena.jsx",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "RestablecerContrasena.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/RestablecerContrasena.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/RestablecerContrasena.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/api/client.js",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "client.js",
+                           "longName":  "coar-alerta-frontend/src/api/client.js",
+                           "path":  "coar-alerta-frontend/src/api/client.js"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/admin/shared/hooks.test.jsx",
+                           "enabled":  false,
+                           "qualifier":  "FIL",
+                           "name":  "hooks.test.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/admin/shared/hooks.test.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/admin/shared/hooks.test.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/shared/AlertWorkspace.test.jsx",
+                           "enabled":  false,
+                           "qualifier":  "FIL",
+                           "name":  "AlertWorkspace.test.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/shared/AlertWorkspace.test.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/shared/AlertWorkspace.test.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/estudiante/tutor/sanitizeMermaid.js",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "sanitizeMermaid.js",
+                           "longName":  "coar-alerta-frontend/src/pages/estudiante/tutor/sanitizeMermaid.js",
+                           "path":  "coar-alerta-frontend/src/pages/estudiante/tutor/sanitizeMermaid.js"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/CambiarContrasena.jsx",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "CambiarContrasena.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/CambiarContrasena.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/CambiarContrasena.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/estudiante/LecturasEstudiante.jsx",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "LecturasEstudiante.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/estudiante/LecturasEstudiante.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/estudiante/LecturasEstudiante.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/RecuperarContrasena.jsx",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "RecuperarContrasena.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/RecuperarContrasena.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/RecuperarContrasena.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/estudiante/tutor/createProtocol.js",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "createProtocol.js",
+                           "longName":  "coar-alerta-frontend/src/pages/estudiante/tutor/createProtocol.js",
+                           "path":  "coar-alerta-frontend/src/pages/estudiante/tutor/createProtocol.js"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/components/RoleSwitcher.jsx",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "RoleSwitcher.jsx",
+                           "longName":  "coar-alerta-frontend/src/components/RoleSwitcher.jsx",
+                           "path":  "coar-alerta-frontend/src/components/RoleSwitcher.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/tutor/IADocente.jsx",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "IADocente.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/tutor/IADocente.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/tutor/IADocente.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/admin/Auditoria.test.jsx",
+                           "enabled":  false,
+                           "qualifier":  "FIL",
+                           "name":  "Auditoria.test.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/admin/Auditoria.test.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/admin/Auditoria.test.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/pages/Login.jsx",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "Login.jsx",
+                           "longName":  "coar-alerta-frontend/src/pages/Login.jsx",
+                           "path":  "coar-alerta-frontend/src/pages/Login.jsx"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:coar-alerta-frontend/src/utils/mineduScale.test.js",
+                           "enabled":  false,
+                           "qualifier":  "FIL",
+                           "name":  "mineduScale.test.js",
+                           "longName":  "coar-alerta-frontend/src/utils/mineduScale.test.js",
+                           "path":  "coar-alerta-frontend/src/utils/mineduScale.test.js"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre:satre-analytics/app/services/ai/create_protocol.py",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "create_protocol.py",
+                           "longName":  "satre-analytics/app/services/ai/create_protocol.py",
+                           "path":  "satre-analytics/app/services/ai/create_protocol.py"
+                       },
+                       {
+                           "key":  "uc-group4612142_satre",
+                           "enabled":  true,
+                           "qualifier":  "TRK",
+                           "name":  "SATRE",
+                           "longName":  "SATRE"
+                       }
+                   ],
+    "facets":  [
+                   {
+                       "property":  "severities",
+                       "values":  [
+                                      {
+                                          "val":  "MAJOR",
+                                          "count":  29
+                                      },
+                                      {
+                                          "val":  "MINOR",
+                                          "count":  2
+                                      },
+                                      {
+                                          "val":  "INFO",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "CRITICAL",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "BLOCKER",
+                                          "count":  0
+                                      }
+                                  ]
+                   },
+                   {
+                       "property":  "statuses",
+                       "values":  [
+                                      {
+                                          "val":  "CLOSED",
+                                          "count":  31
+                                      },
+                                      {
+                                          "val":  "OPEN",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "CONFIRMED",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "REOPENED",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "RESOLVED",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "IN_SANDBOX",
+                                          "count":  0
+                                      }
+                                  ]
+                   },
+                   {
+                       "property":  "resolutions",
+                       "values":  [
+                                      {
+                                          "val":  "FIXED",
+                                          "count":  31
+                                      },
+                                      {
+                                          "val":  "",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "FALSE-POSITIVE",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "WONTFIX",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "REMOVED",
+                                          "count":  0
+                                      }
+                                  ]
+                   },
+                   {
+                       "property":  "types",
+                       "values":  [
+                                      {
+                                          "val":  "CODE_SMELL",
+                                          "count":  19
+                                      },
+                                      {
+                                          "val":  "BUG",
+                                          "count":  12
+                                      },
+                                      {
+                                          "val":  "VULNERABILITY",
+                                          "count":  0
+                                      }
+                                  ]
+                   },
+                   {
+                       "property":  "rules",
+                       "values":  [
+                                      {
+                                          "val":  "javascript:S9383",
+                                          "count":  11
+                                      },
+                                      {
+                                          "val":  "python:S8786",
+                                          "count":  10
+                                      },
+                                      {
+                                          "val":  "javascript:S8786",
+                                          "count":  7
+                                      },
+                                      {
+                                          "val":  "javascript:S1244",
+                                          "count":  1
+                                      },
+                                      {
+                                          "val":  "javascript:S7737",
+                                          "count":  1
+                                      },
+                                      {
+                                          "val":  "javascript:S1313",
+                                          "count":  1
+                                      }
+                                  ]
+                   }
+               ]
+}

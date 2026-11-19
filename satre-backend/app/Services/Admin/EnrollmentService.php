@@ -63,6 +63,23 @@ class EnrollmentService
             ->whereIn('code', array_column($rows, 'course_code'))
             ->pluck('id', 'code');
 
+        [$pairs, $errors] = $this->resolveRows($rows, $students, $courses);
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $this->persistImport($admin, $pairs, $rows);
+    }
+
+    /**
+     * @param  array<int, array{student_code: string, course_code: string}>  $rows
+     * @param  \Illuminate\Support\Collection<string, int>  $students
+     * @param  \Illuminate\Support\Collection<string, int>  $courses
+     * @return array{pairs: array<string, array{int, int}>, errors: array<string, list<string>>}
+     */
+    private function resolveRows(array $rows, $students, $courses): array
+    {
         $errors = [];
         $pairs = [];
 
@@ -83,10 +100,16 @@ class EnrollmentService
             }
         }
 
-        if ($errors !== []) {
-            throw ValidationException::withMessages($errors);
-        }
+        return ['pairs' => $pairs, 'errors' => $errors];
+    }
 
+    /**
+     * @param  array<string, array{int, int}>  $pairs
+     * @param  array<int, array{student_code: string, course_code: string}>  $rows
+     * @return array{created: int, reactivated: int, skipped: int}
+     */
+    private function persistImport(User $admin, array $pairs, array $rows): array
+    {
         return DB::transaction(function () use ($admin, $pairs, $rows) {
             $existing = Enrollment::query()
                 ->whereIn('student_id', array_column($pairs, 0))

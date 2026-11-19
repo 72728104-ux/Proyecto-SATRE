@@ -19,6 +19,9 @@ class ClassroomAttendanceSessionTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ATTENDANCE_DATE = '2026-09-15';
+    private const ATTENDANCE_SESSION_ENDPOINT = '/api/attendances/session';
+
     public function test_teacher_can_list_own_courses(): void
     {
         $context = $this->academicContext();
@@ -45,7 +48,7 @@ class ClassroomAttendanceSessionTest extends TestCase
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
             'academic_period_id' => $context['period']->id,
-            'attendance_date' => '2026-09-15',
+            'attendance_date' => self::ATTENDANCE_DATE,
             'status' => 'late',
             'recorded_by' => $context['teacherUser']->id,
         ]);
@@ -54,7 +57,7 @@ class ClassroomAttendanceSessionTest extends TestCase
             ->getJson('/api/courses/'.$context['course']->id.'/attendance-session?attendance_date=2026-09-15')
             ->assertOk()
             ->assertJsonPath('data.course_id', $context['course']->id)
-            ->assertJsonPath('data.attendance_date', '2026-09-15')
+            ->assertJsonPath('data.attendance_date', self::ATTENDANCE_DATE)
             ->assertJsonCount(2, 'data.students');
     }
 
@@ -71,15 +74,15 @@ class ClassroomAttendanceSessionTest extends TestCase
             'student_id' => $context['student']->id,
             'course_id' => $context['course']->id,
             'academic_period_id' => $context['period']->id,
-            'attendance_date' => '2026-09-15',
+            'attendance_date' => self::ATTENDANCE_DATE,
             'status' => 'present',
             'recorded_by' => $context['teacherUser']->id,
         ]);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/attendances/session', [
+            ->postJson(self::ATTENDANCE_SESSION_ENDPOINT, [
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-09-15',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'records' => [
                     ['student_id' => $context['student']->id, 'status' => 'absent_unjustified'],
                     ['student_id' => $second->id, 'status' => 'late', 'notes' => '10 minutos'],
@@ -107,9 +110,9 @@ class ClassroomAttendanceSessionTest extends TestCase
         $outsider = Student::factory()->create(['classroom_id' => $context['classroom']->id]);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/attendances/session', [
+            ->postJson(self::ATTENDANCE_SESSION_ENDPOINT, [
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-09-15',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'records' => [
                     ['student_id' => $outsider->id, 'status' => 'present'],
                 ],
@@ -117,9 +120,9 @@ class ClassroomAttendanceSessionTest extends TestCase
             ->assertStatus(422);
 
         $this->actingAs($context['teacherUser'], 'sanctum')
-            ->postJson('/api/attendances/session', [
+            ->postJson(self::ATTENDANCE_SESSION_ENDPOINT, [
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-09-15',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'records' => [
                     ['student_id' => $context['student']->id, 'status' => 'inventado'],
                 ],
@@ -138,9 +141,9 @@ class ClassroomAttendanceSessionTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($studentUser, 'sanctum')
-            ->postJson('/api/attendances/session', [
+            ->postJson(self::ATTENDANCE_SESSION_ENDPOINT, [
                 'course_id' => $context['course']->id,
-                'attendance_date' => '2026-09-15',
+                'attendance_date' => self::ATTENDANCE_DATE,
                 'records' => [
                     ['student_id' => $context['student']->id, 'status' => 'present'],
                 ],

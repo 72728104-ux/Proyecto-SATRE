@@ -26,6 +26,9 @@ class AnalyticsBridgeTest extends TestCase
 
     private const BASE_URL = 'http://analytics.test';
 
+    private const CLASSROOMS_ENDPOINT_PATTERN = '/v1/classrooms/*';
+    private const BATCH_RISK_ENDPOINT = '/v1/batch/risk';
+
     private AcademicPeriod $period;
 
     private Classroom $classroom;
@@ -60,7 +63,7 @@ class AnalyticsBridgeTest extends TestCase
 
     public function test_teacher_insights_fetches_python_and_stores_diagnostic(): void
     {
-        Http::fake([self::BASE_URL.'/v1/classrooms/*' => Http::response($this->insightsPayload())]);
+        Http::fake([self::BASE_URL.self::CLASSROOMS_ENDPOINT_PATTERN => Http::response($this->insightsPayload())]);
 
         $this->actingAs($this->teacherUser, 'sanctum')
             ->getJson("/api/ai-analytics/teacher/insights/{$this->classroom->id}")
@@ -220,7 +223,7 @@ class AnalyticsBridgeTest extends TestCase
             ->assertJsonPath('data.risk_level', 'MEDIO')
             ->assertJsonPath('data.factors.0.key', 'unexcused_absence');
 
-        Http::assertSent(fn (Request $request) => $request->url() === self::BASE_URL.'/v1/batch/risk'
+        Http::assertSent(fn (Request $request) => $request->url() === self::BASE_URL.self::BATCH_RISK_ENDPOINT
             && $request['classroom_id'] === $this->classroom->id);
         $this->assertDatabaseHas('risk_predictions', [
             'student_id' => $this->student->id,
@@ -283,7 +286,7 @@ class AnalyticsBridgeTest extends TestCase
 
         RunRiskBatchJob::dispatchSync();
 
-        Http::assertSent(fn (Request $request) => $request->url() === self::BASE_URL.'/v1/batch/risk'
+        Http::assertSent(fn (Request $request) => $request->url() === self::BASE_URL.self::BATCH_RISK_ENDPOINT
             && $request['period_id'] === $this->period->id);
 
         $this->assertDatabaseHas('risk_predictions', [
@@ -379,9 +382,9 @@ class AnalyticsBridgeTest extends TestCase
     public function test_batch_falls_back_to_one_by_one_when_endpoint_missing(): void
     {
         Http::fake([
-            self::BASE_URL.'/v1/batch/risk' => Http::response(['message' => 'Not Found'], 404),
+            self::BASE_URL.self::BATCH_RISK_ENDPOINT => Http::response(['message' => 'Not Found'], 404),
             self::BASE_URL.'/v1/students/*' => Http::response($this->riskPayload(RiskPrediction::LEVEL_HIGH)),
-            self::BASE_URL.'/v1/classrooms/*' => Http::response($this->insightsPayload()),
+            self::BASE_URL.self::CLASSROOMS_ENDPOINT_PATTERN => Http::response($this->insightsPayload()),
         ]);
 
         RunRiskBatchJob::dispatchSync();
@@ -406,14 +409,14 @@ class AnalyticsBridgeTest extends TestCase
     private function fakeBatch(string $level): void
     {
         Http::fake([
-            self::BASE_URL.'/v1/batch/risk' => Http::response([
+            self::BASE_URL.self::BATCH_RISK_ENDPOINT => Http::response([
                 'period_id' => $this->period->id,
                 'classroom_id' => null,
                 'model_version' => 'rules-1.0',
                 'count' => 1,
                 'results' => [$this->riskPayload($level)],
             ]),
-            self::BASE_URL.'/v1/classrooms/*' => Http::response($this->insightsPayload()),
+            self::BASE_URL.self::CLASSROOMS_ENDPOINT_PATTERN => Http::response($this->insightsPayload()),
         ]);
     }
 

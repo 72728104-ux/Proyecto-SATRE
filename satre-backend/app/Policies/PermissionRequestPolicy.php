@@ -25,7 +25,7 @@ class PermissionRequestPolicy
             && $user->guardian->students()->where('students.id', $permission->student_id)->exists();
     }
 
-    public function resolve(User $user, PermissionRequest $permission): bool
+    public function resolve(User $user): bool
     {
         return $user->hasRole(Roles::ADMIN, Roles::MONITOR);
     }

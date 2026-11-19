@@ -1,0 +1,41 @@
+# SonarQube local para SATRE (solo práctica/evidencia, no producción).
+#
+# Uso:
+#   cd C:\Proyecto\deploy\sonar
+#   docker compose up -d
+#   docker compose logs -f sonarqube
+#
+# Interfaz: http://localhost:9000
+#
+# La base de datos embebida (H2) y los datos viven en los volúmenes
+# satre_sonar_*. Para un entorno de producción use la base de datos
+# soportada por su edición y respalde los volúmenes.
+
+name: satre-sonar
+
+services:
+  sonarqube:
+    image: sonarqube:community
+    container_name: satre-sonarqube
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      # Limita el uso de memoria en equipos de desarrollo (opcional).
+      SONAR_WEB_JAVAOPTS: "-Xmx512m"
+      SONAR_CE_JAVAOPTS: "-Xmx1g"
+      SONAR_SEARCH_JAVAOPTS: "-Xmx1g"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    stop_grace_period: 1m
+    restart: unless-stopped
+
+volumes:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:

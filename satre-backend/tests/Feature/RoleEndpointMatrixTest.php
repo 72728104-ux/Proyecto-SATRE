@@ -39,6 +39,13 @@ class RoleEndpointMatrixTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ADMIN_USER_ENDPOINT = '/api/admin/users/{user}';
+    private const ADMIN_CLASSROOM_ENDPOINT = '/api/admin/classrooms/{classroom}';
+    private const ADMIN_COURSE_ENDPOINT = '/api/admin/courses/{course}';
+    private const ADMIN_PERIOD_ENDPOINT = '/api/admin/periods/{period}';
+    private const COURSE_PLACEHOLDER = '{course}';
+    private const STUDENT_PLACEHOLDER = '{student}';
+
     private const ALLOWED_STATUSES = [200, 201, 422];
 
     private const ROLE_EMAILS = [
@@ -75,26 +82,26 @@ class RoleEndpointMatrixTest extends TestCase
             // §4.2 Admin (solo admin). apiResource = index/store/show/update/destroy.
             ['GET', '/api/admin/users', $admin],
             ['POST', '/api/admin/users', $admin],
-            ['GET', '/api/admin/users/{user}', $admin],
-            ['PUT', '/api/admin/users/{user}', $admin],
-            ['DELETE', '/api/admin/users/{user}', $admin],
+            ['GET', self::ADMIN_USER_ENDPOINT, $admin],
+            ['PUT', self::ADMIN_USER_ENDPOINT, $admin],
+            ['DELETE', self::ADMIN_USER_ENDPOINT, $admin],
             ['PATCH', '/api/admin/users/{user}/toggle-active', $admin],
             ['POST', '/api/admin/users/{user}/reset-password', $admin],
             ['GET', '/api/admin/classrooms', $admin],
             ['POST', '/api/admin/classrooms', $admin],
-            ['GET', '/api/admin/classrooms/{classroom}', $admin],
-            ['PUT', '/api/admin/classrooms/{classroom}', $admin],
-            ['DELETE', '/api/admin/classrooms/{classroom}', $admin],
+            ['GET', self::ADMIN_CLASSROOM_ENDPOINT, $admin],
+            ['PUT', self::ADMIN_CLASSROOM_ENDPOINT, $admin],
+            ['DELETE', self::ADMIN_CLASSROOM_ENDPOINT, $admin],
             ['GET', '/api/admin/courses', $admin],
             ['POST', '/api/admin/courses', $admin],
-            ['GET', '/api/admin/courses/{course}', $admin],
-            ['PUT', '/api/admin/courses/{course}', $admin],
-            ['DELETE', '/api/admin/courses/{course}', $admin],
+            ['GET', self::ADMIN_COURSE_ENDPOINT, $admin],
+            ['PUT', self::ADMIN_COURSE_ENDPOINT, $admin],
+            ['DELETE', self::ADMIN_COURSE_ENDPOINT, $admin],
             ['GET', '/api/admin/periods', $admin],
             ['POST', '/api/admin/periods', $admin],
-            ['GET', '/api/admin/periods/{period}', $admin],
-            ['PUT', '/api/admin/periods/{period}', $admin],
-            ['DELETE', '/api/admin/periods/{period}', $admin],
+            ['GET', self::ADMIN_PERIOD_ENDPOINT, $admin],
+            ['PUT', self::ADMIN_PERIOD_ENDPOINT, $admin],
+            ['DELETE', self::ADMIN_PERIOD_ENDPOINT, $admin],
             ['POST', '/api/admin/periods/{period}/set-current', $admin],
             ['POST', '/api/admin/enrollments', $admin],
             ['POST', '/api/admin/enrollments/bulk', $admin],
@@ -106,8 +113,8 @@ class RoleEndpointMatrixTest extends TestCase
             // §4.3 Académico. §1: student R propio; guardian lee hijos vía /me/summary.
             ['GET', '/api/academic/attendances', [Roles::ADMIN, Roles::TEACHER, Roles::STUDENT]],
             ['POST', '/api/academic/attendances', $attendanceWrite, [
-                'course_id' => '{course}',
-                'student_id' => '{student}',
+                'course_id' => self::COURSE_PLACEHOLDER,
+                'student_id' => self::STUDENT_PLACEHOLDER,
                 'attendance_date' => '2026-06-15',
                 'status' => 'present',
             ]],
@@ -116,14 +123,14 @@ class RoleEndpointMatrixTest extends TestCase
             ]],
             ['GET', '/api/academic/attendances/session?course_id={course}&attendance_date=2026-04-15', $attendanceWrite],
             ['POST', '/api/academic/attendances/session', $attendanceWrite, [
-                'course_id' => '{course}',
+                'course_id' => self::COURSE_PLACEHOLDER,
                 'attendance_date' => '2026-06-16',
-                'records' => [['student_id' => '{student}', 'status' => 'present']],
+                'records' => [['student_id' => self::STUDENT_PLACEHOLDER, 'status' => 'present']],
             ]],
             ['PUT', '/api/academic/attendances/session', $attendanceWrite, [
-                'course_id' => '{course}',
+                'course_id' => self::COURSE_PLACEHOLDER,
                 'attendance_date' => '2026-06-16',
-                'records' => [['student_id' => '{student}', 'status' => 'late']],
+                'records' => [['student_id' => self::STUDENT_PLACEHOLDER, 'status' => 'late']],
             ]],
             ['GET', '/api/academic/grades', [Roles::ADMIN, Roles::TEACHER, Roles::STUDENT]],
             ['POST', '/api/academic/grades', [Roles::TEACHER]],
@@ -143,7 +150,7 @@ class RoleEndpointMatrixTest extends TestCase
             // §12.2 / F14.2 Lecturas y artefactos CREATE-SATRE
             ['GET', '/api/academic/readings', [Roles::ADMIN, Roles::TEACHER, Roles::STUDENT]],
             ['POST', '/api/academic/readings', [Roles::TEACHER], [
-                'course_id' => '{course}',
+                'course_id' => self::COURSE_PLACEHOLDER,
                 'title' => 'Artículo CREATE',
                 'criterion' => 'A',
                 'content' => 'Texto del artículo',
@@ -311,9 +318,9 @@ class RoleEndpointMatrixTest extends TestCase
         $ids = [
             '{user}' => (string) $teacher->id,
             '{classroom}' => (string) Classroom::query()->where('name', '5to A')->value('id'),
-            '{course}' => (string) $course->id,
+            self::COURSE_PLACEHOLDER => (string) $course->id,
             '{period}' => (string) $course->academic_period_id,
-            '{student}' => (string) $student->id,
+            self::STUDENT_PLACEHOLDER => (string) $student->id,
             '{guardian}' => (string) Guardian::query()->where('email', 'apoderado@coar.edu.pe')->value('id'),
             '{enrollment}' => (string) Enrollment::query()->where('student_id', $student->id)->value('id'),
             '{attendance}' => (string) Attendance::query()->where('student_id', $student->id)->value('id'),

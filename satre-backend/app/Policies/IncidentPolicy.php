@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Models\Incident;
 use App\Models\User;
 use App\Support\Roles;
 
@@ -18,7 +17,7 @@ class IncidentPolicy
         return $user->hasRole(Roles::MONITOR);
     }
 
-    public function update(User $user, Incident $incident): bool
+    public function update(User $user): bool
     {
         return $user->hasRole(Roles::MONITOR);
     }

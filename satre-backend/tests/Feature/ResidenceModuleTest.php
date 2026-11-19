@@ -16,6 +16,10 @@ class ResidenceModuleTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PRESENCE_DATE = '2026-04-15';
+    private const RESIDENTS_ENDPOINT = '/api/residents';
+    private const BULK_PRESENCES_ENDPOINT = '/api/presences/bulk';
+
     public function test_monitor_lists_active_boarders_with_presence_of_the_night(): void
     {
         $monitor = $this->userWithRole(Roles::MONITOR);
@@ -26,7 +30,7 @@ class ResidenceModuleTest extends TestCase
         Student::factory()->create(['status' => 'withdrawn']);
         ResidentialPresence::query()->create([
             'student_id' => $boarder->id,
-            'presence_date' => '2026-04-15',
+            'presence_date' => self::PRESENCE_DATE,
             'check_type' => 'night',
             'status' => 'absent',
             'recorded_by' => $monitor->id,
@@ -49,8 +53,8 @@ class ResidenceModuleTest extends TestCase
             ->assertJsonMissingPath('data.0.presence');
 
         $this->actingAs($monitor, 'sanctum')->getJson('/api/residents?check_type=noon')->assertStatus(422);
-        $this->actingAs($this->userWithRole(Roles::ADMIN), 'sanctum')->getJson('/api/residents')->assertOk();
-        $this->actingAs($this->userWithRole(Roles::TEACHER), 'sanctum')->getJson('/api/residents')->assertForbidden();
+        $this->actingAs($this->userWithRole(Roles::ADMIN), 'sanctum')->getJson(self::RESIDENTS_ENDPOINT)->assertOk();
+        $this->actingAs($this->userWithRole(Roles::TEACHER), 'sanctum')->getJson(self::RESIDENTS_ENDPOINT)->assertForbidden();
     }
 
     public function test_monitor_records_night_checklist_in_bulk_and_changes_are_audited(): void
@@ -59,15 +63,15 @@ class ResidenceModuleTest extends TestCase
         [$first, $second] = Student::factory()->count(2)->create();
         $existing = ResidentialPresence::query()->create([
             'student_id' => $first->id,
-            'presence_date' => '2026-04-15',
+            'presence_date' => self::PRESENCE_DATE,
             'check_type' => 'night',
             'status' => 'present',
             'recorded_by' => $monitor->id,
         ]);
 
         $this->actingAs($monitor, 'sanctum')
-            ->postJson('/api/presences/bulk', [
-                'presence_date' => '2026-04-15',
+            ->postJson(self::BULK_PRESENCES_ENDPOINT, [
+                'presence_date' => self::PRESENCE_DATE,
                 'check_type' => 'night',
                 'records' => [
                     ['student_id' => $first->id, 'status' => 'absent', 'notes' => 'No llegó al pabellón'],
@@ -99,7 +103,7 @@ class ResidenceModuleTest extends TestCase
         $boarder = Student::factory()->create();
         $dayStudent = Student::factory()->create(['is_boarder' => false]);
         $payload = [
-            'presence_date' => '2026-04-15',
+            'presence_date' => self::PRESENCE_DATE,
             'check_type' => 'night',
             'records' => [
                 ['student_id' => $boarder->id, 'status' => 'present'],
@@ -108,18 +112,18 @@ class ResidenceModuleTest extends TestCase
         ];
 
         $this->actingAs($monitor, 'sanctum')
-            ->postJson('/api/presences/bulk', $payload)
+            ->postJson(self::BULK_PRESENCES_ENDPOINT, $payload)
             ->assertStatus(422)
             ->assertJsonValidationErrors(['records.1.student_id']);
         $this->assertSame(0, ResidentialPresence::query()->count());
 
         $this->actingAs($monitor, 'sanctum')
-            ->postJson('/api/presences/bulk', ['records' => []] + $payload)
+            ->postJson(self::BULK_PRESENCES_ENDPOINT, ['records' => []] + $payload)
             ->assertStatus(422)
             ->assertJsonValidationErrors(['records']);
 
         $this->actingAs($this->userWithRole(Roles::ADMIN), 'sanctum')
-            ->postJson('/api/presences/bulk', $payload)
+            ->postJson(self::BULK_PRESENCES_ENDPOINT, $payload)
             ->assertForbidden();
     }
 
@@ -130,10 +134,10 @@ class ResidenceModuleTest extends TestCase
         $student = $this->userWithRole(Roles::STUDENT);
         $admin = $this->userWithRole(Roles::ADMIN);
 
-        $this->actingAs($monitor, 'sanctum')->getJson('/api/residents')->assertNotFound();
+        $this->actingAs($monitor, 'sanctum')->getJson(self::RESIDENTS_ENDPOINT)->assertNotFound();
         $this->actingAs($monitor, 'sanctum')->getJson('/api/presences')->assertNotFound();
-        $this->actingAs($monitor, 'sanctum')->postJson('/api/presences/bulk', [
-            'presence_date' => '2026-04-15',
+        $this->actingAs($monitor, 'sanctum')->postJson(self::BULK_PRESENCES_ENDPOINT, [
+            'presence_date' => self::PRESENCE_DATE,
             'check_type' => 'night',
             'records' => [['student_id' => 1, 'status' => 'present']],
         ])->assertNotFound();

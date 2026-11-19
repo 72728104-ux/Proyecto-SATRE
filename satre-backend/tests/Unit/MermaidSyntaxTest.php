@@ -7,17 +7,19 @@ use Tests\TestCase;
 
 class MermaidSyntaxTest extends TestCase
 {
+    private const QUOTED_FLOWCHART = "flowchart TD\n    A[\"Inicio (x1, y1)\"] --> B[Fin]";
+
     public function test_quotes_bracket_labels_that_contain_parentheses(): void
     {
         $this->assertSame(
-            "flowchart TD\n    A[\"Inicio (x1, y1)\"] --> B[Fin]",
+            self::QUOTED_FLOWCHART,
             MermaidSyntax::sanitize("flowchart TD\n    A[Inicio (x1, y1)] --> B[Fin]"),
         );
     }
 
     public function test_does_not_double_quote_or_touch_plain_labels(): void
     {
-        $quoted = "flowchart TD\n    A[\"Inicio (x1, y1)\"] --> B[Fin]";
+        $quoted = self::QUOTED_FLOWCHART;
         $plain = "flowchart TD\n    A[Δy] --> M[pendiente]";
 
         $this->assertSame($quoted, MermaidSyntax::sanitize($quoted));
@@ -32,7 +34,7 @@ class MermaidSyntaxTest extends TestCase
             MermaidSyntax::sanitize("```mermaid\nflowchart TD\n    A[Inicio \"x1\"] --> B[Fin]\n```"),
         );
         $this->assertSame(
-            "flowchart TD\n    A[\"Inicio (x1, y1)\"] --> B[Fin]",
+            self::QUOTED_FLOWCHART,
             MermaidSyntax::sanitize("flowchart TD\n    A[Inicio (x1, y1)] --> B[Fin]\x00"),
         );
     }

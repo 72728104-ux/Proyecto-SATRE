@@ -203,9 +203,9 @@ function TeacherAssistantChat({ classroomId, studentId, criterion, disabled }) {
       <form
         noValidate
         className="flex flex-col gap-2 border-t border-slate-200 bg-white p-4 sm:flex-row sm:items-end"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault()
-          send(draft)
+          await send(draft)
         }}
       >
         <Field

@@ -228,8 +228,9 @@ def _clean_mermaid(source: str | None) -> str | None:
     if not source:
         return None
     text = source.strip()
-    text = re.sub(r"^```(?:mermaid)?\s*", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"\s*```$", "", text)
+    text = re.sub(r"^```mermaid[ \t\r\n]*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^```[ \t\r\n]*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"```$", "", text)
     text = text.strip()
     if not text or len(text) > 4000:
         return None
@@ -239,7 +240,9 @@ def _clean_mermaid(source: str | None) -> str | None:
 def parse_create_markdown(text: str) -> dict[str, Any]:
     """Extrae fase y bloques [QUIZ], [DIAGRAM_MERMAID], [RECURSO_VISUAL] de Markdown."""
     payload: dict[str, Any] = {}
-    fase = re.search(r"\[FASE\]\s*:?\s*([A-Za-zÁÉÍÓÚáéíóú]+)", text, re.IGNORECASE)
+    fase = re.search(
+        r"\[FASE\](?:[ \t]*:[ \t]*|[ \t]*)([A-Za-z\u00C0-\u017F]+)", text, re.IGNORECASE
+    )
     if fase:
         token = fase.group(1).casefold()
         normalized = (
@@ -259,21 +262,21 @@ def parse_create_markdown(text: str) -> dict[str, Any]:
             payload["create_phase"] = candidate
 
     mermaid = re.search(
-        r"\[DIAGRAM_MERMAID\](.*?)(?:\[/DIAGRAM_MERMAID\]|$)",
+        r"\[DIAGRAM_MERMAID\]((?:[^\[]|\[(?!/DIAGRAM_MERMAID\]))*)(?:\[/DIAGRAM_MERMAID\]|$)",
         text,
-        re.IGNORECASE | re.DOTALL,
+        re.IGNORECASE,
     )
     if mermaid:
         payload["diagram_mermaid"] = _clean_mermaid(mermaid.group(1))
 
-    fence = re.search(r"```mermaid\s*(.*?)```", text, re.IGNORECASE | re.DOTALL)
+    fence = re.search(r"```mermaid(.+?)```", text, re.IGNORECASE | re.DOTALL)
     if fence and not payload.get("diagram_mermaid"):
         payload["diagram_mermaid"] = _clean_mermaid(fence.group(1))
 
     visual = re.search(
-        r"\[RECURSO_VISUAL\](.*?)(?:\[/RECURSO_VISUAL\]|$)",
+        r"\[RECURSO_VISUAL\]((?:[^\[]|\[(?!/RECURSO_VISUAL\]))*)(?:\[/RECURSO_VISUAL\]|$)",
         text,
-        re.IGNORECASE | re.DOTALL,
+        re.IGNORECASE,
     )
     if visual:
         body = visual.group(1).strip()
@@ -284,11 +287,15 @@ def parse_create_markdown(text: str) -> dict[str, Any]:
             "description": desc_match.group(1).strip() if desc_match else "",
         })
 
-    quiz = re.search(r"\[QUIZ\](.*?)(?:\[/QUIZ\]|$)", text, re.IGNORECASE | re.DOTALL)
+    quiz = re.search(
+        r"\[QUIZ\]((?:[^\[]|\[(?!/QUIZ\]))*)(?:\[/QUIZ\]|$)",
+        text,
+        re.IGNORECASE,
+    )
     if quiz:
         body = quiz.group(1).strip()
         options = []
-        for match in re.finditer(r"^([a-dA-D])[).:-]\s*(.+)$", body, re.MULTILINE):
+        for match in re.finditer(r"^([a-dA-D])[).:-]\s*(\S.*)$", body, re.MULTILINE):
             options.append({"id": match.group(1).lower(), "text": match.group(2).strip()})
         question_line = next(
             (line.strip() for line in body.splitlines() if line.strip() and not re.match(r"^[a-dA-D][).:-]", line.strip())),
@@ -297,14 +304,16 @@ def parse_create_markdown(text: str) -> dict[str, Any]:
         question_line = re.sub(r"^(pregunta|quiz)\s*:\s*", "", question_line, flags=re.IGNORECASE)
         payload["quiz"] = _public_quiz({"question": question_line, "options": options})
 
-    cleaned = re.sub(r"\[FASE\]\s*:?\s*[A-Za-zÁÉÍÓÚáéíóú]+", "", text, flags=re.IGNORECASE)
     cleaned = re.sub(
-        r"\[(QUIZ|DIAGRAM_MERMAID|RECURSO_VISUAL)\].*?(?:\[/\1\]|$)",
+        r"\[FASE\](?:[ \t]*:[ \t]*|[ \t]*)[A-Za-z\u00C0-\u017F]+", "", text, flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r"\[(QUIZ|DIAGRAM_MERMAID|RECURSO_VISUAL)\]((?:[^\[]|\[(?!/\1\]))*)(?:\[/\1\]|$)",
         "",
         cleaned,
-        flags=re.IGNORECASE | re.DOTALL,
+        flags=re.IGNORECASE,
     )
-    cleaned = re.sub(r"```mermaid.*?```", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"```mermaid(.+?)```", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
     payload["explanation"] = cleaned.strip()
     return payload
 

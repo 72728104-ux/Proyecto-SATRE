@@ -5,8 +5,10 @@ import AlertBadge from '../../components/AlertBadge'
 import EmptyState from '../../components/EmptyState'
 import Field from '../../components/Field'
 import { SkeletonList } from '../../components/Skeleton'
+import StatusRadioGroup from '../../components/StatusRadioGroup'
 import { useToast } from '../../components/Toast'
 import { useApi, useMutation } from '../../hooks/useApi'
+import { rowErrorsFrom } from '../../utils/rows'
 import { notifyError, useLoadErrorToast } from '../admin/shared/hooks'
 import { FilterBar, LoadError, primaryButton, secondaryButton } from '../admin/shared/ui'
 import {
@@ -17,25 +19,7 @@ import {
   useTeacherScope,
 } from './shared/hooks'
 
-const STATUS_TONES = {
-  present: 'border-teal-600 bg-teal-600 text-white',
-  late: 'border-amber-500 bg-amber-500 text-white',
-  absent_justified: 'border-sky-600 bg-sky-600 text-white',
-  absent_unjustified: 'border-rose-600 bg-rose-600 text-white',
-}
-
 const courseLabel = (course) => `${course.classroom?.name ? `${course.classroom.name} · ` : ''}${course.name}`
-
-/** `records.3.notes` → { [studentId]: { notes: 'mensaje' } } según el orden enviado. */
-function rowErrorsFrom(fieldErrors, studentIds) {
-  const byStudent = {}
-  Object.entries(fieldErrors).forEach(([key, message]) => {
-    const match = key.match(/^records\.(\d+)\.(\w+)$/)
-    const studentId = match ? studentIds[Number(match[1])] : null
-    if (studentId) byStudent[studentId] = { ...byStudent[studentId], [match[2]]: message }
-  })
-  return byStudent
-}
 
 function StudentRow({ student, value, dirty, errors = {}, onChange }) {
   const saved = normalizeAttendanceStatus(student.status)
@@ -54,22 +38,12 @@ function StudentRow({ student, value, dirty, errors = {}, onChange }) {
           </div>
           <AlertBadge nivel={value.status} />
         </div>
-        <div role="radiogroup" aria-label={`Asistencia de ${studentName(student)}`} className="grid grid-cols-2 gap-2">
-          {Object.entries(ATTENDANCE_STATUS).map(([status, meta]) => (
-            <button
-              key={status}
-              type="button"
-              role="radio"
-              aria-checked={value.status === status}
-              onClick={() => onChange({ status })}
-              className={`h-10 rounded-xl border px-3 text-sm font-medium ${
-                value.status === status ? STATUS_TONES[status] : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {meta.label}
-            </button>
-          ))}
-        </div>
+        <StatusRadioGroup
+          options={ATTENDANCE_STATUS}
+          value={value}
+          onChange={onChange}
+          ariaLabel={`Asistencia de ${studentName(student)}`}
+        />
       </div>
       {errors.status || errors.student_id ? <p className="mt-2 text-xs text-rose-600">{errors.status ?? errors.student_id}</p> : null}
       {showNotes ? (
