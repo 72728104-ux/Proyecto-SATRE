@@ -13,13 +13,16 @@ use Throwable;
  */
 class GeminiClient
 {
-    public const MODEL = 'gemini-2.5-flash';
+    public const MODEL = 'gemini-3.5-flash-lite';
 
     /** @var list<string> */
     public const FALLBACK_MODELS = [
-        'gemini-2.5-flash',
-        'gemini-2.5-flash-lite',
+        'gemini-3.5-flash-lite',
         'gemini-3.1-flash-lite-preview',
+        'gemini-3.8-flash',
+        'gemini-3-flash-preview',
+        'gemma-4-31b-it',
+        'gemma-4-26b-it',
     ];
 
     public const ATTEMPTS = 3;
@@ -49,19 +52,22 @@ class GeminiClient
             ],
         ]);
 
-        $configuredModel = trim((string) config('services.gemini.model'));
-        $models = $configuredModel !== ''
-            ? array_values(array_unique([$configuredModel, ...self::FALLBACK_MODELS]))
-            : self::FALLBACK_MODELS;
+        foreach (self::FALLBACK_MODELS as $model) {
+            $modelPayload = $payload;
 
-        foreach ($models as $model) {
+            if (str_starts_with($model, 'gemma-')) {
+                unset($modelPayload['system_instruction']);
+                $instruction = trim((string) $systemInstruction);
+
+                if ($instruction !== '') {
+                    $modelPayload['contents'][0]['parts'][0]['text'] = $instruction."\n\n".$prompt;
+                }
+            }
+
             try {
-                $response = Http::withHeaders([
-                    'x-goog-api-key' => (string) $key,
-                ])
-                    ->acceptJson()
-                    ->timeout(10)
-                    ->post($this->endpoint($model), $payload);
+                $response = Http::acceptJson()
+                    ->timeout(12)
+                    ->post($this->endpoint($model, (string) $key), $modelPayload);
 
                 if ($response->successful()) {
                     $result = $this->responseResult($response);
@@ -69,12 +75,13 @@ class GeminiClient
                     if (($result['available'] ?? false) === true) {
                         return $result;
                     }
-                } else {
-                    Log::warning('gemini: modelo no disponible', [
-                        'model' => $model,
-                        'status' => $response->status(),
-                    ]);
                 }
+
+                Log::warning('gemini: modelo no disponible', [
+                    'model' => $model,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
             } catch (Throwable $e) {
                 Log::warning('gemini: excepción HTTP', [
                     'model' => $model,
@@ -111,11 +118,12 @@ class GeminiClient
             : $this->unavailable('invalid_response', 'Gemini no devolvió texto utilizable.', $response->status());
     }
 
-    private function endpoint(string $model): string
+    private function endpoint(string $model, string $apiKey): string
     {
         $base = rtrim((string) config('services.gemini.base_url'), '/');
+        $base = rtrim(preg_replace('#/models/?$#', '', $base) ?: $base, '/');
 
-        return $base.'/models/'.$model.':generateContent';
+        return $base.'/models/'.rawurlencode($model).':generateContent?key='.rawurlencode($apiKey);
     }
 
     private function extractText(Response $response): ?string

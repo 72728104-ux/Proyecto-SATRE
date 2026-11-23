@@ -97,7 +97,6 @@ class PythonAnalyticsClient
             $response = Http::withHeaders(['X-Internal-Key' => (string) config('services.python_analytics.key')])
                 ->acceptJson()
                 ->timeout($timeout ?? (int) config('services.python_analytics.timeout', 30))
-                ->retry($attempts ?? self::ATTEMPTS, $retrySleepMs ?? self::RETRY_SLEEP_MS, throw: false)
                 ->{$method}(rtrim($baseUrl, '/').$path, $data);
         } catch (Throwable $e) {
             $status = method_exists($e, 'getCode') && is_int($e->getCode()) && $e->getCode() >= 400
@@ -112,6 +111,20 @@ class PythonAnalyticsClient
 
     private function responseResult(Response $response, string $path): array
     {
+        $body = $response->body();
+        $isCloudflareChallenge = in_array($response->status(), [403, 429], true)
+            || str_contains($body, '<!DOCTYPE html>')
+            || str_contains($body, 'challenges.cloudflare.com');
+
+        if ($isCloudflareChallenge) {
+            return $this->unavailable(
+                $path,
+                $response->status(),
+                'cloudflare_blocked',
+                'La respuesta de satre-analytics fue bloqueada por Cloudflare.',
+            );
+        }
+
         $json = $response->json();
 
         if (! $response->failed() && is_array($json)) {
