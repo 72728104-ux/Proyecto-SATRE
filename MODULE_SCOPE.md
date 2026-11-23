@@ -1,37 +1,34 @@
-# Alcance del mÃ³dulo INT-003
+# Alcance del mÃ³dulo INT-004
 
-**FunciÃ³n:** usuarios y autenticaciÃ³n
+**FunciÃ³n:** gestiÃ³n acadÃ©mica
 
 ## BOLTs incluidos
 
-- `INT-003-BOLT-001`
-- `INT-003-BOLT-002`
-- `INT-003-BOLT-003`
-- `INT-003-BOLT-004`
-- `INT-003-BOLT-005`
-- `INT-003-BOLT-006`
-- `INT-003-BOLT-007`
-- `INT-003-BOLT-008`
-- `INT-003-BOLT-009`
-- `INT-003-BOLT-010`
-- `INT-003-BOLT-011`
-- `INT-003-BOLT-012`
-- `INT-003-BOLT-013`
-- `INT-003-BOLT-014`
-- `INT-003-BOLT-015`
+- `INT-004-BOLT-001`
+- `INT-004-BOLT-002`
+- `INT-004-BOLT-003`
+- `INT-004-BOLT-004`
+- `INT-004-BOLT-005`
+- `INT-004-BOLT-006`
+- `INT-004-BOLT-007`
+- `INT-004-BOLT-008`
+- `INT-004-BOLT-009`
+- `INT-004-BOLT-010`
+- `INT-004-BOLT-011`
+- `INT-004-BOLT-012`
+- `INT-004-BOLT-013`
+- `INT-004-BOLT-014`
 
 ## Rutas principales
 
-- `satre-backend/app/Services/AuthService.php`
-- `satre-backend/app/Http/Controllers/AuthController.php`
-- `satre-backend/app/Models/User.php`
-- `satre-backend/app/Models/Role.php`
-- `satre-backend/app/Http/Middleware/`
-- `satre-backend/app/Policies/`
-- `coar-alerta-frontend/src/api/auth.js`
-- `coar-alerta-frontend/src/context/AuthContext.jsx`
-- `coar-alerta-frontend/src/pages/auth/`
+- `satre-backend/app/Services/GradeService.php`
+- `satre-backend/app/Services/AttendanceService.php`
+- `satre-backend/app/Http/Controllers/GradeController.php`
+- `satre-backend/app/Http/Controllers/AttendanceController.php`
+- `satre-backend/app/Http/Controllers/CourseController.php`
+- `coar-alerta-frontend/src/api/teacher.js`
+- `coar-alerta-frontend/src/pages/`
 
 ## Rama GitHub
 
-https://github.com/72728104-ux/Proyecto-SATRE/tree/feat/INT-003-usuarios-autenticacion
+https://github.com/72728104-ux/Proyecto-SATRE/tree/feat/INT-004-gestion-academica
