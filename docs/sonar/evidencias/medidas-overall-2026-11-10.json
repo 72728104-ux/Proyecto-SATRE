@@ -1,0 +1,116 @@
+﻿{
+    "component":  {
+                      "key":  "uc-group4612142_satre",
+                      "name":  "SATRE",
+                      "qualifier":  "TRK",
+                      "measures":  [
+                                       {
+                                           "metric":  "coverage",
+                                           "value":  "86.7",
+                                           "bestValue":  false
+                                       },
+                                       {
+                                           "metric":  "complexity",
+                                           "value":  "4469"
+                                       },
+                                       {
+                                           "metric":  "code_smells",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "duplicated_lines_density",
+                                           "value":  "1.1",
+                                           "bestValue":  false
+                                       },
+                                       {
+                                           "metric":  "ncloc_language_distribution",
+                                           "value":  "css=37;docker=46;js=8611;php=11449;py=3007"
+                                       },
+                                       {
+                                           "metric":  "duplicated_lines",
+                                           "value":  "321",
+                                           "bestValue":  false
+                                       },
+                                       {
+                                           "metric":  "software_quality_security_rating",
+                                           "value":  "1.0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "violations",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "software_quality_security_issues",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "security_hotspots",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "bugs",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "software_quality_reliability_issues",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "branch_coverage",
+                                           "value":  "73.3",
+                                           "bestValue":  false
+                                       },
+                                       {
+                                           "metric":  "cognitive_complexity",
+                                           "value":  "2279",
+                                           "bestValue":  false
+                                       },
+                                       {
+                                           "metric":  "duplicated_blocks",
+                                           "value":  "19",
+                                           "bestValue":  false
+                                       },
+                                       {
+                                           "metric":  "ncloc",
+                                           "value":  "23150"
+                                       },
+                                       {
+                                           "metric":  "software_quality_maintainability_issues",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "software_quality_reliability_rating",
+                                           "value":  "1.0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "vulnerabilities",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "line_coverage",
+                                           "value":  "90.3",
+                                           "bestValue":  false
+                                       },
+                                       {
+                                           "metric":  "open_issues",
+                                           "value":  "0",
+                                           "bestValue":  true
+                                       },
+                                       {
+                                           "metric":  "software_quality_maintainability_rating",
+                                           "value":  "1.0",
+                                           "bestValue":  true
+                                       }
+                                   ]
+                  }
+}

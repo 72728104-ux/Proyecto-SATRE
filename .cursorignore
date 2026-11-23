@@ -1,0 +1,9 @@
+vendor/
+node_modules/
+dist/
+storage/
+*.sqlite
+.env
+*.log
+composer.lock
+package-lock.json

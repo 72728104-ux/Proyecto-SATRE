@@ -1,0 +1,12 @@
+# SATRE §8 — /etc/cron.d/satre
+# Copiar backup: cp deploy/scripts/backup-mysql.sh /usr/local/sbin/satre-backup-mysql && chmod 700 ...
+# Variables MYSQL_* y REMOTE_TARGET en /etc/environment o wrapper.
+
+SHELL=/bin/bash
+CRON_TZ=America/Lima
+
+# Laravel scheduler (§4.7 batch 02:00)
+* * * * * www-data cd /var/www/satre-backend && php artisan schedule:run >> /var/log/satre-scheduler.log 2>&1
+
+# Respaldo diario MySQL → almacenamiento remoto (rotación en el script)
+0 3 * * * root /usr/local/sbin/satre-backup-mysql >> /var/log/satre-backup.log 2>&1

@@ -1,0 +1,5 @@
+*.sh text eol=lf
+deploy/cron/satre text eol=lf
+deploy/logrotate/satre text eol=lf
+docker-compose.yml text eol=lf
+.github/workflows/*.yml text eol=lf

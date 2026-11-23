@@ -1,0 +1,22 @@
+/var/www/satre-backend/storage/logs/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+    su www-data www-data
+}
+
+/var/log/satre-scheduler.log
+/var/log/satre-backup.log
+/var/log/supervisor/satre-*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+}
