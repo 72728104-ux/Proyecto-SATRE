@@ -8,6 +8,7 @@ use App\Models\AiDiagnostic;
 use App\Models\Classroom;
 use App\Models\RiskPrediction;
 use App\Models\Student;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -163,7 +164,7 @@ class AnalyticsService
         return $prediction;
     }
 
-    public function refreshClassroomRiskOnce(int $classroomId, int $periodId): void
+    public function refreshClassroomRiskOnce(int $classroomId, int $periodId, bool $force = false): void
     {
         $lockKey = "risk-refresh:{$periodId}:{$classroomId}";
 
@@ -172,13 +173,7 @@ class AnalyticsService
         }
 
         try {
-            $freshExists = RiskPrediction::query()
-                ->where('academic_period_id', $periodId)
-                ->where('predicted_at', '>', now()->subHours(self::RISK_TTL_HOURS))
-                ->whereHas('student', fn ($query) => $query->where('classroom_id', $classroomId))
-                ->exists();
-
-            if ($freshExists) {
+            if (! $force && $this->classroomRiskIsFresh($classroomId, $periodId)) {
                 return;
             }
 
@@ -194,6 +189,78 @@ class AnalyticsService
         } finally {
             Cache::forget($lockKey);
         }
+    }
+
+    /**
+     * Vista de riesgo del aula: una sola llamada agrupada a `/v1/batch/risk`
+     * por aula (nunca una petición HTTP por estudiante en paralelo).
+     *
+     * @return array{available: bool, data: Collection<int, RiskPrediction>}
+     */
+    public function classroomRisk(Classroom $classroom, bool $force = false): array
+    {
+        $periodId = (int) ($classroom->academic_period_id
+            ?? AcademicPeriod::query()->where('is_current', true)->value('id'));
+
+        if ($periodId === 0) {
+            return ['available' => false, 'data' => new Collection];
+        }
+
+        $this->refreshClassroomRiskOnce((int) $classroom->id, $periodId, $force);
+
+        $predictions = $this->latestClassroomPredictions((int) $classroom->id, $periodId);
+
+        return [
+            'available' => $predictions->isNotEmpty(),
+            'data' => $predictions,
+        ];
+    }
+
+    /**
+     * @return Collection<int, RiskPrediction>
+     */
+    private function latestClassroomPredictions(int $classroomId, int $periodId): Collection
+    {
+        $ids = RiskPrediction::query()
+            ->where('academic_period_id', $periodId)
+            ->whereHas('student', fn ($query) => $query->where('classroom_id', $classroomId))
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('student_id')
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return new Collection;
+        }
+
+        return RiskPrediction::query()
+            ->with('student')
+            ->whereIn('id', $ids)
+            ->get();
+    }
+
+    /**
+     * Solo se evita el batch cuando todos los estudiantes activos del aula
+     * ya tienen una predicción vigente.
+     */
+    private function classroomRiskIsFresh(int $classroomId, int $periodId): bool
+    {
+        $students = Student::query()
+            ->where('classroom_id', $classroomId)
+            ->where('status', 'active')
+            ->count();
+
+        if ($students === 0) {
+            return true;
+        }
+
+        $covered = RiskPrediction::query()
+            ->where('academic_period_id', $periodId)
+            ->where('predicted_at', '>', now()->subHours(self::RISK_TTL_HOURS))
+            ->whereHas('student', fn ($query) => $query->where('classroom_id', $classroomId)->where('status', 'active'))
+            ->distinct()
+            ->count('student_id');
+
+        return $covered >= $students;
     }
 
     private function isFresh(?RiskPrediction $prediction): bool

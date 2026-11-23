@@ -11,6 +11,7 @@ const {
   fetchAttendanceSession,
   fetchClassroomAnalytics,
   fetchClassroomInsights,
+  fetchClassroomRisk,
   fetchCourseRoster,
   fetchGrades,
   fetchStudentRisk,
@@ -92,6 +93,17 @@ describe('api/teacher', () => {
 
     await fetchStudentRisk(3, { refresh: true, signal })
     expect(apiRequest).toHaveBeenCalledWith('/ai-analytics/students/3/risk?refresh=1', {
+      silent: true,
+      signal,
+    })
+  })
+
+  it('fetchClassroomRisk agrupa el aula en una sola llamada silenciosa', async () => {
+    await fetchClassroomRisk(1)
+    expect(apiRequest).toHaveBeenCalledWith('/ai-analytics/classrooms/1/risk', { silent: true })
+
+    await fetchClassroomRisk(1, { refresh: true, signal })
+    expect(apiRequest).toHaveBeenCalledWith('/ai-analytics/classrooms/1/risk?refresh=1', {
       silent: true,
       signal,
     })

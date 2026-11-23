@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Brain, Download, RefreshCw, ShieldAlert, UserSearch, Users } from 'lucide-react'
-import { exportClassroomReport, fetchStudentRisk } from '../../api/teacher'
+import { exportClassroomReport, fetchClassroomRisk } from '../../api/teacher'
 import EmptyState from '../../components/EmptyState'
 import Field from '../../components/Field'
 import Skeleton, { SkeletonList } from '../../components/Skeleton'
@@ -95,25 +95,18 @@ export default function DashboardTutor() {
 
   const risks = useApi(
     async ({ signal }) => {
-      if (!roster.data) return null
+      if (!roster.data?.length || !scope.classroomId) return []
       const refresh = forceRefresh.current
       forceRefresh.current = false
-      return Promise.all(
-        roster.data.map((student) =>
-          fetchStudentRisk(student.student_id, { signal, refresh })
-            .then((payload) => ({
-              student,
-              risk: payload.available ? payload.data : null,
-              available: Boolean(payload.available),
-            }))
-            .catch((error) => {
-              if (error.kind === 'aborted') throw error
-              return { student, risk: null, available: false }
-            }),
-        ),
-      )
+      const payload = await fetchClassroomRisk(scope.classroomId, { signal, refresh })
+      const byStudent = new Map((payload.data ?? []).map((risk) => [risk.student_id, risk]))
+      return roster.data.map((student) => ({
+        student,
+        risk: byStudent.get(student.student_id) ?? null,
+        available: Boolean(payload.available) && byStudent.has(student.student_id),
+      }))
     },
-    [roster.data],
+    [roster.data, scope.classroomId],
   )
 
   const recalculateRisk = () => {

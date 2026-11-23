@@ -3,12 +3,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../components/Toast'
 import DashboardTutor from './DashboardTutor'
-import { exportClassroomReport, fetchCourseRoster, fetchStudentRisk, fetchTeacherCourses } from '../../api/teacher'
+import { exportClassroomReport, fetchClassroomRisk, fetchCourseRoster, fetchTeacherCourses } from '../../api/teacher'
 
 vi.mock('../../api/teacher', () => ({
   fetchTeacherCourses: vi.fn(),
   fetchCourseRoster: vi.fn(),
-  fetchStudentRisk: vi.fn(),
+  fetchClassroomRisk: vi.fn(),
   exportClassroomReport: vi.fn(),
 }))
 
@@ -22,16 +22,18 @@ const roster = [
 
 const risk = {
   available: true,
-  data: {
-    student_id: 3,
-    risk_level: 'BAJO',
-    risk_score: 12,
-    data_coverage: 0.25,
-    insufficient_data: false,
-    needs_human_review: false,
-    recommendation: 'Seguimiento regular.',
-    factors: [],
-  },
+  data: [
+    {
+      student_id: 3,
+      risk_level: 'BAJO',
+      risk_score: 12,
+      data_coverage: 0.25,
+      insufficient_data: false,
+      needs_human_review: false,
+      recommendation: 'Seguimiento regular.',
+      factors: [],
+    },
+  ],
 }
 
 const LONG = { timeout: 12000 }
@@ -64,7 +66,7 @@ describe('DashboardTutor', () => {
   beforeEach(() => {
     fetchTeacherCourses.mockResolvedValue(courses)
     fetchCourseRoster.mockResolvedValue(roster)
-    fetchStudentRisk.mockResolvedValue(risk)
+    fetchClassroomRisk.mockResolvedValue(risk)
     exportClassroomReport.mockResolvedValue({ blob: new Blob(), filename: 'reporte.pdf' })
   })
 
@@ -76,12 +78,12 @@ describe('DashboardTutor', () => {
   it('fuerza el recálculo de riesgo sin recargar la página', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByText('Chávez Poma, Valeria')).toBeTruthy(), LONG)
-    expect(fetchStudentRisk).toHaveBeenLastCalledWith(3, expect.objectContaining({ refresh: false }))
+    expect(fetchClassroomRisk).toHaveBeenLastCalledWith(1, expect.objectContaining({ refresh: false }))
 
     fireEvent.click(screen.getByRole('button', { name: /Recalcular Riesgo/i }))
 
     await waitFor(() =>
-      expect(fetchStudentRisk).toHaveBeenLastCalledWith(3, expect.objectContaining({ refresh: true })),
+      expect(fetchClassroomRisk).toHaveBeenLastCalledWith(1, expect.objectContaining({ refresh: true })),
     )
     expect(screen.getByText('Chávez Poma, Valeria')).toBeTruthy()
   })
@@ -112,23 +114,21 @@ describe('DashboardTutor', () => {
       roster[0],
       { student_id: 4, student_code: 'EST-0004', first_name: 'Luis', last_name: 'Quispe' },
     ])
-    fetchStudentRisk.mockImplementation((studentId) =>
-      Promise.resolve({
-        available: true,
-        data:
-          studentId === 3
-            ? {
-                ...risk.data,
-                risk_level: 'ALTO',
-                needs_human_review: true,
-                factors: [
-                  { key: 'attendance', label: 'Inasistencias', contribution: 2.4 },
-                  { key: 'grades', label: 'Notas', contribution: 1.2 },
-                ],
-              }
-            : { ...risk.data, risk_level: 'BAJO' },
-      }),
-    )
+    fetchClassroomRisk.mockResolvedValue({
+      available: true,
+      data: [
+        {
+          ...risk.data[0],
+          risk_level: 'ALTO',
+          needs_human_review: true,
+          factors: [
+            { key: 'attendance', label: 'Inasistencias', contribution: 2.4 },
+            { key: 'grades', label: 'Notas', contribution: 1.2 },
+          ],
+        },
+        { ...risk.data[0], student_id: 4, risk_level: 'BAJO' },
+      ],
+    })
 
     renderPage()
 
@@ -143,7 +143,7 @@ describe('DashboardTutor', () => {
   })
 
   it('explica el fallo del motor analítico y el filtro sin datos', async () => {
-    fetchStudentRisk.mockResolvedValue({ available: false, data: null })
+    fetchClassroomRisk.mockResolvedValue({ available: false, data: [] })
 
     renderPage()
 

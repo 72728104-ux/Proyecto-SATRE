@@ -34,6 +34,18 @@ export const fetchStudentRisk = (studentId, options = {}) => {
   })
 }
 
+/**
+ * Riesgo de todo el aula en una sola llamada (`GET /ai-analytics/classrooms/{id}/risk`).
+ * Evita la ráfaga de una petición por estudiante contra satre-analytics/Cloudflare.
+ */
+export const fetchClassroomRisk = (classroomId, options = {}) => {
+  const { refresh = false, ...requestOptions } = options
+  return apiRequest(withQuery(`/ai-analytics/classrooms/${classroomId}/risk`, refresh ? { refresh: 1 } : {}), {
+    silent: true,
+    ...requestOptions,
+  })
+}
+
 /** `{ available, stale, generated_at, data: { insufficient_data, courses, top_gaps, error_matrix } }`. */
 export const fetchClassroomInsights = (classroomId, options) =>
   apiRequest(`/ai-analytics/teacher/insights/${classroomId}`, { silent: true, ...options })

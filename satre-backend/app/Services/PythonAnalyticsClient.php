@@ -11,7 +11,9 @@ use Throwable;
 
 /**
  * Único cliente HTTP hacia satre-analytics (§2, §4.6, §5).
- * Timeout 30 s y Http::retry(3, 1000) hacia http://127.0.0.1:8001.
+ * En Render el servicio se consume por su URL pública, detrás de Cloudflare:
+ * se envían cabeceras de cliente legítimo, se reintenta una sola vez ante 429
+ * y se cachean 10 min las respuestas exitosas de insights y batch.
  * Nunca lanza: si Python falla devuelve ['available' => false, 'status' => ?int].
  */
 class PythonAnalyticsClient
@@ -19,6 +21,12 @@ class PythonAnalyticsClient
     private const ATTEMPTS = 3;
 
     private const RETRY_SLEEP_MS = 1000;
+
+    private const RATE_LIMIT_SLEEP_US = 1500000;
+
+    private const CACHE_MINUTES = 10;
+
+    private const USER_AGENT = 'Mozilla/5.0 (compatible; SATRE-Backend/1.0; +https://satre-coar-junin.netlify.app)';
 
     public function studentRisk(int $studentId, ?int $periodId = null): array
     {
@@ -29,7 +37,7 @@ class PythonAnalyticsClient
     {
         $cacheKey = "analytics:risk-batch:{$periodId}:{$classroomId}";
 
-        return Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->send(
+        return $this->rememberSuccessful($cacheKey, fn () => $this->send(
             'post',
             '/v1/batch/risk',
             [
@@ -43,11 +51,29 @@ class PythonAnalyticsClient
     {
         $cacheKey = "analytics:insights:{$classroomId}:{$periodId}";
 
-        return Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->send(
+        return $this->rememberSuccessful($cacheKey, fn () => $this->send(
             'get',
             "/v1/classrooms/$classroomId/insights",
             array_filter(['period_id' => $periodId]),
         ));
+    }
+
+    /**
+     * Cache::remember solo conserva respuestas exitosas; los fallos se olvidan
+     * de inmediato para no bloquear el siguiente intento durante 10 minutos.
+     *
+     * @param  callable(): array<string, mixed>  $callback
+     * @return array<string, mixed>
+     */
+    private function rememberSuccessful(string $cacheKey, callable $callback): array
+    {
+        $result = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_MINUTES), $callback);
+
+        if (! ($result['available'] ?? false)) {
+            Cache::forget($cacheKey);
+        }
+
+        return $result;
     }
 
     /**
@@ -106,24 +132,56 @@ class PythonAnalyticsClient
             return $this->unavailable($path, null, 'not_configured');
         }
 
-        try {
-            $response = Http::withHeaders([
-                'Accept' => 'application/json',
-                'User-Agent' => 'SATRE-Backend/1.0',
-                'X-Internal-Key' => (string) config('services.python_analytics.key'),
-            ])
-                ->acceptJson()
-                ->timeout($timeout ?? (int) config('services.python_analytics.timeout', 30))
-                ->{$method}(rtrim($baseUrl, '/').$path, $data);
-        } catch (Throwable $e) {
-            $status = method_exists($e, 'getCode') && is_int($e->getCode()) && $e->getCode() >= 400
-                ? $e->getCode()
-                : null;
+        $timeout ??= (int) config('services.python_analytics.timeout', 30);
+        $attempts = max(1, $attempts ?? self::ATTEMPTS);
+        $retrySleepMs = max(0, $retrySleepMs ?? self::RETRY_SLEEP_MS);
+        $rateLimitRetried = false;
 
-            return $this->unavailable($path, $status, class_basename($e), $e->getMessage());
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            try {
+                $response = Http::withHeaders([
+                    'Accept' => 'application/json',
+                    'User-Agent' => self::USER_AGENT,
+                    'X-Internal-Key' => (string) config('services.python_analytics.key'),
+                ])
+                    ->acceptJson()
+                    ->timeout($timeout)
+                    ->{$method}(rtrim($baseUrl, '/').$path, $data);
+            } catch (Throwable $e) {
+                if ($attempt < $attempts) {
+                    usleep($retrySleepMs * 1000);
+
+                    continue;
+                }
+
+                $status = method_exists($e, 'getCode') && is_int($e->getCode()) && $e->getCode() >= 400
+                    ? $e->getCode()
+                    : null;
+
+                return $this->unavailable($path, $status, class_basename($e), $e->getMessage());
+            }
+
+            if ($response->status() === 429) {
+                if (! $rateLimitRetried && $attempt < $attempts) {
+                    $rateLimitRetried = true;
+                    usleep(self::RATE_LIMIT_SLEEP_US);
+
+                    continue;
+                }
+
+                return $this->responseResult($response, $path);
+            }
+
+            if ($response->serverError() && $attempt < $attempts) {
+                usleep($retrySleepMs * 1000);
+
+                continue;
+            }
+
+            return $this->responseResult($response, $path);
         }
 
-        return $this->responseResult($response, $path);
+        return $this->unavailable($path, null, 'retry_exhausted');
     }
 
     private function responseResult(Response $response, string $path): array

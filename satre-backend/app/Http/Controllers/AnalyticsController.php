@@ -29,6 +29,22 @@ class AnalyticsController extends Controller
         return response()->json($analytics->classroomInsights($classroom));
     }
 
+    /**
+     * Riesgo de todo el aula en una sola respuesta: el backend dispara como
+     * máximo una llamada agrupada a `/v1/batch/risk`, nunca una por estudiante.
+     */
+    public function classroomRisk(Request $request, Classroom $classroom, AnalyticsService $analytics): JsonResponse
+    {
+        $this->authorize('viewInsights', $classroom);
+
+        $result = $analytics->classroomRisk($classroom, $request->boolean('refresh'));
+
+        return response()->json([
+            'available' => $result['available'],
+            'data' => RiskPredictionResource::collection($result['data']),
+        ]);
+    }
+
     public function teacherAssistant(TeacherAssistantRequest $request, TeacherAssistantService $assistant): JsonResponse
     {
         $classroom = Classroom::query()->findOrFail($request->validated('classroom_id'));

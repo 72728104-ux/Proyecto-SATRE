@@ -13,6 +13,7 @@ use App\Models\Role;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Services\PythonAnalyticsClient;
 use App\Support\Roles;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -146,6 +147,99 @@ class AnalyticsBridgeTest extends TestCase
             ->assertForbidden();
 
         Http::assertNothingSent();
+    }
+
+    // --- Cloudflare / Render (URL pública) --------------------------------
+
+    public function test_analytics_requests_use_legit_client_headers(): void
+    {
+        Http::fake([self::BASE_URL.'/*' => Http::response($this->insightsPayload())]);
+
+        app(PythonAnalyticsClient::class)->classroomInsights($this->classroom->id, $this->period->id);
+
+        Http::assertSent(fn (Request $request) => $request->hasHeader('Accept', 'application/json')
+            && $request->hasHeader(
+                'User-Agent',
+                'Mozilla/5.0 (compatible; SATRE-Backend/1.0; +https://satre-coar-junin.netlify.app)',
+            )
+            && $request->hasHeader('X-Internal-Key', 'test-internal-key'));
+    }
+
+    public function test_429_waits_and_retries_once_before_succeeding(): void
+    {
+        Http::fakeSequence()
+            ->push(['message' => 'rate limited'], 429)
+            ->push($this->riskPayload(RiskPrediction::LEVEL_MEDIUM));
+
+        $result = app(PythonAnalyticsClient::class)->studentRisk($this->student->id, $this->period->id);
+
+        $this->assertTrue($result['available']);
+        Http::assertSentCount(2);
+    }
+
+    public function test_429_twice_marks_analytics_unavailable_after_one_retry(): void
+    {
+        Http::fakeSequence()
+            ->push(['message' => 'rate limited'], 429)
+            ->push(['message' => 'rate limited'], 429)
+            ->push($this->riskPayload(RiskPrediction::LEVEL_MEDIUM));
+
+        $result = app(PythonAnalyticsClient::class)->studentRisk($this->student->id, $this->period->id);
+
+        $this->assertFalse($result['available']);
+        $this->assertSame(429, $result['status']);
+        $this->assertSame('cloudflare_blocked', $result['reason']);
+        Http::assertSentCount(2);
+    }
+
+    public function test_successful_insights_and_batch_are_cached_for_ten_minutes(): void
+    {
+        Http::fake([
+            self::BASE_URL.self::BATCH_RISK_ENDPOINT => Http::response([
+                'period_id' => $this->period->id,
+                'classroom_id' => $this->classroom->id,
+                'results' => [$this->riskPayload(RiskPrediction::LEVEL_MEDIUM)],
+            ]),
+            self::BASE_URL.self::CLASSROOMS_ENDPOINT_PATTERN => Http::response($this->insightsPayload()),
+        ]);
+
+        $client = app(PythonAnalyticsClient::class);
+
+        $client->batchRisk($this->period->id, $this->classroom->id);
+        $client->batchRisk($this->period->id, $this->classroom->id);
+        $client->classroomInsights($this->classroom->id, $this->period->id);
+        $client->classroomInsights($this->classroom->id, $this->period->id);
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_classroom_risk_uses_one_batch_call_and_no_per_student_requests(): void
+    {
+        $second = Student::factory()->create([
+            'classroom_id' => $this->classroom->id,
+            'status' => 'active',
+        ]);
+
+        Http::fake([
+            self::BASE_URL.self::BATCH_RISK_ENDPOINT => Http::response([
+                'period_id' => $this->period->id,
+                'classroom_id' => $this->classroom->id,
+                'results' => [
+                    $this->riskPayload(RiskPrediction::LEVEL_HIGH),
+                    ['student_id' => $second->id] + $this->riskPayload(RiskPrediction::LEVEL_MEDIUM),
+                ],
+            ]),
+        ]);
+
+        $this->actingAs($this->teacherUser, 'sanctum')
+            ->getJson("/api/ai-analytics/classrooms/{$this->classroom->id}/risk")
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonCount(2, 'data');
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request) => $request->url() === self::BASE_URL.self::BATCH_RISK_ENDPOINT
+            && $request['classroom_id'] === $this->classroom->id);
     }
 
     // --- Riesgo por estudiante --------------------------------------------

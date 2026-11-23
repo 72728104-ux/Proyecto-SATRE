@@ -102,6 +102,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
 
     Route::prefix('ai-analytics')->group(function () {
         Route::get('/teacher/insights/{classroom}', [AnalyticsController::class, 'teacherInsights'])->middleware('role:admin,teacher');
+        Route::get('/classrooms/{classroom}/risk', [AnalyticsController::class, 'classroomRisk'])->middleware('role:admin,teacher');
         Route::get('/students/{student}/risk', [AnalyticsController::class, 'studentRisk'])->middleware('role:admin,teacher,monitor,student,guardian');
         Route::post('/student/socratic-tutor', [AnalyticsController::class, 'socraticTurn'])->middleware(['role:student', 'throttle:60,1']);
         Route::get('/student/socratic-tutor/sessions', [AnalyticsController::class, 'socraticSessions'])->middleware('role:student');
