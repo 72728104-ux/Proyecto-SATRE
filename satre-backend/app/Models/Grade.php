@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Concerns\MineduScale;
+use App\Support\Roles;
+use Database\Factories\GradeFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Grade extends Model
+{
+    /** @use HasFactory<GradeFactory> */
+    use HasFactory, MineduScale, SoftDeletes;
+
+    public const MIN_SCORE = 0;
+
+    public const MAX_SCORE = 20;
+
+    public const PASSING_SCORE = 11;
+
+    public const CRITERIA = ['A', 'B', 'C', 'D'];
+
+    protected $attributes = [
+        'max_score' => self::MAX_SCORE,
+    ];
+
+    protected $fillable = [
+        'student_id',
+        'course_id',
+        'academic_period_id',
+        'evaluation_name',
+        'criterion',
+        'evaluation_date',
+        'score',
+        'max_score',
+        'recorded_by',
+        'recorded_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'score' => 'decimal:2',
+            'max_score' => 'decimal:2',
+            'evaluation_date' => 'date',
+            'recorded_at' => 'datetime',
+        ];
+    }
+
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->hasRole(Roles::ADMIN)) {
+            return $query;
+        }
+
+        if ($user->hasRole(Roles::STUDENT)) {
+            return $query->where('student_id', $user->student?->id ?? 0);
+        }
+
+        return $query->whereHas('course', fn (Builder $course) => $course->where('teacher_id', $user->teacher?->id ?? 0));
+    }
+
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(Student::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
+    }
+
+    public function academicPeriod(): BelongsTo
+    {
+        return $this->belongsTo(AcademicPeriod::class);
+    }
+
+    public function recorder(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
+    }
+}
