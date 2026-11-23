@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --color-navy-50: #eef4f8;
+  --color-navy-800: #1b4664;
+  --color-navy-900: #12344c;
+  --color-navy-950: #0b2233;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+@keyframes landing-kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+.landing-hero-media {
+  animation: landing-kenburns 18s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-media {
+    animation: none;
+  }
+}
