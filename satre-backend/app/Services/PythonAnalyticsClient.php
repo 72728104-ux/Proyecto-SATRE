@@ -6,6 +6,7 @@ use App\Support\AnalyticsPrivacy;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
@@ -26,15 +27,27 @@ class PythonAnalyticsClient
 
     public function batchRisk(int $periodId, ?int $classroomId = null): array
     {
-        return $this->send('post', '/v1/batch/risk', [
-            'period_id' => $periodId,
-            'classroom_id' => $classroomId,
-        ]);
+        $cacheKey = "analytics:risk-batch:{$periodId}:{$classroomId}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->send(
+            'post',
+            '/v1/batch/risk',
+            [
+                'period_id' => $periodId,
+                'classroom_id' => $classroomId,
+            ],
+        ));
     }
 
     public function classroomInsights(int $classroomId, ?int $periodId = null): array
     {
-        return $this->send('get', "/v1/classrooms/$classroomId/insights", array_filter(['period_id' => $periodId]));
+        $cacheKey = "analytics:insights:{$classroomId}:{$periodId}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->send(
+            'get',
+            "/v1/classrooms/$classroomId/insights",
+            array_filter(['period_id' => $periodId]),
+        ));
     }
 
     /**
@@ -94,7 +107,11 @@ class PythonAnalyticsClient
         }
 
         try {
-            $response = Http::withHeaders(['X-Internal-Key' => (string) config('services.python_analytics.key')])
+            $response = Http::withHeaders([
+                'Accept' => 'application/json',
+                'User-Agent' => 'SATRE-Backend/1.0',
+                'X-Internal-Key' => (string) config('services.python_analytics.key'),
+            ])
                 ->acceptJson()
                 ->timeout($timeout ?? (int) config('services.python_analytics.timeout', 30))
                 ->{$method}(rtrim($baseUrl, '/').$path, $data);

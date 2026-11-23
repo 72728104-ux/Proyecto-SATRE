@@ -144,18 +144,59 @@ class TeacherAssistantService
 
     private function replyFromGeminiText(string $text, ?string $criterion): array
     {
-        $parsed = json_decode($text, true);
-        if (is_array($parsed) && (filled($parsed['text'] ?? null) || filled($parsed['summary'] ?? null))) {
-            return $this->publicReply($parsed + ['available' => true], $criterion);
+        $clean = trim(preg_replace('/^```(?:json)?\s*/i', '', trim($text)) ?? trim($text));
+        $clean = trim(preg_replace('/\s*```$/', '', $clean) ?? $clean);
+
+        $decoded = json_decode($clean, true);
+        if (is_array($decoded)) {
+            $decodedText = trim((string) ($decoded['text'] ?? $decoded['summary'] ?? ''));
+
+            if ($decodedText === '') {
+                $decodedText = $this->structuredText($decoded);
+            }
+
+            return $this->publicReply([
+                'available' => true,
+                'text' => $decodedText,
+                'summary' => filled($decoded['summary'] ?? null) ? (string) $decoded['summary'] : null,
+                'actions' => $decoded['actions'] ?? $decoded['recommended_actions'] ?? [],
+                'materials' => $decoded['materials'] ?? $decoded['suggested_materials'] ?? [],
+                'criterion_focus' => $decoded['criterion_focus'] ?? $criterion,
+            ], $criterion);
         }
 
         return $this->publicReply([
             'available' => true,
-            'text' => trim($text),
+            'text' => $clean,
             'summary' => null,
             'actions' => [],
             'materials' => [],
         ], $criterion);
+    }
+
+    /** @param array<string, mixed> $value */
+    private function structuredText(array $value): string
+    {
+        $lines = [];
+
+        foreach ($value as $key => $item) {
+            $label = ucwords(str_replace('_', ' ', (string) $key));
+
+            if (is_array($item)) {
+                $items = array_values(array_filter(array_map(
+                    fn (mixed $child) => is_scalar($child) ? trim((string) $child) : null,
+                    $item,
+                )));
+
+                if ($items !== []) {
+                    $lines[] = $label.': '.implode(', ', $items);
+                }
+            } elseif (is_scalar($item) && trim((string) $item) !== '') {
+                $lines[] = $label.': '.trim((string) $item);
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

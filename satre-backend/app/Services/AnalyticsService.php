@@ -87,13 +87,13 @@ class AnalyticsService
                 ?? AcademicPeriod::query()->where('is_current', true)->value('id');
 
             if ($periodId !== null) {
-                if ($student->classroom_id) {
+                if ($student->classroom_id !== null) {
                     $this->refreshClassroomRiskOnce((int) $student->classroom_id, (int) $periodId);
 
-                    $result = $this->latestPrediction($student) ?? $prediction;
-                } else {
-                    $result = $this->refreshStudentRisk($student, (int) $periodId) ?? $prediction;
+                    return $this->latestPrediction($student);
                 }
+
+                $result = $this->refreshStudentRisk($student, (int) $periodId) ?? $prediction;
             }
         }
 
