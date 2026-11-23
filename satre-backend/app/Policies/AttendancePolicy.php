@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Policies;
+
+use App\Models\Attendance;
+use App\Models\Course;
+use App\Models\User;
+use App\Support\Roles;
+
+class AttendancePolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return $user->hasRole(Roles::ADMIN, Roles::TEACHER, Roles::STUDENT);
+    }
+
+    public function create(User $user, ?Course $course = null): bool
+    {
+        if ($user->hasRole(Roles::ADMIN)) {
+            return true;
+        }
+
+        if (! $user->hasRole(Roles::TEACHER) || $course === null) {
+            return $user->hasRole(Roles::TEACHER);
+        }
+
+        return $user->teacher !== null && $user->teacher->id === $course->teacher_id;
+    }
+
+    public function view(User $user, Attendance $attendance): bool
+    {
+        if ($user->hasRole(Roles::ADMIN)) {
+            return true;
+        }
+
+        if ($user->hasRole(Roles::TEACHER)) {
+            return $this->teachesCourse($user, $attendance->course);
+        }
+
+        return $user->hasRole(Roles::STUDENT)
+            && $user->student?->id === $attendance->student_id;
+    }
+
+    public function update(User $user, Attendance $attendance): bool
+    {
+        if ($user->hasRole(Roles::ADMIN)) {
+            return true;
+        }
+
+        return $user->hasRole(Roles::TEACHER) && $this->teachesCourse($user, $attendance->course);
+    }
+
+    private function teachesCourse(User $user, ?Course $course): bool
+    {
+        return $course !== null && $user->teacher !== null && $user->teacher->id === $course->teacher_id;
+    }
+}
