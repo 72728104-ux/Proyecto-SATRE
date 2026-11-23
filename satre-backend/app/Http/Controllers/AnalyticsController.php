@@ -59,6 +59,10 @@ class AnalyticsController extends Controller
             ]);
         }
 
+        if (($result['status'] ?? null) === 503) {
+            return response()->json($result, 503);
+        }
+
         return response()->json($result);
     }
 
@@ -130,7 +134,9 @@ class AnalyticsController extends Controller
         }
 
         if (! $result['available']) {
-            return response()->json($result);
+            $status = ($result['status'] ?? null) === 503 ? 503 : 200;
+
+            return response()->json($result, $status);
         }
 
         return response()->json([

@@ -111,7 +111,7 @@ class TeacherAssistantService
             ];
         }
 
-        Log::warning('teacher assistant: Gemini 1.5-flash no disponible', [
+        Log::warning('teacher assistant: modelos Gemini no disponibles', [
             'reason' => $direct['reason'] ?? $reason,
             'message' => $direct['message'] ?? null,
         ]);
@@ -121,6 +121,7 @@ class TeacherAssistantService
             'data' => null,
             'reason' => $direct['reason'] ?? $reason,
             'message' => 'El asistente docente no está disponible en este momento.',
+            'status' => ($direct['status'] ?? null) === 503 ? 503 : null,
         ];
     }
 

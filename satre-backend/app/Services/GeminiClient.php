@@ -8,12 +8,19 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Cliente HTTP hacia Gemini (SATRE TOBE-4). Reintentos Http::retry(3, 1000)
- * y modelo operativo gemini-1.5-flash. Nunca lanza al caller.
+ * Cliente HTTP hacia Gemini (SATRE TOBE-4). Prueba modelos configurados
+ * en orden de prioridad y nunca lanza excepciones al caller.
  */
 class GeminiClient
 {
-    public const MODEL = 'gemini-1.5-flash';
+    public const MODEL = 'gemini-3.1-flash-lite-preview';
+
+    /** @var list<string> */
+    public const FALLBACK_MODELS = [
+        'gemini-3.1-flash-lite-preview',
+        'gemini-2.5-flash',
+        'gemini-2.5-flash-lite',
+    ];
 
     public const ATTEMPTS = 3;
 
@@ -25,51 +32,63 @@ class GeminiClient
     public function generate(string $prompt, ?string $systemInstruction = null): array
     {
         $key = config('services.gemini.key');
-        $result = null;
 
         if (blank($key)) {
-            $result = $this->unavailable('not_configured', 'GEMINI_API_KEY no está configurada.');
-        } else {
-            $model = (string) (config('services.gemini.model') ?: self::MODEL);
-            $payload = array_filter([
-                'system_instruction' => filled($systemInstruction)
-                    ? ['parts' => [['text' => $systemInstruction]]]
-                    : null,
-                'contents' => [
-                    ['role' => 'user', 'parts' => [['text' => $prompt]]],
-                ],
-                'generationConfig' => [
-                    'temperature' => 0.4,
-                ],
-            ]);
+            return $this->unavailable('not_configured', 'GEMINI_API_KEY no está configurada.');
+        }
 
+        $payload = array_filter([
+            'system_instruction' => filled($systemInstruction)
+                ? ['parts' => [['text' => $systemInstruction]]]
+                : null,
+            'contents' => [
+                ['role' => 'user', 'parts' => [['text' => $prompt]]],
+            ],
+            'generationConfig' => [
+                'temperature' => 0.4,
+            ],
+        ]);
+
+        $configuredModel = trim((string) config('services.gemini.model'));
+        $models = $configuredModel !== ''
+            ? array_values(array_unique([$configuredModel, ...self::FALLBACK_MODELS]))
+            : self::FALLBACK_MODELS;
+
+        foreach ($models as $model) {
             try {
                 $response = Http::withHeaders([
                     'x-goog-api-key' => (string) $key,
                 ])
                     ->acceptJson()
-                    ->timeout((int) config('services.gemini.timeout', 30))
-                    ->retry(self::ATTEMPTS, self::RETRY_SLEEP_MS)
+                    ->timeout(20)
                     ->post($this->endpoint($model), $payload);
+
+                if ($response->successful()) {
+                    $result = $this->responseResult($response);
+
+                    if (($result['available'] ?? false) === true) {
+                        return $result;
+                    }
+                } else {
+                    Log::warning('gemini: modelo no disponible', [
+                        'model' => $model,
+                        'status' => $response->status(),
+                    ]);
+                }
             } catch (Throwable $e) {
                 Log::warning('gemini: excepción HTTP', [
+                    'model' => $model,
                     'exception' => $e::class,
                     'message' => $this->redact((string) $e->getMessage()),
                 ]);
-
-                $response = null;
-                $result = $this->unavailable(
-                    class_basename($e) === 'ConnectionException' ? 'timeout' : 'gemini_unavailable',
-                    'No se pudo completar la solicitud a Gemini.',
-                );
-            }
-
-            if ($response !== null) {
-                $result = $this->responseResult($response);
             }
         }
 
-        return $result;
+        return $this->unavailable(
+            'gemini_unavailable',
+            'Todos los modelos Gemini están temporalmente saturados o no disponibles.',
+            503,
+        );
     }
 
     /**
