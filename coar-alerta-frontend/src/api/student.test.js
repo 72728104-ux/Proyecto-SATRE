@@ -113,6 +113,8 @@ describe('api/student', () => {
     expect(apiRequest).toHaveBeenLastCalledWith('/ai-analytics/student/socratic-tutor', {
       method: 'POST',
       body: { session_id: 1, message: 'Hola' },
+      timeout: 60000,
+      silent: true,
     })
 
     await fetchTutorSessions({ page: 1 }, { signal })

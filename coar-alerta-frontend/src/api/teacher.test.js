@@ -114,7 +114,7 @@ describe('api/teacher', () => {
     expect(apiRequest).toHaveBeenCalledWith('/v1/analytics/teacher-assistant', {
       method: 'POST',
       body,
-      timeout: 45000,
+      timeout: 60000,
       silent: true,
     })
 

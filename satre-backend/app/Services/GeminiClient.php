@@ -13,13 +13,13 @@ use Throwable;
  */
 class GeminiClient
 {
-    public const MODEL = 'gemini-3.1-flash-lite-preview';
+    public const MODEL = 'gemini-2.5-flash';
 
     /** @var list<string> */
     public const FALLBACK_MODELS = [
-        'gemini-3.1-flash-lite-preview',
         'gemini-2.5-flash',
         'gemini-2.5-flash-lite',
+        'gemini-3.1-flash-lite-preview',
     ];
 
     public const ATTEMPTS = 3;
@@ -60,7 +60,7 @@ class GeminiClient
                     'x-goog-api-key' => (string) $key,
                 ])
                     ->acceptJson()
-                    ->timeout(20)
+                    ->timeout(10)
                     ->post($this->endpoint($model), $payload);
 
                 if ($response->successful()) {

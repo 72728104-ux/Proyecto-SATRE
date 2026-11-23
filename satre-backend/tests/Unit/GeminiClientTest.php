@@ -24,14 +24,14 @@ class GeminiClientTest extends TestCase
     {
         config([
             'services.gemini.key' => 'test-gemini-key',
-            'services.gemini.model' => 'gemini-3.1-flash-lite-preview',
+            'services.gemini.model' => 'gemini-2.5-flash',
             'services.gemini.base_url' => 'https://generativelanguage.googleapis.com/v1beta',
         ]);
 
         Http::fake([
-            '*models/gemini-3.1-flash-lite-preview:generateContent' => Http::response(['error' => ['message' => 'busy']], 503),
-            '*models/gemini-2.5-flash:generateContent' => Http::response(['error' => ['message' => 'busy']], 429),
-            '*models/gemini-2.5-flash-lite:generateContent' => Http::response([
+            '*models/gemini-2.5-flash:generateContent' => Http::response(['error' => ['message' => 'busy']], 503),
+            '*models/gemini-2.5-flash-lite:generateContent' => Http::response(['error' => ['message' => 'busy']], 429),
+            '*models/gemini-3.1-flash-lite-preview:generateContent' => Http::response([
                 'candidates' => [['content' => ['parts' => [['text' => 'Respuesta de respaldo']]]]],
             ]),
         ]);
@@ -47,7 +47,7 @@ class GeminiClientTest extends TestCase
     {
         config([
             'services.gemini.key' => 'test-gemini-key',
-            'services.gemini.model' => 'gemini-3.1-flash-lite-preview',
+            'services.gemini.model' => 'gemini-2.5-flash',
             'services.gemini.base_url' => 'https://generativelanguage.googleapis.com/v1beta',
         ]);
 

@@ -43,7 +43,12 @@ export const submitReadingQuiz = (readingId, body) =>
  * `{ course_id, topic, criterion? }` inicia sesión; `{ session_id, message? | option_id? }` continúa.
  * Responde `{ available, data: { session, reply: { type, text, options?, create_phase?, quiz?, diagram_mermaid?, reflection? }, done } }`.
  */
-export const sendTutorTurn = (body) => apiRequest('/ai-analytics/student/socratic-tutor', { method: 'POST', body })
+export const sendTutorTurn = (body) => apiRequest('/ai-analytics/student/socratic-tutor', {
+  method: 'POST',
+  body,
+  timeout: 60000,
+  silent: true,
+})
 export const fetchTutorSessions = (params, options) =>
   apiRequest(withQuery('/ai-analytics/student/socratic-tutor/sessions', params), options)
 /** TOBE-5: el estudiante borra su sesión de chat o borrador de artículo. */
